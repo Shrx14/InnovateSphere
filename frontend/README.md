@@ -68,3 +68,22 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+## Backend API configuration for development and production
+
+The frontend calls the backend endpoints under `/api/*`. During development we use the Create React App dev server proxy (set in `package.json`) so requests to `/api` are forwarded to the Flask backend running on `http://localhost:5000`.
+
+For production builds (or if you want explicit control), set the environment variable `REACT_APP_API_BASE_URL` to the base URL of your backend. For example:
+
+Windows PowerShell (development):
+```powershell
+$env:REACT_APP_API_BASE_URL = 'http://localhost:5000'
+npm start
+```
+
+Or create a `.env.development` file in the `frontend` folder with:
+```
+REACT_APP_API_BASE_URL=http://localhost:5000
+```
+
+The `NoveltyChecker` component will use `REACT_APP_API_BASE_URL` when present; otherwise it falls back to the CRA proxy or relative paths.

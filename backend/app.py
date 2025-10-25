@@ -25,6 +25,17 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 db = SQLAlchemy(app)
 CORS(app)
 
+# --- Embedding model (loaded on startup) ---
+try:
+    from sentence_transformers import SentenceTransformer
+    import numpy as np
+    # load lazily below to avoid startup noise if package missing
+    _EMBED_MODEL_NAME = os.getenv('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
+    print('Embedding model configured:', _EMBED_MODEL_NAME)
+    _embedding_model = None
+except Exception:
+    _embedding_model = None
+
 
 
 # User Model
@@ -229,6 +240,104 @@ def login():
 
     except Exception as e:
         return jsonify({'error': f'Login failed: {str(e)}'}), 500
+
+
+# Novelty checking endpoint (uses sentence-transformers model to embed input
+# and compares against stored embeddings for projects).
+@app.route('/api/check_novelty', methods=['POST'])
+def check_novelty():
+    data = request.get_json() or {}
+    text = data.get('description') or data.get('text') or ''
+    if not text or not text.strip():
+        return jsonify({'error': 'description is required'}), 400
+
+    # lazy-load model
+    global _embedding_model
+    if _embedding_model is None:
+        try:
+            _embedding_model = SentenceTransformer(os.getenv('EMBEDDING_MODEL', 'all-MiniLM-L6-v2'))
+        except Exception as e:
+            print('Failed to load embedding model:', e)
+            return jsonify({'error': 'Embedding model unavailable on server'}), 500
+
+    try:
+        # create embedding for user text
+        idea_emb = _embedding_model.encode(text)
+
+        # import models here to avoid circular imports when app starts
+        from models import Project, ProjectVector
+        # Attempt DB-level similarity using pgvector (fast path)
+        try:
+            idea_list = list(map(float, idea_emb))
+            # Query DB for top-5 closest by cosine distance
+            q = db.session.query(
+                Project,
+                ProjectVector.embedding.cosine_distance(idea_list).label('distance')
+            ).join(ProjectVector, Project.id == ProjectVector.project_id).order_by('distance').limit(5)
+
+            rows = q.all()
+            if not rows:
+                return jsonify({'novelty_score': 100.0, 'similar_projects': []}), 200
+
+            # rows: list of (Project, distance)
+            closest_distance = rows[0][1]
+            # Map distance (cosine distance) to novelty score: 0 -> 0 novelty, 1 -> 100
+            novelty_score = round(min(max(float(closest_distance) * 100.0, 0.0), 100.0), 2)
+
+            similar_projects = []
+            for proj, dist in rows:
+                similarity_percent = max(0.0, 100.0 - (float(dist) * 100.0))
+                similar_projects.append({
+                    'id': proj.id,
+                    'title': proj.title,
+                    'url': proj.url,
+                    'description': proj.description,
+                    'similarity_percent': round(similarity_percent, 2)
+                })
+
+            return jsonify({'novelty_score': novelty_score, 'similar_projects': similar_projects}), 200
+
+        except Exception as db_exc:
+            # Fallback to in-Python similarity if DB-level query fails
+            print('DB-level pgvector similarity failed, falling back to in-Python compute:', db_exc)
+
+            vectors = ProjectVector.query.join(Project).all()
+            if not vectors:
+                return jsonify({'novelty_score': 100.0, 'similar_projects': []})
+
+            sims = []
+            idea_arr = np.array(idea_emb, dtype=float)
+            idea_norm = np.linalg.norm(idea_arr)
+            for pv in vectors:
+                if not pv.embedding:
+                    continue
+                emb = np.array(pv.embedding, dtype=float)
+                denom = (np.linalg.norm(emb) * idea_norm)
+                if denom == 0:
+                    cos = 0.0
+                else:
+                    cos = float(np.dot(idea_arr, emb) / denom)
+                sims.append((pv.project, cos))
+
+            sims.sort(key=lambda x: x[1], reverse=True)
+            top_n = sims[:5]
+            most_sim = top_n[0][1] if top_n else 0.0
+            novelty_score = round(max(0.0, (1.0 - most_sim)) * 100.0, 2)
+            similar_projects = []
+            for proj, cos in top_n:
+                similar_projects.append({
+                    'id': proj.id,
+                    'title': proj.title,
+                    'url': proj.url,
+                    'description': proj.description,
+                    'similarity_percent': round(cos * 100.0, 2)
+                })
+
+            return jsonify({'novelty_score': novelty_score, 'similar_projects': similar_projects}), 200
+
+    except Exception as e:
+        print('Error in novelty endpoint:', e)
+        return jsonify({'error': 'Failed to process novelty request'}), 500
 
 
 

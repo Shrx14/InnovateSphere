@@ -145,5 +145,4 @@ const DashboardLayout = ({ children, onLogout, currentPage, onPageChange }) => {
   );
 };
 
-const exportedComponent = DashboardLayout;
-export default exportedComponent;
+export default DashboardLayout;

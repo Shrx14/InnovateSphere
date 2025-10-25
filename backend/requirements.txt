@@ -4,6 +4,10 @@ Flask-CORS==4.0.0
 psycopg2-binary==2.9.7
 python-dotenv==1.0.0
 bcrypt==4.0.1
-pyotp==2.8.0
-twilio==8.5.0
-phonenumbers==8.13.20
+sentence-transformers==2.2.2
+arxiv==1.4.4
+# Use a numpy version compatible with this Python runtime
+numpy==1.26.4
+# Pin huggingface-hub to a version compatible with sentence-transformers 2.2.2
+huggingface-hub==0.13.4
+pgvector==0.3.4

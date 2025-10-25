@@ -1,7 +1,9 @@
 version: '3.8'
 services:
   db:
-    image: postgres:15
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.db
     container_name: innovatesphere-db
     restart: always
     environment:
