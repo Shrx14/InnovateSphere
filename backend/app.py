@@ -6,9 +6,6 @@ from datetime import datetime
 import bcrypt
 import os
 import re
-import pyotp
-import phonenumbers
-from twilio.rest import Client
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -28,32 +25,7 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 db = SQLAlchemy(app)
 CORS(app)
 
-# Initialize Twilio credentials
-TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
-TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN')
-TWILIO_PHONE_NUMBER = os.getenv('TWILIO_PHONE_NUMBER')
 
-# Test mode configuration
-TEST_MODE = True  # Force test mode for development
-if TEST_MODE:
-    # Use Twilio's official test credentials
-    TWILIO_TEST_ACCOUNT_SID = 'ACb6e8ff482ade7c1ff7e5dbe733232d65'  # Twilio test Account SID
-    TWILIO_TEST_AUTH_TOKEN = '745db77752dd7802c37b1432d2755a24'   # Twilio test Auth Token
-    TWILIO_TEST_NUMBER = '+15005550006'  # Twilio's magic test number
-
-def get_twilio_client():
-    """Get a new Twilio client instance"""
-    try:
-        if TEST_MODE:
-            return Client(TWILIO_TEST_ACCOUNT_SID, TWILIO_TEST_AUTH_TOKEN)
-        return Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-    except Exception as e:
-        print(f"Error creating Twilio client: {str(e)}")
-        return None
-
-def get_twilio_number():
-    """Get the appropriate Twilio phone number"""
-    return TWILIO_TEST_NUMBER if TEST_MODE else TWILIO_PHONE_NUMBER
 
 # User Model
 class User(db.Model):
@@ -66,11 +38,7 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # 2FA fields
-    phone_number = db.Column(db.String(20), unique=True, nullable=True)
-    phone_verified = db.Column(db.Boolean, default=False)
-    two_factor_enabled = db.Column(db.Boolean, default=False)
-    two_factor_secret = db.Column(db.String(32), nullable=True)
+
     
     # Profile fields for InnovateSphere
     preferred_domains = db.Column(db.JSON, default=list)  # ['AI/ML', 'Web Dev', etc.]
@@ -84,10 +52,7 @@ class User(db.Model):
             'username': self.username,
             'created_at': self.created_at.isoformat(),
             'preferred_domains': self.preferred_domains,
-            'skill_level': self.skill_level,
-            'phone_number': self.phone_number,
-            'phone_verified': self.phone_verified,
-            'two_factor_enabled': self.two_factor_enabled
+            'skill_level': self.skill_level
         }
 
 # Validation functions
@@ -115,12 +80,7 @@ def validate_username(username):
         return False, "Username can only contain letters, numbers, and underscores"
     return True, ""
 
-def validate_phone_number(phone_number):
-    try:
-        parsed = phonenumbers.parse(phone_number)
-        return phonenumbers.is_valid_number(parsed)
-    except phonenumbers.NumberParseException:
-        return False
+
 
 # Create tables
 with app.app_context():
@@ -270,220 +230,15 @@ def login():
     except Exception as e:
         return jsonify({'error': f'Login failed: {str(e)}'}), 500
 
-@app.route('/api/setup-phone', methods=['POST'])
-def setup_phone():
-    """Setup phone number for 2FA"""
-    try:
-        print("Handling setup-phone request")
-        data = request.get_json()
-        print(f"Received data: {data}")
-        
-        if not data.get('email') or not data.get('phone_number'):
-            return jsonify({'error': 'Email and phone number are required'}), 400
 
-        user = User.query.filter_by(email=data['email']).first()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
 
-        # Validate phone number format
-        if not validate_phone_number(data['phone_number']):
-            return jsonify({'error': 'Invalid phone number format'}), 400
 
-        # Check if phone number is already in use
-        existing_phone = User.query.filter_by(phone_number=data['phone_number']).first()
-        if existing_phone and existing_phone.id != user.id:
-            return jsonify({'error': 'Phone number is already in use'}), 409
 
-        # Generate verification code
-        verification_code = pyotp.random_base32()[:6]
-        
-        # Send verification code via SMS
-        client = get_twilio_client()
-        if not client:
-            return jsonify({'error': 'SMS service not configured'}), 503
 
-        try:
-            # Log the attempt (in development only)
-            if app.debug:
-                print(f"Attempting to send SMS to {data['phone_number']} with code {verification_code}")
-                print(f"Using Twilio number: {TWILIO_PHONE_NUMBER}")
 
-            # In test mode, only allow Twilio test numbers
-            if TEST_MODE and not data['phone_number'] in ['+15005550006', '+15005550009']:
-                return jsonify({
-                    'error': 'In test mode, only Twilio test numbers are allowed. Use +15005550009 for testing.'
-                }), 400
 
-            message = client.messages.create(
-                body=f'Your InnovateSphere verification code is: {verification_code}',
-                from_=get_twilio_number(),
-                to=data['phone_number']
-            )
 
-            # Log success (in development only)
-            if app.debug:
-                print(f"SMS sent successfully! Message SID: {message.sid}")
 
-        except Exception as e:
-            # Log the error (in development only)
-            if app.debug:
-                print(f"Twilio error: {str(e)}")
-            error_msg = str(e)
-            if 'not a valid phone number' in error_msg.lower():
-                return jsonify({'error': 'Invalid phone number format'}), 400
-            return jsonify({'error': f'Failed to send verification code: {error_msg}'}), 500
-
-        # Store verification code temporarily (in production, use Redis or similar)
-        user.phone_verification_code = verification_code
-        user.phone_number = data['phone_number']
-        db.session.commit()
-
-        return jsonify({
-            'message': 'Verification code sent successfully'
-        }), 200
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/verify-phone', methods=['POST'])
-def verify_phone():
-    """Verify phone number with code"""
-    try:
-        data = request.get_json()
-        
-        if not all(key in data for key in ['email', 'code']):
-            return jsonify({'error': 'Email and verification code are required'}), 400
-
-        user = User.query.filter_by(email=data['email']).first()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-
-        if not user.phone_verification_code or user.phone_verification_code != data['code']:
-            return jsonify({'error': 'Invalid verification code'}), 400
-
-        user.phone_verified = True
-        user.phone_verification_code = None  # Clear the code after successful verification
-        db.session.commit()
-
-        return jsonify({
-            'message': 'Phone number verified successfully',
-            'user': user.to_dict()
-        }), 200
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/setup-2fa', methods=['POST'])
-def setup_2fa():
-    """Enable 2FA for a user"""
-    try:
-        data = request.get_json()
-        
-        if not data.get('email'):
-            return jsonify({'error': 'Email is required'}), 400
-
-        user = User.query.filter_by(email=data['email']).first()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-
-        if not user.phone_verified:
-            return jsonify({'error': 'Phone number must be verified before enabling 2FA'}), 400
-
-        # Generate new TOTP secret
-        secret = pyotp.random_base32()
-        totp = pyotp.TOTP(secret)
-        
-        # Send initial code via SMS
-        try:
-            code = totp.now()
-            client = get_twilio_client()
-            if not client:
-                return jsonify({'error': 'SMS service not configured'}), 503
-                
-            # In test mode, only allow Twilio test numbers
-            if TEST_MODE and not user.phone_number in ['+15005550006', '+15005550009']:
-                return jsonify({
-                    'error': 'In test mode, only Twilio test numbers are allowed. Use +15005550009 for testing.'
-                }), 400
-
-            message = client.messages.create(
-                body=f'Your InnovateSphere 2FA setup code is: {code}',
-                from_=get_twilio_number(),
-                to=user.phone_number
-            )
-        except Exception as e:
-            return jsonify({'error': 'Failed to send 2FA setup code'}), 500
-
-        user.two_factor_secret = secret
-        db.session.commit()
-
-        return jsonify({
-            'message': '2FA setup initiated. Please verify with the code sent to your phone.'
-        }), 200
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/verify-2fa', methods=['POST'])
-def verify_2fa():
-    """Verify 2FA setup with code"""
-    try:
-        data = request.get_json()
-        
-        if not all(key in data for key in ['email', 'code']):
-            return jsonify({'error': 'Email and verification code are required'}), 400
-
-        user = User.query.filter_by(email=data['email']).first()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-
-        if not user.two_factor_secret:
-            return jsonify({'error': '2FA setup not initiated'}), 400
-
-        totp = pyotp.TOTP(user.two_factor_secret)
-        if not totp.verify(data['code']):
-            return jsonify({'error': 'Invalid verification code'}), 400
-
-        user.two_factor_enabled = True
-        db.session.commit()
-
-        return jsonify({
-            'message': '2FA enabled successfully',
-            'user': user.to_dict()
-        }), 200
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/disable-2fa', methods=['POST'])
-def disable_2fa():
-    """Disable 2FA for a user"""
-    try:
-        data = request.get_json()
-        
-        if not data.get('email'):
-            return jsonify({'error': 'Email is required'}), 400
-
-        user = User.query.filter_by(email=data['email']).first()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-
-        user.two_factor_enabled = False
-        user.two_factor_secret = None
-        db.session.commit()
-
-        return jsonify({
-            'message': '2FA disabled successfully',
-            'user': user.to_dict()
-        }), 200
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
