@@ -31,6 +31,7 @@ jobs:
           python -m pip install --upgrade pip
           # install only the packages needed to import the Flask app and run tests
           pip install -r backend/requirements.txt
+          pip install pytest
 
       - name: Run backend pytest
         working-directory: backend
