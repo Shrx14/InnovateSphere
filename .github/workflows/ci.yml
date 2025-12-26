@@ -30,9 +30,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           # install only the packages needed to import the Flask app and run tests
-          pip install Flask Flask-SQLAlchemy Flask-CORS pytest bcrypt python-dotenv
+          pip install -r backend/requirements.txt
+          pip install pytest
 
       - name: Run backend pytest
         working-directory: backend
         run: |
-          pytest -q tests
+          python -m pytest -q tests
