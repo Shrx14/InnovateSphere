@@ -1,0 +1,141 @@
+# Optional heavy dependency; handle gracefully if missing
+try:
+    import torch
+except Exception as _e:
+    torch = None
+    print(f"⚠️ Warning: optional module 'torch' not available: {_e}")
+import os
+from langchain_community.vectorstores.pgvector import PGVector
+from langchain_community.embeddings import SentenceTransformerEmbeddings
+from langchain.prompts import PromptTemplate
+from langchain_community.llms import Ollama
+from langchain.chains import RetrievalQA
+
+# --- 1. Define Constants (Must match your 40% setup) ---
+EMBEDDING_MODEL_NAME = 'all-MiniLM-L6-v2'
+COLLECTION_NAME = 'arxiv_papers'
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://innovate_admin:innovate_pass_2025@localhost:5432/innovatesphere_dev')
+
+# --- 2. Load the Generative Model (LLM) ---
+# This one line replaces the entire transformers pipeline setup
+llm = Ollama(model="phi3:mini")
+
+# --- 3. Load the Embedding Model and Vector Store ---
+# Load the same embedding model used in your data_pipeline.py
+try:
+    embedding_function = SentenceTransformerEmbeddings(model_name=EMBEDDING_MODEL_NAME)
+except Exception as _e:
+    embedding_function = None
+    print(f"⚠️ Warning: embedding model couldn't be initialized: {_e}")
+
+# Lazy-init placeholders (avoid connecting to DB at import time)
+vector_store = None
+qa_chain = None
+
+def init_rag_chain():
+    """Initialize PGVector and the QA chain. Safe to call multiple times."""
+    global vector_store, qa_chain
+    if qa_chain is not None:
+        return
+    try:
+        vector_store = PGVector(
+            connection_string=DATABASE_URL,
+            embedding_function=embedding_function,
+            collection_name=COLLECTION_NAME,
+            use_jsonb=True,
+        )
+        qa_chain = RetrievalQA.from_chain_type(
+            llm=llm,
+            chain_type="stuff",
+            retriever=vector_store.as_retriever(search_kwargs={"k": 5}),
+            chain_type_kwargs={"prompt": PROMPT},
+            return_source_documents=True,
+        )
+        print("✅ RAG Chain Initialized Successfully!")
+    except Exception as e:
+        print(f"⚠️ Warning: RAG Chain initialization failed (DB or vector store issue): {e}")
+        vector_store = None
+        qa_chain = None
+
+# --- 4. Define the Prompt Template ---
+# THIS IS A CRITICAL CHANGE
+# Mistral requires a specific instruction format
+template = """
+<s>[INST] You are an AI assistant for a platform called InnovateSphere.
+Your job is to generate a new, creative project idea for a student, based on their query.
+Use the following pieces of context from research papers to inspire the idea.
+The idea should be structured as follows:
+
+Problem Statement: [A concise description of the problem the project aims to solve]
+Tech Stack: [A list of recommended technologies or frameworks for the project]
+Uniqueness: [A short description of why this project idea is unique or innovative]
+Project Description: [A single, concise paragraph describing the project idea]
+
+CONTEXT: {context}
+
+QUERY: {question} [/INST]
+
+GENERATED IDEA:
+"""
+PROMPT = PromptTemplate(template=template, input_variables=["context", "question"])
+
+# --- 5. Create the RAG Chain ---
+# Initialization is performed lazily via `init_rag_chain()` to avoid
+# failing the import when the database or vector store is unavailable.
+# Call `init_rag_chain()` before using the RAG chain.
+
+def generate_idea(query):
+    """
+    Takes a user query and returns a generated project idea.
+    """
+    print(f"Generating idea for query: {query}")
+    # Ensure RAG chain is initialized (will attempt to connect lazily)
+    init_rag_chain()
+
+    # If the QA chain is available, use it (retrieval-augmented generation)
+    if qa_chain is not None:
+        try:
+            result = qa_chain.invoke(query)
+            return result
+        except Exception as e:
+            print(f"Error running QA chain: {e}")
+
+    # Fallback: if retrieval or LLM fails, produce a simple template-based idea
+    try:
+        # Try LLM only if available
+        if llm is not None:
+            formatted = PROMPT.format(context="No context available", question=query)
+            try:
+                llm_resp = llm(formatted)
+                if isinstance(llm_resp, dict):
+                    text = llm_resp.get('text') or llm_resp.get('result') or str(llm_resp)
+                else:
+                    text = str(llm_resp)
+                return {"result": text, "source_documents": []}
+            except Exception as llm_err:
+                print(f"LLM call failed: {llm_err} — falling back to template generator.")
+        # Deterministic template fallback (no external dependencies)
+        title = f"{query.strip()[:60]}"
+        problem = f"Build a small project that addresses {query.strip().lower()} in a practical, beginner-friendly way."
+        tech = "Frontend: React, Backend: Flask, Storage: PostgreSQL, AI: sentence-transformers or a simple REST API"
+        uniqueness = "Focus on simplicity, clear tutorials, and reproducible datasets for learners."
+        description = (
+            f"Problem Statement: {problem}\n"
+            f"Tech Stack: {tech}\n"
+            f"Uniqueness: {uniqueness}\n"
+            f"Project Description: A beginner-friendly web app that demonstrates how to integrate basic AI features (like novelty checking or simple recommendations) into a practical project. The app should include step-by-step setup instructions, example data, and a simple UI to explore results."
+        )
+        return {"result": description, "source_documents": []}
+    except Exception as e:
+        print(f"Fallback generator failed: {e}")
+        return {"result": "Service unavailable. Please try again later.", "source_documents": []}
+
+
+# Example test (optional)
+if __name__ == "__main__":
+    print("--- Testing RAG Chain ---")
+    test_query = "A beginner web app using AI"
+    idea = generate_idea(test_query)
+    print(f"Test Query: {test_query}")
+    print(f"Generated Idea: {idea['result']}")
+    print(f"Source Documents Used: {len(idea['source_documents'])}")

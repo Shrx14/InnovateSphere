@@ -8,6 +8,12 @@ sentence-transformers==2.2.2
 arxiv==1.4.4
 # Use a numpy version compatible with this Python runtime
 numpy==1.26.4
-# Pin huggingface-hub to a version compatible with sentence-transformers 2.2.2
-huggingface-hub==0.13.4
+# Pin huggingface-hub to a version compatible with transformers
+huggingface-hub==0.20.3
 pgvector==0.3.4
+# Add these new lines for the RAG pipeline
+langchain==0.1.16
+langchain-community==0.0.32
+transformers==4.38.2
+torch==2.2.1
+accelerate==0.27.2 # Helps load and run models efficiently
