@@ -5,6 +5,10 @@ except Exception as _e:
     torch = None
     print(f"⚠️ Warning: optional module 'torch' not available: {_e}")
 import os
+try:
+    from backend.config import Config
+except ImportError:
+    from config import Config
 from langchain_community.vectorstores.pgvector import PGVector
 from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain.prompts import PromptTemplate
@@ -12,9 +16,9 @@ from langchain_community.llms import Ollama
 from langchain.chains import RetrievalQA
 
 # --- 1. Define Constants (Must match your 40% setup) ---
-EMBEDDING_MODEL_NAME = 'all-MiniLM-L6-v2'
+EMBEDDING_MODEL_NAME = Config.EMBEDDING_MODEL
 COLLECTION_NAME = 'arxiv_papers'
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://innovate_admin:innovate_pass_2025@localhost:5432/innovatesphere_dev')
+DATABASE_URL = Config.RAG_DATABASE_URL or Config.DATABASE_URL
 
 
 def _sanitize_database_url(url: str) -> str:
@@ -35,7 +39,7 @@ def _sanitize_database_url(url: str) -> str:
 
 # --- 2. Load the Generative Model (LLM) ---
 # This one line replaces the entire transformers pipeline setup
-llm = Ollama(model="phi3:mini")
+llm = Ollama(model=Config.OLLAMA_MODEL, base_url=Config.OLLAMA_BASE_URL)
 
 # --- 3. Load the Embedding Model and Vector Store ---
 # Load the same embedding model used in your data_pipeline.py

@@ -5,6 +5,10 @@ CREATE EXTENSION command. Run it after your Postgres container is up and
 before you run migrations or start using pgvector columns.
 """
 from app import app, db
+try:
+    from backend.config import Config
+except ImportError:
+    from config import Config
 from sqlalchemy import text
 
 

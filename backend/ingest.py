@@ -10,11 +10,15 @@ from sentence_transformers import SentenceTransformer
 import arxiv
 
 from app import app, db
+try:
+    from backend.config import Config
+except ImportError:
+    from config import Config
 from models import Project, ProjectVector
 from sqlalchemy.exc import IntegrityError
 
-EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
-MAX_RESULTS = int(os.getenv('INGEST_MAX', '30'))
+EMBEDDING_MODEL = Config.EMBEDDING_MODEL
+MAX_RESULTS = Config.INGEST_MAX
 
 
 def fetch_arxiv_papers(query, max_results=MAX_RESULTS):

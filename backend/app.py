@@ -11,15 +11,20 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+try:
+    from backend.config import Config
+except ImportError:
+    from config import Config
+
 # Initialize Flask app
 app = Flask(__name__)
 
 # Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
-    'DATABASE_URL',
-    'postgresql://innovate_admin:npg_VmnriYj0lk4y@ep-cool-sunset-a15j1bs7-pooler.ap-southeast-1.aws.neon.tech/innovatesphere_dev?sslmode=require&channel_binding=require')
+app.config['SQLALCHEMY_DATABASE_URI'] = (
+    Config.DATABASE_URL or os.getenv('DATABASE_URL')
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['SECRET_KEY'] = Config.SECRET_KEY
 # Ensure a default schema is selected when connecting to cloud Postgres (e.g. Neon)
 # Some managed Postgres instances present an empty search_path by default which
 # causes errors like: "no schema has been selected to create in". Setting the
@@ -41,12 +46,14 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_opts
 db = SQLAlchemy(app)
 CORS(app)
 
+Config.log_config_startup()
+
 # --- Embedding model (loaded on startup) ---
 try:
     from sentence_transformers import SentenceTransformer
     import numpy as np
     # load lazily below to avoid startup noise if package missing
-    _EMBED_MODEL_NAME = os.getenv('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
+    _EMBED_MODEL_NAME = Config.EMBEDDING_MODEL
     print('Embedding model configured:', _EMBED_MODEL_NAME)
     _embedding_model = None
 except Exception:
