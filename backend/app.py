@@ -52,7 +52,15 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_opts
 
 # Initialize extensions
 db = SQLAlchemy(app)
-CORS(app)
+CORS(
+    app,
+    origins=Config.get_cors_origins(),
+    supports_credentials=True,
+)
+logger.info(
+    "CORS configured for origins: %s",
+    ", ".join(Config.get_cors_origins())
+)
 
 Config.log_config_startup()
 
