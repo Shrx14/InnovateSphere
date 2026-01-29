@@ -2,6 +2,7 @@
 and store projects + embeddings in the database.
 """
 import os
+import logging
 
 # Ensure arXiv package uses HTTPS endpoint to avoid HTTP 301 redirects
 os.environ["ARXIV_API_URL"] = "https://export.arxiv.org/api/query"
@@ -16,6 +17,8 @@ except ImportError:
     from config import Config
 from models import Project, ProjectVector
 from sqlalchemy.exc import IntegrityError
+
+logger = logging.getLogger(__name__)
 
 EMBEDDING_MODEL = Config.EMBEDDING_MODEL
 MAX_RESULTS = Config.INGEST_MAX
@@ -51,7 +54,7 @@ def fetch_arxiv_papers(query, max_results=MAX_RESULTS):
 
 
 def embed_and_store(items, model):
-    print(f"Embedding and storing {len(items)} items...")
+    logger.info("Embedding and storing %d items...", len(items))
     added = 0
     skipped = 0
     with app.app_context():
@@ -79,7 +82,7 @@ def embed_and_store(items, model):
                 skipped += 1
             except Exception as e:
                 db.session.rollback()
-                print('Error saving:', e)
+                logger.exception('Error saving: %s', e)
                 skipped += 1
 
     print(f"Done. Added: {added}, Skipped: {skipped}")

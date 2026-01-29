@@ -6,6 +6,7 @@ from datetime import datetime
 import bcrypt
 import os
 import re
+import logging
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -18,6 +19,13 @@ except ImportError:
 
 # Initialize Flask app
 app = Flask(__name__)
+
+# Set up logging
+logging.basicConfig(
+    level=Config.LOG_LEVEL if hasattr(Config, "LOG_LEVEL") else os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = (
@@ -54,7 +62,7 @@ try:
     import numpy as np
     # load lazily below to avoid startup noise if package missing
     _EMBED_MODEL_NAME = Config.EMBEDDING_MODEL
-    print('Embedding model configured:', _EMBED_MODEL_NAME)
+    logger.info("Embedding model configured: %s", _EMBED_MODEL_NAME)
     _embedding_model = None
 except Exception:
     _embedding_model = None
@@ -121,9 +129,9 @@ with app.app_context():
     try:
         db.create_all()
     except Exception as e:
-        # Don't crash the app on DB init failure — print a helpful warning and continue.
-        print(f"⚠️ Warning: could not initialize database (will continue without DB): {e}")
-        print("If this persists, check DATABASE_URL and your Postgres credentials.")
+        # Don't crash the app on DB init failure — log a helpful warning and continue.
+        logger.warning("Could not initialize database (will continue without DB): %s", e)
+        logger.warning("If this persists, check DATABASE_URL and your Postgres credentials.")
 
 # API Routes
 @app.route('/api/health', methods=['GET'])
@@ -285,7 +293,7 @@ def check_novelty():
         try:
             _embedding_model = SentenceTransformer(os.getenv('EMBEDDING_MODEL', 'all-MiniLM-L6-v2'))
         except Exception as e:
-            print('Failed to load embedding model:', e)
+            logger.exception('Failed to load embedding model: %s', e)
             return jsonify({'error': 'Embedding model unavailable on server'}), 500
 
     try:
@@ -364,7 +372,7 @@ def check_novelty():
             return jsonify({'novelty_score': novelty_score, 'similar_projects': similar_projects}), 200
 
     except Exception as e:
-        print('Error in novelty endpoint:', e)
+        logger.exception('Error in novelty endpoint: %s', e)
         return jsonify({'error': 'Failed to process novelty request'}), 500
 
 
@@ -399,7 +407,7 @@ def handle_generate_idea():
         try:
             from rag_chain import generate_idea
         except Exception as import_err:
-            print(f"RAG chain unavailable: {import_err}")
+            logger.warning("RAG chain unavailable: %s", import_err)
             return jsonify({'error': 'Idea generation is currently unavailable.'}), 503
 
         # Call the RAG chain with the new, improved query
@@ -440,7 +448,7 @@ def handle_generate_idea():
         return jsonify(response_data), 200
 
     except Exception as e:
-        print(f"Error during idea generation: {e}")
+        logger.exception('Error during idea generation: %s', e)
         return jsonify({'error': 'Failed to generate idea.'}), 500
 
 
