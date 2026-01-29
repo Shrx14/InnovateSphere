@@ -132,14 +132,7 @@ def validate_username(username):
 
 
 
-# Create tables
-with app.app_context():
-    try:
-        db.create_all()
-    except Exception as e:
-        # Don't crash the app on DB init failure — log a helpful warning and continue.
-        logger.warning("Could not initialize database (will continue without DB): %s", e)
-        logger.warning("If this persists, check DATABASE_URL and your Postgres credentials.")
+
 
 # API Routes
 @app.route('/api/health', methods=['GET'])

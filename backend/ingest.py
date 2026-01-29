@@ -93,9 +93,24 @@ def main():
     model = SentenceTransformer(EMBEDDING_MODEL)
     print('Model loaded.')
 
-    # Ensure tables for Project/ProjectVector exist (models may have been added after app startup)
+    # Check if required tables exist before proceeding
     with app.app_context():
-        db.create_all()
+        try:
+            # Check for required tables
+            inspector = db.inspect(db.engine)
+            required_tables = ['projects', 'project_vectors']
+            missing_tables = [table for table in required_tables if not inspector.has_table(table)]
+            if missing_tables:
+                logger.error(
+                    "Database schema not initialized. Missing tables: %s. Run migrations before ingestion.",
+                    ', '.join(missing_tables)
+                )
+                import sys
+                sys.exit(1)
+        except Exception as e:
+            logger.error("Failed to check database schema: %s", e)
+            import sys
+            sys.exit(1)
 
     queries = [ '"machine learning" AND project', '"web development" AND project', 'blockchain AND project', 'react AND project' ]
     all_items = []
