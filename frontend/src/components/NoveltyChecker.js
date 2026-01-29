@@ -40,7 +40,13 @@ const NoveltyChecker = () => {
       // First attempt: relative / proxy or explicit base
       let resp;
       try {
-        resp = await axios.post(`${base}/api/check_novelty`, { description: ideaText });
+        const token = localStorage.getItem('access_token');
+        resp = await axios.post(`${base}/api/check_novelty`, { description: ideaText }, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
         setResults(resp.data);
         return;
       } catch (firstErr) {
@@ -52,7 +58,13 @@ const NoveltyChecker = () => {
           throw firstErr;
         }
         try {
-          resp = await axios.post(`${local}/api/check_novelty`, { description: ideaText });
+          const token = localStorage.getItem('access_token');
+          resp = await axios.post(`${local}/api/check_novelty`, { description: ideaText }, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
           setResults(resp.data);
           return;
         } catch (secondErr) {

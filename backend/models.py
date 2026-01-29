@@ -1,8 +1,5 @@
 from datetime import datetime
-from app import db
-from pgvector.sqlalchemy import Vector
-from datetime import datetime
-from app import db
+from backend.app import db
 from pgvector.sqlalchemy import Vector
 
 

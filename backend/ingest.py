@@ -14,7 +14,7 @@ from app import app, db
 try:
     from backend.config import Config
 except ImportError:
-    from config import Config
+    from backend.config import Config
 from models import Project, ProjectVector
 from sqlalchemy.exc import IntegrityError
 
@@ -132,7 +132,7 @@ from sentence_transformers import SentenceTransformer
 import arxiv
 
 from app import app, db
-from models import Project, ProjectVector
+from backend.models import Project, ProjectVector
 from sqlalchemy.exc import IntegrityError
 
 EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')

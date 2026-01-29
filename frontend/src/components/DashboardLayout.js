@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { FiHome, FiCpu, FiSettings, FiLogOut, FiMenu, FiX, FiZap } from 'react-icons/fi';
+import { FiHome, FiCpu, FiSettings, FiLogOut, FiMenu, FiX, FiZap, FiShield } from 'react-icons/fi';
 
-const DashboardLayout = ({ children, onLogout, currentPage, onPageChange }) => {
+const DashboardLayout = ({ children, onLogout, currentPage, onPageChange, user }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -40,24 +40,35 @@ const DashboardLayout = ({ children, onLogout, currentPage, onPageChange }) => {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-4">
-              <NavLink 
-                icon={FiHome} 
-                text="Dashboard" 
-                isActive={currentPage === 'dashboard'} 
+              <NavLink
+                icon={FiHome}
+                text="Dashboard"
+                isActive={currentPage === 'dashboard'}
                 onClick={() => onPageChange('dashboard')}
               />
-              <NavLink 
-                icon={FiCpu} 
-                text="Project Ideas" 
-                isActive={currentPage === 'projects'}
-                onClick={() => onPageChange('projects')}
-              />
-              <NavLink 
-                icon={FiSettings} 
-                text="Settings" 
-                isActive={currentPage === 'settings'}
-                onClick={() => onPageChange('settings')}
-              />
+              {user?.role === 'admin' ? (
+                <NavLink
+                  icon={FiShield}
+                  text="Admin Dashboard"
+                  isActive={currentPage === 'admin'}
+                  onClick={() => onPageChange('admin')}
+                />
+              ) : (
+                <>
+                  <NavLink
+                    icon={FiCpu}
+                    text="Project Ideas"
+                    isActive={currentPage === 'projects'}
+                    onClick={() => onPageChange('projects')}
+                  />
+                  <NavLink
+                    icon={FiSettings}
+                    text="Settings"
+                    isActive={currentPage === 'settings'}
+                    onClick={() => onPageChange('settings')}
+                  />
+                </>
+              )}
               <div className="h-6 w-px bg-gray-200 mx-2" /> {/* Divider */}
               <NavLink icon={FiLogOut} text="Logout" onClick={handleLogout} />
             </div>
@@ -82,27 +93,38 @@ const DashboardLayout = ({ children, onLogout, currentPage, onPageChange }) => {
         {isMobileMenuOpen && (
           <div className="md:hidden bg-white border-t border-gray-100">
             <div className="px-2 pt-2 pb-3 space-y-1">
-              <NavLink 
-                icon={FiHome} 
-                text="Dashboard" 
+              <NavLink
+                icon={FiHome}
+                text="Dashboard"
                 isActive={currentPage === 'dashboard'}
                 onClick={() => onPageChange('dashboard')}
               />
-              <NavLink 
-                icon={FiCpu} 
-                text="Project Ideas" 
-                isActive={currentPage === 'projects'}
-                onClick={() => onPageChange('projects')}
-              />
-              <NavLink 
-                icon={FiSettings} 
-                text="Settings" 
-                isActive={currentPage === 'settings'}
-                onClick={() => onPageChange('settings')}
-              />
-              <NavLink 
-                icon={FiLogOut} 
-                text="Logout" 
+              {user?.role === 'admin' ? (
+                <NavLink
+                  icon={FiShield}
+                  text="Admin Dashboard"
+                  isActive={currentPage === 'admin'}
+                  onClick={() => onPageChange('admin')}
+                />
+              ) : (
+                <>
+                  <NavLink
+                    icon={FiCpu}
+                    text="Project Ideas"
+                    isActive={currentPage === 'projects'}
+                    onClick={() => onPageChange('projects')}
+                  />
+                  <NavLink
+                    icon={FiSettings}
+                    text="Settings"
+                    isActive={currentPage === 'settings'}
+                    onClick={() => onPageChange('settings')}
+                  />
+                </>
+              )}
+              <NavLink
+                icon={FiLogOut}
+                text="Logout"
                 onClick={handleLogout}
               />
             </div>

@@ -50,11 +50,13 @@ class Config:
         os.getenv("ALLOW_DANGEROUS_MIGRATIONS", "false").lower() == "true"
     )
     ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
+    ADMIN_USERNAMES = os.getenv("ADMIN_USERNAMES", "").split(",") if os.getenv("ADMIN_USERNAMES") else []
 
     # Ingestion
     ARXIV_TIMEOUT = int(os.getenv("ARXIV_TIMEOUT", 30))
     ARXIV_MAX_RETRIES = int(os.getenv("ARXIV_MAX_RETRIES", 2))
     INGEST_MAX = int(os.getenv("INGEST_MAX", 30))
+    INGEST_MAX_PROJECTS = int(os.getenv("INGEST_MAX_PROJECTS", 50))
 
     # Rate limiting (future)
     RATE_LIMIT_LOGIN = os.getenv("RATE_LIMIT_LOGIN", "10/minute")

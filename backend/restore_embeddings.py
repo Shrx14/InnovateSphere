@@ -13,8 +13,8 @@ This is safe to run multiple times; rows that already have embeddings are skippe
 import os
 from sentence_transformers import SentenceTransformer
 
-from app import app, db
-from models import Project, ProjectVector
+from backend.app import app, db
+from backend.models import Project, ProjectVector
 
 EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
 

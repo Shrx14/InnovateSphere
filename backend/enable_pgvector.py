@@ -4,7 +4,7 @@ This script uses SQLAlchemy engine from the Flask app to execute the
 CREATE EXTENSION command. Run it after your Postgres container is up and
 before you run migrations or start using pgvector columns.
 """
-from app import app, db
+from backend.app import app, db
 try:
     from backend.config import Config
 except ImportError:

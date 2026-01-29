@@ -15,7 +15,13 @@ const GeneratorTab = ({ user }) => {
     setIsGenerating(true);
     setGeneratedIdea(null);
 
-    axios.post('http://localhost:5000/api/generate-idea', { query })
+    const token = localStorage.getItem('access_token');
+    axios.post('http://localhost:5000/api/generate-idea', { query }, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    })
       .then(response => {
         setGeneratedIdea(response.data);
       })

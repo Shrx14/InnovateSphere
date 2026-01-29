@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from './DashboardLayout';
 import Settings from './Settings';
 import ProjectIdeas from './ProjectIdeas';
+import AdminDashboard from './AdminDashboard';
 import { API_BASE_URL } from '../config';
 
 const InnovateSphereAuth = () => {
@@ -9,6 +10,48 @@ const InnovateSphereAuth = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Function to decode JWT payload
+  const decodeJWT = (token) => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  // Centralized auth hydration function
+  const hydrateUserFromToken = (token) => {
+    const payload = decodeJWT(token);
+    if (!payload || !payload.exp || payload.exp < Date.now() / 1000) {
+      return null;
+    }
+    const role = payload.role;
+    const username = payload.username || 'User';
+    const email = payload.email || 'user@example.com';
+    return {
+      username,
+      email,
+      role,
+      skill_level: 'beginner',
+      preferred_domains: []
+    };
+  };
+
+  // Route guard: check for token on mount
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      const userData = hydrateUserFromToken(token);
+      if (userData) {
+        setUser(userData);
+      } else {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user_email');
+      }
+    }
+  }, []);
 
   // Validation functions
   const validateEmail = (email) => {
@@ -315,11 +358,14 @@ const InnovateSphereAuth = () => {
         const data = await response.json();
 
         if (response.ok) {
-          setUser(data.user);
-          setMessage({ type: 'success', text: 'Login successful!' });
-          setTimeout(() => {
-            setMessage({ type: '', text: '' });
-          }, 3000);
+          localStorage.setItem('access_token', data.access_token);
+          const userData = hydrateUserFromToken(data.access_token);
+          if (userData) {
+            setUser(userData);
+            setMessage({ type: 'success', text: 'Login successful!' });
+          } else {
+            setMessage({ type: 'error', text: 'Invalid token received' });
+          }
         } else {
           setMessage({ type: 'error', text: data.error || 'Login failed' });
         }
@@ -372,13 +418,34 @@ const InnovateSphereAuth = () => {
     const [currentPage, setCurrentPage] = useState('dashboard');
     
     const handleLogout = () => {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user_email');
       setUser(null);
       setCurrentView('login');
       setMessage({ type: 'success', text: 'Logged out successfully' });
     };
 
     const renderContent = () => {
+      if (user?.role === 'admin' && (currentPage === 'settings' || currentPage === 'projects')) {
+        return (
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-3xl font-bold mb-8 text-red-600">Unauthorized</h2>
+            <p className="text-gray-600">You do not have permission to access this page.</p>
+          </div>
+        );
+      }
       switch(currentPage) {
+        case 'admin':
+          if (user?.role === 'admin') {
+            return <AdminDashboard user={user} />;
+          } else {
+            return (
+              <div className="max-w-4xl mx-auto text-center">
+                <h2 className="text-3xl font-bold mb-8 text-red-600">Unauthorized</h2>
+                <p className="text-gray-600">You do not have permission to access this page.</p>
+              </div>
+            );
+          }
         case 'settings':
           return <Settings user={user} />;
         case 'projects':
@@ -466,7 +533,7 @@ const InnovateSphereAuth = () => {
     };
 
     return (
-      <DashboardLayout onLogout={handleLogout} currentPage={currentPage} onPageChange={setCurrentPage}>
+      <DashboardLayout onLogout={handleLogout} currentPage={currentPage} onPageChange={setCurrentPage} user={user}>
         {renderContent()}
       </DashboardLayout>
     );

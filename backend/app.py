@@ -7,7 +7,10 @@ import bcrypt
 import os
 import re
 import logging
+import numpy as np
 from dotenv import load_dotenv
+from backend.auth import create_access_token, jwt_required
+from backend.ingest_api import ingest_bp
 
 # Load environment variables
 load_dotenv()
@@ -15,7 +18,7 @@ load_dotenv()
 try:
     from backend.config import Config
 except ImportError:
-    from config import Config
+    from backend.config import Config
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -64,16 +67,10 @@ logger.info(
 
 Config.log_config_startup()
 
-# --- Embedding model (loaded on startup) ---
-try:
-    from sentence_transformers import SentenceTransformer
-    import numpy as np
-    # load lazily below to avoid startup noise if package missing
-    _EMBED_MODEL_NAME = Config.EMBEDDING_MODEL
-    logger.info("Embedding model configured: %s", _EMBED_MODEL_NAME)
-    _embedding_model = None
-except Exception:
-    _embedding_model = None
+# Register blueprints
+app.register_blueprint(ingest_bp)
+
+# Embedding model loading is now centralized in backend/embeddings.py
 
 
 
@@ -268,11 +265,15 @@ def login():
         ):
             return jsonify({'error': 'Invalid credentials'}), 401
 
-        # In a production app, you'd generate a JWT token here
-        # For now, we'll just return user data
+        # Determine role based on config
+        role = "admin" if user.username in Config.ADMIN_USERNAMES else "user"
+
+        # Generate JWT token
+        token = create_access_token(user_id=user.id, role=role, username=user.username, email=user.email)
+
         return jsonify({
             'message': 'Login successful',
-            'user': user.to_dict()
+            'access_token': token
         }), 200
 
     except Exception as e:
@@ -282,27 +283,25 @@ def login():
 # Novelty checking endpoint (uses sentence-transformers model to embed input
 # and compares against stored embeddings for projects).
 @app.route('/api/check_novelty', methods=['POST'])
+@jwt_required()
 def check_novelty():
     data = request.get_json() or {}
     text = data.get('description') or data.get('text') or ''
     if not text or not text.strip():
         return jsonify({'error': 'description is required'}), 400
 
-    # lazy-load model
-    global _embedding_model
-    if _embedding_model is None:
-        try:
-            _embedding_model = SentenceTransformer(os.getenv('EMBEDDING_MODEL', 'all-MiniLM-L6-v2'))
-        except Exception as e:
-            logger.exception('Failed to load embedding model: %s', e)
-            return jsonify({'error': 'Embedding model unavailable on server'}), 500
+    from backend.embeddings import get_embedding_model
+
+    model = get_embedding_model()
+    if model is None:
+        return jsonify({"error": "Embedding model unavailable"}), 503
 
     try:
         # create embedding for user text
-        idea_emb = _embedding_model.encode(text)
+        idea_emb = model.encode(text)
 
         # import models here to avoid circular imports when app starts
-        from models import Project, ProjectVector
+        from backend.models import Project, ProjectVector
         # Attempt DB-level similarity using pgvector (fast path)
         try:
             idea_list = list(map(float, idea_emb))
@@ -387,6 +386,7 @@ def check_novelty():
 
 
 @app.route('/api/generate-idea', methods=['POST'])
+@jwt_required()
 def handle_generate_idea():
     """
     Handles a request to generate a new project idea using the RAG chain.
@@ -406,10 +406,13 @@ def handle_generate_idea():
     try:
         # Import RAG chain lazily so the server can start even if ML deps are missing
         try:
-            from rag_chain import generate_idea
+            from backend.rag_chain import generate_idea, is_rag_available
         except Exception as import_err:
             logger.warning("RAG chain unavailable: %s", import_err)
             return jsonify({'error': 'Idea generation is currently unavailable.'}), 503
+
+        if not is_rag_available():
+            return jsonify({"error": "Idea generation temporarily unavailable"}), 503
 
         # Call the RAG chain with the new, improved query
         result = generate_idea(rag_query)

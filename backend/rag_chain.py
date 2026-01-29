@@ -8,12 +8,18 @@ import os
 try:
     from backend.config import Config
 except ImportError:
-    from config import Config
-from langchain_community.vectorstores.pgvector import PGVector
-from langchain_community.embeddings import SentenceTransformerEmbeddings
-from langchain.prompts import PromptTemplate
-from langchain_community.llms import Ollama
-from langchain.chains import RetrievalQA
+    from backend.config import Config
+
+try:
+    from langchain_community.vectorstores import PGVector
+    from langchain_community.embeddings import SentenceTransformerEmbeddings
+    from langchain.prompts import PromptTemplate
+    from langchain_community.llms import Ollama
+    from langchain.chains import RetrievalQA
+    RAG_AVAILABLE = True
+except Exception as e:
+    RAG_AVAILABLE = False
+    print(f"⚠️ Warning: LangChain Community unavailable: {e}")
 
 # --- 1. Define Constants (Must match your 40% setup) ---
 EMBEDDING_MODEL_NAME = Config.EMBEDDING_MODEL
@@ -39,7 +45,10 @@ def _sanitize_database_url(url: str) -> str:
 
 # --- 2. Load the Generative Model (LLM) ---
 # This one line replaces the entire transformers pipeline setup
-llm = Ollama(model=Config.OLLAMA_MODEL, base_url=Config.OLLAMA_BASE_URL)
+llm = Ollama(model=Config.OLLAMA_MODEL, base_url=Config.OLLAMA_BASE_URL) if RAG_AVAILABLE else None
+
+def is_rag_available():
+    return RAG_AVAILABLE
 
 # --- 3. Load the Embedding Model and Vector Store ---
 # Load the same embedding model used in your data_pipeline.py
@@ -153,8 +162,8 @@ def generate_idea(query):
                 try:
                     print('No source docs from RAG; performing DB fallback retrieval...')
                     # Lazy-import to avoid circular app startup issues
-                    from app import app
-                    from models import Project, ProjectVector
+                    from backend.app import app
+                    from backend.models import Project, ProjectVector
                     import numpy as np
                     # Try to instantiate a local sentence-transformers model
                     try:
