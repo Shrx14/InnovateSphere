@@ -1,6 +1,9 @@
 from datetime import datetime
 from app import db
 from pgvector.sqlalchemy import Vector
+from datetime import datetime
+from app import db
+from pgvector.sqlalchemy import Vector
 
 
 class Project(db.Model):

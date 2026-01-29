@@ -16,6 +16,23 @@ EMBEDDING_MODEL_NAME = 'all-MiniLM-L6-v2'
 COLLECTION_NAME = 'arxiv_papers'
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://innovate_admin:innovate_pass_2025@localhost:5432/innovatesphere_dev')
 
+
+def _sanitize_database_url(url: str) -> str:
+    """Remove known problematic query params (like channel_binding) from DATABASE_URL.
+
+    Some managed Postgres poolers (e.g. Neon) set `channel_binding=require` which
+    can lead to unexpected SSL connection closures from certain client stacks.
+    This helper removes that param as a pragmatic workaround while keeping
+    `sslmode` when present.
+    """
+    if not url or '?' not in url:
+        return url
+    base, qs = url.split('?', 1)
+    parts = [p for p in qs.split('&') if not p.startswith('channel_binding=')]
+    if not parts:
+        return base
+    return base + '?' + '&'.join(parts)
+
 # --- 2. Load the Generative Model (LLM) ---
 # This one line replaces the entire transformers pipeline setup
 llm = Ollama(model="phi3:mini")
@@ -38,12 +55,28 @@ def init_rag_chain():
     if qa_chain is not None:
         return
     try:
-        vector_store = PGVector(
-            connection_string=DATABASE_URL,
-            embedding_function=embedding_function,
-            collection_name=COLLECTION_NAME,
-            use_jsonb=True,
-        )
+        # Try connecting with the provided DATABASE_URL first
+        try:
+            vector_store = PGVector(
+                connection_string=DATABASE_URL,
+                embedding_function=embedding_function,
+                collection_name=COLLECTION_NAME,
+                use_jsonb=True,
+            )
+        except Exception as first_err:
+            # If the DB URL contains channel_binding it can cause SSL closures
+            # with some client stacks. Retry with a sanitized URL as a fallback.
+            sanitized = _sanitize_database_url(DATABASE_URL)
+            if sanitized != DATABASE_URL:
+                print(f"Warning: initial PGVector init failed; retrying with sanitized DATABASE_URL: {first_err}")
+                vector_store = PGVector(
+                    connection_string=sanitized,
+                    embedding_function=embedding_function,
+                    collection_name=COLLECTION_NAME,
+                    use_jsonb=True,
+                )
+            else:
+                raise
         qa_chain = RetrievalQA.from_chain_type(
             llm=llm,
             chain_type="stuff",
@@ -95,7 +128,79 @@ def generate_idea(query):
     # If the QA chain is available, use it (retrieval-augmented generation)
     if qa_chain is not None:
         try:
-            result = qa_chain.invoke(query)
+            # Call the chain with a dict input so it returns a structured
+            # output (including `source_documents`) when `return_source_documents=True`.
+            result = qa_chain({"query": query})
+
+            # Normalise possible return formats
+            if isinstance(result, str):
+                return {"result": result, "source_documents": []}
+            # Some chain implementations may return 'answer' instead of 'result'
+            if isinstance(result, dict) and 'answer' in result and 'result' not in result:
+                result['result'] = result.pop('answer')
+
+            src_docs = result.get('source_documents') or []
+            print(f"RAG returned {len(src_docs)} source documents.")
+
+            # If the RAG chain returned no source documents, attempt a DB-backed
+            # similarity lookup against the already-ingested `projects` table so
+            # the frontend can still show 'inspired by' cards.
+            if not src_docs:
+                try:
+                    print('No source docs from RAG; performing DB fallback retrieval...')
+                    # Lazy-import to avoid circular app startup issues
+                    from app import app
+                    from models import Project, ProjectVector
+                    import numpy as np
+                    # Try to instantiate a local sentence-transformers model
+                    try:
+                        from sentence_transformers import SentenceTransformer
+                        emb_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+                    except Exception as e:
+                        emb_model = None
+                        print('Embedding fallback model unavailable:', e)
+
+                    query_text = query if isinstance(query, str) else str(query)
+                    if emb_model is not None:
+                        q_emb = emb_model.encode(query_text)
+                        q_arr = np.array(q_emb, dtype=float)
+
+                        # Fetch vectors from DB and compute cosine similarity inside app context
+                        with app.app_context():
+                            rows = ProjectVector.query.join(Project).all()
+                            sims = []
+                            for pv in rows:
+                                # Avoid ambiguous truth-value checks on numpy arrays
+                                if pv.embedding is None:
+                                    continue
+                                try:
+                                    if hasattr(pv.embedding, '__len__') and len(pv.embedding) == 0:
+                                        continue
+                                except Exception:
+                                    # If checking length fails, skip this vector
+                                    continue
+                                try:
+                                    emb = np.array(pv.embedding, dtype=float)
+                                    denom = (np.linalg.norm(emb) * np.linalg.norm(q_arr))
+                                    cos = float(np.dot(emb, q_arr) / denom) if denom != 0 else 0.0
+                                except Exception:
+                                    cos = 0.0
+                                sims.append((pv.project, cos))
+
+                        sims.sort(key=lambda x: x[1], reverse=True)
+                        top = sims[:5]
+                        src_docs = []
+                        for proj, score in top:
+                            src_docs.append(type('SD', (), {
+                                'metadata': {'title': proj.title, 'url': proj.url},
+                                'page_content': (proj.description or '')
+                            })())
+                        # Attach to result for frontend consumption
+                        result['source_documents'] = src_docs
+                        print(f'Fallback returned {len(src_docs)} source documents from DB.')
+                except Exception as db_fallback_err:
+                    print('DB fallback retrieval failed:', db_fallback_err)
+
             return result
         except Exception as e:
             print(f"Error running QA chain: {e}")

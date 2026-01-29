@@ -17,9 +17,25 @@ app = Flask(__name__)
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
     'DATABASE_URL',
-    'postgresql://innovate_admin:innovate_pass_2025@localhost:5432/innovatesphere_dev')
+    'postgresql://innovate_admin:npg_VmnriYj0lk4y@ep-cool-sunset-a15j1bs7-pooler.ap-southeast-1.aws.neon.tech/innovatesphere_dev?sslmode=require&channel_binding=require')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+# Ensure a default schema is selected when connecting to cloud Postgres (e.g. Neon)
+# Some managed Postgres instances present an empty search_path by default which
+# causes errors like: "no schema has been selected to create in". Setting the
+# `options` connect arg ensures connections use the `public` schema.
+DATABASE_URL = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+
+# Neon pooler rejects startup `options` containing `search_path`. Only add
+# the `-csearch_path` connect arg for servers that support it (e.g., local
+# Postgres or non-pooled connections).
+engine_opts = {}
+if DATABASE_URL and 'neon.tech' not in DATABASE_URL:
+    engine_opts = {
+        'connect_args': {'options': '-csearch_path=public'}
+    }
+
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_opts
 
 # Initialize extensions
 db = SQLAlchemy(app)
@@ -383,14 +399,36 @@ def handle_generate_idea():
         result = generate_idea(rag_query)
 
         # Extract relevant info to send to frontend
+        # Build response including clickable source URLs where available.
+        source_documents = []
+        for doc in result.get('source_documents', []):
+            meta = getattr(doc, 'metadata', {}) or {}
+            title = meta.get('title') or meta.get('paper_title') or 'Unknown Title'
+            # Determine URL: prefer explicit url, then arxiv id, then source
+            url = meta.get('url') or meta.get('source') or None
+            # If an arXiv id is present, build a canonical arXiv URL
+            arxiv_id = meta.get('arxiv_id') or meta.get('arxiv')
+            if not url and arxiv_id:
+                url = f"https://arxiv.org/abs/{arxiv_id}"
+
+            summary = ''
+            try:
+                summary = (doc.page_content or '')[:250]
+                if len(doc.page_content or '') > 250:
+                    summary += '...'
+            except Exception:
+                summary = ''
+
+            source_documents.append({
+                'title': title,
+                'summary': summary,
+                'url': url,
+                'raw_metadata': meta
+            })
+
         response_data = {
-            "generated_text": result['result'],
-            "source_documents": [
-                {
-                    "title": doc.metadata.get('title', 'Unknown Title'),
-                    "summary": doc.page_content[:150] + "..." # Truncate summary
-                } for doc in result.get('source_documents', [])
-            ]
+            "generated_text": result.get('result'),
+            "source_documents": source_documents
         }
         return jsonify(response_data), 200
 
