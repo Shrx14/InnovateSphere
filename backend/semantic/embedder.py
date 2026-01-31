@@ -1,17 +1,17 @@
 from sentence_transformers import SentenceTransformer
+from typing import List
+
+_embedder = None
+
+def get_embedder():
+    global _embedder
+    if _embedder is None:
+        _embedder = SentenceTransformer("all-MiniLM-L6-v2")
+    return _embedder
 
 class Embedder:
-    _instance = None
-    _model = None
+    def __init__(self):
+        self._embedder = get_embedder()
 
-    @classmethod
-    def get_embedding_model(cls):
-        if cls._model is None:
-            cls._model = SentenceTransformer('all-MiniLM-L6-v2')
-        return cls._model
-
-    @classmethod
-    def embed_texts(cls, texts):
-        model = cls.get_embedding_model()
-        embeddings = model.encode(texts)
-        return embeddings.tolist()
+    def embed_texts(self, texts: List[str]):
+        return self._embedder.encode(texts, normalize_embeddings=True)

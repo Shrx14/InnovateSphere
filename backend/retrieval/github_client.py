@@ -64,6 +64,7 @@ def search_github(query, domain, max_results=5):
                 "last_updated": last_updated
             })
 
+        logging.info("[GitHub] results returned | count=%d", len(results[:max_results]))
         return results[:max_results]
 
     except Exception as e:

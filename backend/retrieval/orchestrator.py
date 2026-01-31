@@ -1,12 +1,23 @@
 import datetime
+import logging
 from backend.retrieval.arxiv_client import search_arxiv
 from backend.retrieval.github_client import search_github
 
-def retrieve_sources(query, domain, limit=10, semantic_filter=False, similarity_threshold=0.6):
+def retrieve_sources(
+    query,
+    domain,
+    limit=10,
+    semantic_filter=False,
+    similarity_threshold=0.6,
+    source_types=None,
+):
     """
     Orchestrate retrieval from multiple sources.
     Returns structured results with sources and retrieved_at timestamp.
     """
+    if source_types is None:
+        source_types = ["arxiv", "github"]
+
     # Cap max_results per source to prevent excessive API calls
     max_per_source = min(limit * 2, 20)  # Reasonable cap
 
@@ -16,6 +27,10 @@ def retrieve_sources(query, domain, limit=10, semantic_filter=False, similarity_
 
     # Merge results
     all_sources = arxiv_results + github_results
+
+    # Filter by source_types if specified
+    if source_types:
+        all_sources = [s for s in all_sources if s.get('source_type') in source_types]
 
     # Deduplicate by URL
     seen_urls = set()
@@ -64,6 +79,12 @@ def retrieve_sources(query, domain, limit=10, semantic_filter=False, similarity_
 
         except Exception:
             pass
+
+    logging.info(
+        "Retrieval result | total_sources=%d | source_types=%s",
+        len(final_sources),
+        list(set(s.get("source_type") for s in final_sources))
+    )
 
     return {
         "sources": final_sources,
