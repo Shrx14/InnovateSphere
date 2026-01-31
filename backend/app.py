@@ -9,10 +9,12 @@ import re
 import logging
 import numpy as np
 from dotenv import load_dotenv
+from sqlalchemy import func
 from backend.db import db
 from backend.auth import create_access_token, jwt_required
-from backend.models import Domain, DomainCategory
+from backend.models import Domain, DomainCategory, ProjectIdea, IdeaRequest, IdeaReview, IdeaSource
 from backend.ai_registry import get_active_ai_pipeline_version
+import jwt
 
 # Load environment variables
 load_dotenv()
@@ -132,9 +134,65 @@ def validate_username(username):
         return False, "Username can only contain letters, numbers, and underscores"
     return True, ""
 
+def get_current_user_id():
+    """Get current user ID from JWT token if present, else None"""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
 
+    token = auth_header.split(" ", 1)[1]
+    try:
+        payload = jwt.decode(
+            token,
+            Config.JWT_SECRET,
+            algorithms=[Config.JWT_ALGO],
+        )
+        return int(payload.get("sub"))
+    except jwt.InvalidTokenError:
+        return None
 
+def serialize_public_idea(idea):
+    """Serialize idea data for public/anonymous access"""
+    domain_name = idea.domain.name if idea.domain else None
+    return {
+        'id': idea.id,
+        'title': idea.title,
+        'problem_statement': idea.problem_statement,
+        'tech_stack': idea.tech_stack,
+        'domain': domain_name
+    }
 
+def serialize_full_idea(idea):
+    """Serialize complete idea data for authenticated users"""
+    public_data = serialize_public_idea(idea)
+    public_data.update({
+        'description': idea.problem_statement,  # Using problem_statement as description
+        'ai_pipeline_version': idea.ai_pipeline_version,
+        'is_ai_generated': idea.is_ai_generated,
+        'is_public': idea.is_public,
+        'created_at': idea.created_at.isoformat(),
+        'sources': [
+            {
+                'source_type': source.source_type,
+                'title': source.title,
+                'url': source.url,
+                'published_date': source.published_date.isoformat() if source.published_date else None,
+                'summary': source.summary
+            }
+            for source in idea.sources
+        ],
+        'reviews': [
+            {
+                'rating': review.rating,
+                'comment': review.comment,
+                'created_at': review.created_at.isoformat()
+            }
+            for review in idea.reviews
+        ],
+        'average_rating': round(sum(r.rating for r in idea.reviews) / len(idea.reviews), 1) if idea.reviews else None,
+        'requested_count': len(idea.requests)
+    })
+    return public_data
 
 # API Routes
 @app.route('/api/health', methods=['GET'])
@@ -320,6 +378,251 @@ def get_domains():
     """Get all domains with their categories"""
     domains = Domain.query.all()
     return jsonify({"domains": [domain.to_dict() for domain in domains]}), 200
+
+@app.route('/api/public/ideas', methods=['GET'])
+def get_public_ideas():
+    """Get list of public project ideas with optional search and domain filter"""
+    query = ProjectIdea.query.filter_by(is_public=True)
+
+    # Keyword search
+    q = request.args.get('q')
+    if q:
+        query = query.filter(
+            db.or_(
+                ProjectIdea.title.contains(q),
+                ProjectIdea.problem_statement.contains(q),
+                ProjectIdea.tech_stack.contains(q)
+            )
+        )
+
+    # Domain filter
+    domain_id = request.args.get('domain_id')
+    if domain_id:
+        query = query.filter_by(domain_id=domain_id)
+
+    ideas = query.all()
+    return jsonify({"ideas": [serialize_public_idea(idea) for idea in ideas]}), 200
+
+@app.route('/api/ideas/<int:idea_id>', methods=['GET'])
+def get_idea(idea_id):
+    """Get idea details - limited for anonymous, full for authenticated"""
+    idea = ProjectIdea.query.get_or_404(idea_id)
+
+    user_id = get_current_user_id()
+    if user_id:
+        # Authenticated: return full details
+        return jsonify(serialize_full_idea(idea)), 200
+    else:
+        # Anonymous: return limited details with login prompt
+        public_data = serialize_public_idea(idea)
+        public_data['requires_login'] = True
+        public_data['message'] = "Sign in to view full details and novelty analysis."
+        return jsonify(public_data), 200
+
+@app.route('/api/ideas/<int:idea_id>/request', methods=['POST'])
+@jwt_required()
+def request_idea(idea_id):
+    """Authenticated users can request an idea (track demand)"""
+    idea = ProjectIdea.query.get_or_404(idea_id)
+
+    # Check if already requested
+    existing_request = IdeaRequest.query.filter_by(user_id=g.current_user_id, idea_id=idea_id).first()
+    if existing_request:
+        return jsonify({"message": "Idea already requested"}), 200
+
+    # Create new request
+    new_request = IdeaRequest(user_id=g.current_user_id, idea_id=idea_id)
+    db.session.add(new_request)
+    db.session.commit()
+
+    return jsonify({"message": "Idea requested successfully"}), 201
+
+@app.route('/api/ideas/<int:idea_id>/review', methods=['POST'])
+@jwt_required()
+def review_idea(idea_id):
+    """Authenticated users can submit a review (rating + optional comment)"""
+    idea = ProjectIdea.query.get_or_404(idea_id)
+    data = request.get_json()
+
+    if not data or 'rating' not in data:
+        return jsonify({"error": "Rating is required"}), 400
+
+    rating = data['rating']
+    if not isinstance(rating, int) or not 1 <= rating <= 5:
+        return jsonify({"error": "Rating must be an integer between 1 and 5"}), 400
+
+    # Check if already reviewed (enforced by unique constraint, but check for better error)
+    existing_review = IdeaReview.query.filter_by(user_id=g.current_user_id, idea_id=idea_id).first()
+    if existing_review:
+        return jsonify({"error": "You have already reviewed this idea"}), 409
+
+    # Create new review
+    new_review = IdeaReview(
+        user_id=g.current_user_id,
+        idea_id=idea_id,
+        rating=rating,
+        comment=data.get('comment')
+    )
+    db.session.add(new_review)
+    db.session.commit()
+
+    return jsonify({"message": "Review submitted successfully"}), 201
+
+# Analytics APIs (Segment 1.3)
+
+@app.route('/api/analytics/user/overview', methods=['GET'])
+@jwt_required()
+def user_overview():
+    """Get user's analytics overview"""
+    user_id = g.current_user_id
+
+    # Total requests
+    total_requests = IdeaRequest.query.filter_by(user_id=user_id).count()
+
+    # Total reviews
+    total_reviews = IdeaReview.query.filter_by(user_id=user_id).count()
+
+    # Preferred domain
+    user = User.query.get(user_id)
+    preferred_domain = None
+    if user.preferred_domain_id:
+        domain = Domain.query.get(user.preferred_domain_id)
+        preferred_domain = domain.name if domain else None
+
+    # Top domain by requests
+    top_domain_result = db.session.query(
+        Domain.name,
+        func.count(IdeaRequest.id).label('request_count')
+    ).join(ProjectIdea, Domain.id == ProjectIdea.domain_id)\
+     .join(IdeaRequest, ProjectIdea.id == IdeaRequest.idea_id)\
+     .filter(IdeaRequest.user_id == user_id)\
+     .group_by(Domain.id, Domain.name)\
+     .order_by(func.count(IdeaRequest.id).desc())\
+     .first()
+
+    top_domain = top_domain_result.name if top_domain_result else None
+
+    return jsonify({
+        "total_requests": total_requests,
+        "total_reviews": total_reviews,
+        "preferred_domain": preferred_domain,
+        "top_domain": top_domain
+    }), 200
+
+@app.route('/api/analytics/user/top-ideas', methods=['GET'])
+@jwt_required()
+def user_top_ideas():
+    """Get user's top requested ideas"""
+    user_id = g.current_user_id
+
+    # Top ideas by request count
+    results = db.session.query(
+        ProjectIdea.id.label('idea_id'),
+        ProjectIdea.title,
+        func.count(IdeaRequest.id).label('request_count'),
+        Domain.name.label('domain')
+    ).join(IdeaRequest, ProjectIdea.id == IdeaRequest.idea_id)\
+     .outerjoin(Domain, ProjectIdea.domain_id == Domain.id)\
+     .filter(IdeaRequest.user_id == user_id)\
+     .group_by(ProjectIdea.id, ProjectIdea.title, Domain.name)\
+     .order_by(func.count(IdeaRequest.id).desc())\
+     .limit(5)\
+     .all()
+
+    top_ideas = [
+        {
+            "idea_id": r.idea_id,
+            "title": r.title,
+            "request_count": r.request_count,
+            "domain": r.domain
+        }
+        for r in results
+    ]
+
+    return jsonify({"ideas": top_ideas}), 200
+
+@app.route('/api/analytics/admin/domains', methods=['GET'])
+@jwt_required(required_role="admin")
+def admin_domains():
+    """Get domain-wise analytics"""
+    results = db.session.query(
+        Domain.name.label('domain'),
+        func.count(ProjectIdea.id).label('idea_count'),
+        func.count(IdeaRequest.id).label('request_count'),
+        func.avg(IdeaReview.rating).label('average_rating')
+    ).outerjoin(ProjectIdea, Domain.id == ProjectIdea.domain_id)\
+     .outerjoin(IdeaRequest, ProjectIdea.id == IdeaRequest.idea_id)\
+     .outerjoin(IdeaReview, ProjectIdea.id == IdeaReview.idea_id)\
+     .group_by(Domain.id, Domain.name)\
+     .all()
+
+    domains = [
+        {
+            "domain": r.domain,
+            "idea_count": r.idea_count,
+            "request_count": r.request_count,
+            "average_rating": round(float(r.average_rating), 1) if r.average_rating else None
+        }
+        for r in results
+    ]
+
+    return jsonify({"domains": domains}), 200
+
+@app.route('/api/analytics/admin/ideas/top', methods=['GET'])
+@jwt_required(required_role="admin")
+def admin_top_ideas():
+    """Get top ideas by demand"""
+    results = db.session.query(
+        ProjectIdea.id.label('idea_id'),
+        ProjectIdea.title,
+        Domain.name.label('domain'),
+        func.count(IdeaRequest.id).label('request_count'),
+        func.avg(IdeaReview.rating).label('average_rating')
+    ).outerjoin(Domain, ProjectIdea.domain_id == Domain.id)\
+     .outerjoin(IdeaRequest, ProjectIdea.id == IdeaRequest.idea_id)\
+     .outerjoin(IdeaReview, ProjectIdea.id == IdeaReview.idea_id)\
+     .group_by(ProjectIdea.id, ProjectIdea.title, Domain.name)\
+     .order_by(func.count(IdeaRequest.id).desc())\
+     .limit(10)\
+     .all()
+
+    top_ideas = [
+        {
+            "idea_id": r.idea_id,
+            "title": r.title,
+            "domain": r.domain,
+            "request_count": r.request_count,
+            "average_rating": round(float(r.average_rating), 1) if r.average_rating else None
+        }
+        for r in results
+    ]
+
+    return jsonify({"ideas": top_ideas}), 200
+
+@app.route('/api/analytics/admin/time-trends', methods=['GET'])
+@jwt_required(required_role="admin")
+def admin_time_trends():
+    """Get request volume grouped by date and domain"""
+    results = db.session.query(
+        func.date(IdeaRequest.requested_at).label('date'),
+        Domain.name.label('domain'),
+        func.count(IdeaRequest.id).label('request_count')
+    ).join(ProjectIdea, IdeaRequest.idea_id == ProjectIdea.id)\
+     .outerjoin(Domain, ProjectIdea.domain_id == Domain.id)\
+     .group_by(func.date(IdeaRequest.requested_at), Domain.name)\
+     .order_by(func.date(IdeaRequest.requested_at), Domain.name)\
+     .all()
+
+    trends = [
+        {
+            "date": str(r.date),
+            "domain": r.domain,
+            "request_count": r.request_count
+        }
+        for r in results
+    ]
+
+    return jsonify({"trends": trends}), 200
 
 
 if __name__ == '__main__':

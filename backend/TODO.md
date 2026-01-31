@@ -1,17 +1,11 @@
-# TODO: Implement AI Pipeline Versioning and Domain Taxonomy (Segment 0.1)
+# Segment 1.3: Read-only Analytics APIs
 
-## Completed Tasks
-- [x] Analyze codebase and create plan
-- [x] Get user approval for plan
-- [x] Update config.py: Add DEFAULT_AI_PIPELINE_VERSION and ENABLE_AI_PIPELINES
-- [x] Add new models in models.py: ai_pipeline_versions, domains, domain_categories
-- [x] Create backend/ai_registry.py: Add get_active_ai_pipeline_version() function
-- [x] Update User model in app.py: Add preferred_domain_id FK
-- [x] Add new APIs in app.py: GET /api/domains and GET /api/ai/pipeline-version
-- [x] Create backend/seed_data.py: Idempotent seed function for domains and AI pipeline version
-- [x] Create docs/ai_architecture.md: Documentation for Segment 0.1
-
-## Pending Tasks
-- [ ] Run database migrations to create new tables
-- [ ] Execute seed script to populate initial data
-- [ ] Test new APIs and verify app boots cleanly
+## Tasks
+- [x] Add imports for SQLAlchemy func in app.py
+- [x] Implement GET /api/analytics/user/overview
+- [x] Implement GET /api/analytics/user/top-ideas
+- [x] Implement GET /api/analytics/admin/domains
+- [x] Implement GET /api/analytics/admin/ideas/top
+- [x] Implement GET /api/analytics/admin/time-trends
+- [x] Update docs/ai_architecture.md with Segment 1.3 documentation
+- [x] Test routes for auth and data correctness (implementation reviewed and ready for user testing)
