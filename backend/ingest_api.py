@@ -2,13 +2,8 @@ from flask import Blueprint, request, jsonify
 from backend.auth import jwt_required
 from backend.config import Config
 from backend.embeddings import get_embedding_model
+from backend.ingest_utils import ingest_projects
 import logging
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from backend.models import Project, ProjectVector
-    from backend.app import db
-
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +11,10 @@ ingest_bp = Blueprint('ingest', __name__, url_prefix='/api/admin')
 
 @ingest_bp.route('/ingest', methods=['POST'])
 @jwt_required(required_role="admin")
-def ingest_projects():
+def ingest_projects_endpoint():
     """
     Admin-only endpoint to ingest new project data and generate embeddings.
+    Now uses shared ingestion utility for consistency with ArXiv ingestion.
     """
     data = request.get_json() or {}
 
@@ -30,69 +26,46 @@ def ingest_projects():
     if len(projects) > Config.INGEST_MAX_PROJECTS:
         return jsonify({'error': f'Maximum {Config.INGEST_MAX_PROJECTS} projects per request'}), 400
 
-    inserted = 0
-    skipped = 0
-    failed = 0
+    # Prepare items for shared utility
+    items = []
     errors = []
-
     for proj_data in projects:
         title = proj_data.get('title', '').strip()
         description = proj_data.get('description', '').strip()
-        domain = proj_data.get('domain', '').strip()
 
-        if not title or not description:
-            failed += 1
-            errors.append(f"Missing title or description for project: {title or 'Unknown'}")
+        if not title:
+            errors.append(f"Missing title for project: {title or 'Unknown'}")
             continue
 
-        # Check for duplicate title
-        existing = Project.query.filter_by(title=title).first()
-        if existing:
-            skipped += 1
-            continue
+        # Use placeholder URL for admin projects
+        url = f"admin://{title.replace(' ', '_')}"
 
-        # Start transaction for this project
-        try:
-            # Create project
-            project = Project(
-                source='admin',
-                title=title,
-                description=description,
-                url=f"admin://{title.replace(' ', '_')}"  # Placeholder URL
-            )
-            db.session.add(project)
-            db.session.flush()  # Get project.id
+        items.append({
+            'source': 'admin',
+            'title': title,
+            'description': description,
+            'url': url
+        })
 
-            # Generate embedding
-            model = get_embedding_model()
-            if model is None:
-                raise Exception("Embedding model unavailable")
+    if not items:
+        return jsonify({'error': 'No valid projects to ingest', 'errors': errors}), 400
 
-            embedding = model.encode(f"{title} {description}")
-            if len(embedding) != Config.EMBEDDING_DIM:
-                raise Exception(f"Embedding dimension mismatch: {len(embedding)} != {Config.EMBEDDING_DIM}")
+    # Get embedding model
+    model = get_embedding_model()
+    if model is None:
+        return jsonify({'error': 'Embedding model unavailable'}), 500
 
-            # Create project vector
-            project_vector = ProjectVector(
-                project_id=project.id,
-                embedding=list(map(float, embedding))
-            )
-            db.session.add(project_vector)
+    # Use shared ingestion utility
+    result = ingest_projects(items, model)
 
-            db.session.commit()
-            inserted += 1
-
-        except Exception as e:
-            db.session.rollback()
-            failed += 1
-            errors.append(f"Failed to ingest project '{title}': {str(e)}")
-            logger.error("Ingestion failed for project '%s': %s", title, e)
-
-    logger.info("Ingestion completed: inserted=%d, skipped=%d, failed=%d", inserted, skipped, failed)
-
-    return jsonify({
-        'inserted': inserted,
-        'skipped': skipped,
-        'failed': failed,
+    # Map result keys to match original API response
+    response = {
+        'inserted': result['added'],
+        'skipped': result['skipped'],
+        'failed': result['failed'] + len(errors),
         'errors': errors
-    }), 200
+    }
+
+    logger.info("Admin ingestion completed: inserted=%d, skipped=%d, failed=%d", result['added'], result['skipped'], result['failed'])
+
+    return jsonify(response), 200

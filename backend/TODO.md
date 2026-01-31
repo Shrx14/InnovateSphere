@@ -1,14 +1,22 @@
-# TODO: Admin Ingestion & Re-Embedding API
+# Task 2: Fix Admin Ingestion to Match ArXiv Ingestion Behavior
 
-## Steps to Complete
+## Completed
+- [x] Created shared ingestion utility (`backend/ingest_utils.py`) for consistent embedding generation and storage
+- [x] Updated Admin ingestion (`backend/ingest_api.py`) to use shared utility
+- [x] Updated ArXiv ingestion (`backend/ingest.py`) to use shared utility
+- [x] Ensured identical text formatting: "Title: {title}. Description: {description or ''}"
+- [x] Unified duplicate checking by title for both sources
+- [x] Maintained same embedding model, dimensions, and metadata handling
 
-- [ ] Add INGEST_MAX_PROJECTS to backend/config.py (default 50)
-- [ ] Create backend/ingest_api.py with Flask Blueprint for POST /api/admin/ingest
-  - [ ] Implement jwt_required("admin") protection
-  - [ ] Validate payload: non-empty projects list, max INGEST_MAX_PROJECTS, each with title and description
-  - [ ] For each project: deduplication by title, insert Project (source='admin'), generate embedding, validate dimension, insert ProjectVector
-  - [ ] Use one transaction per project with rollback on failure
-  - [ ] Return response with inserted, skipped, failed counts and errors list
-  - [ ] Structured logging for counts
-- [ ] Edit backend/app.py to import and register the ingest_api blueprint
-- [ ] Test endpoint: 401 no token, 403 non-admin, success with admin token, verify data affects novelty and idea generation
+## Verification Steps
+- [ ] Test Admin ingestion endpoint with sample data
+- [ ] Verify admin-ingested projects appear in novelty scoring
+- [ ] Verify admin-ingested projects appear in idea generation sources
+- [ ] Confirm no regressions in ArXiv ingestion
+- [ ] Check logs for consistent ingestion counts
+
+## Notes
+- Admin ingestion now behaves identically to ArXiv ingestion except for source='admin'
+- No schema changes, embedding model changes, or RAG logic changes
+- Shared utility ensures single source of truth for ingestion logic
+- ArXiv ingestion updated to use shared utility, maintaining backward compatibility
