@@ -1,22 +1,17 @@
-# Task 2: Fix Admin Ingestion to Match ArXiv Ingestion Behavior
+# TODO: Implement AI Pipeline Versioning and Domain Taxonomy (Segment 0.1)
 
-## Completed
-- [x] Created shared ingestion utility (`backend/ingest_utils.py`) for consistent embedding generation and storage
-- [x] Updated Admin ingestion (`backend/ingest_api.py`) to use shared utility
-- [x] Updated ArXiv ingestion (`backend/ingest.py`) to use shared utility
-- [x] Ensured identical text formatting: "Title: {title}. Description: {description or ''}"
-- [x] Unified duplicate checking by title for both sources
-- [x] Maintained same embedding model, dimensions, and metadata handling
+## Completed Tasks
+- [x] Analyze codebase and create plan
+- [x] Get user approval for plan
+- [x] Update config.py: Add DEFAULT_AI_PIPELINE_VERSION and ENABLE_AI_PIPELINES
+- [x] Add new models in models.py: ai_pipeline_versions, domains, domain_categories
+- [x] Create backend/ai_registry.py: Add get_active_ai_pipeline_version() function
+- [x] Update User model in app.py: Add preferred_domain_id FK
+- [x] Add new APIs in app.py: GET /api/domains and GET /api/ai/pipeline-version
+- [x] Create backend/seed_data.py: Idempotent seed function for domains and AI pipeline version
+- [x] Create docs/ai_architecture.md: Documentation for Segment 0.1
 
-## Verification Steps
-- [ ] Test Admin ingestion endpoint with sample data
-- [ ] Verify admin-ingested projects appear in novelty scoring
-- [ ] Verify admin-ingested projects appear in idea generation sources
-- [ ] Confirm no regressions in ArXiv ingestion
-- [ ] Check logs for consistent ingestion counts
-
-## Notes
-- Admin ingestion now behaves identically to ArXiv ingestion except for source='admin'
-- No schema changes, embedding model changes, or RAG logic changes
-- Shared utility ensures single source of truth for ingestion logic
-- ArXiv ingestion updated to use shared utility, maintaining backward compatibility
+## Pending Tasks
+- [ ] Run database migrations to create new tables
+- [ ] Execute seed script to populate initial data
+- [ ] Test new APIs and verify app boots cleanly

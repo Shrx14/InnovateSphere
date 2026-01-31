@@ -9,8 +9,10 @@ import re
 import logging
 import numpy as np
 from dotenv import load_dotenv
+from backend.db import db
 from backend.auth import create_access_token, jwt_required
-from backend.ingest_api import ingest_bp
+from backend.models import Domain, DomainCategory
+from backend.ai_registry import get_active_ai_pipeline_version
 
 # Load environment variables
 load_dotenv()
@@ -54,7 +56,7 @@ if DATABASE_URL and 'neon.tech' not in DATABASE_URL:
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_opts
 
 # Initialize extensions
-db = SQLAlchemy(app)
+db.init_app(app)
 CORS(
     app,
     origins=Config.get_cors_origins(),
@@ -68,7 +70,7 @@ logger.info(
 Config.log_config_startup()
 
 # Register blueprints
-app.register_blueprint(ingest_bp)
+# ingest_bp removed - legacy deprecated
 
 # Embedding model loading is now centralized in backend/embeddings.py
 
@@ -91,6 +93,9 @@ class User(db.Model):
     preferred_domains = db.Column(db.JSON, default=list)  # ['AI/ML', 'Web Dev', etc.]
     skill_level = db.Column(db.String(20), default='beginner')  # beginner, intermediate, expert
     saved_ideas = db.Column(db.JSON, default=list)  # List of saved project idea IDs
+
+    # Domain taxonomy (Segment 0.1) - nullable FK to domains.id
+    preferred_domain_id = db.Column(db.Integer, db.ForeignKey('domains.id'), nullable=True)
 
     def to_dict(self):
         return {
@@ -280,100 +285,11 @@ def login():
         return jsonify({'error': f'Login failed: {str(e)}'}), 500
 
 
-# Novelty checking endpoint (uses sentence-transformers model to embed input
-# and compares against stored embeddings for projects).
 @app.route('/api/check_novelty', methods=['POST'])
-@jwt_required()
 def check_novelty():
-    data = request.get_json() or {}
-    text = data.get('description') or data.get('text') or ''
-    if not text or not text.strip():
-        return jsonify({'error': 'description is required'}), 400
-
-    from backend.embeddings import get_embedding_model
-
-    model = get_embedding_model()
-    if model is None:
-        return jsonify({"error": "Embedding model unavailable"}), 503
-
-    try:
-        # create embedding for user text
-        idea_emb = model.encode(text)
-
-        # import models here to avoid circular imports when app starts
-        from backend.models import Project, ProjectVector
-        # Attempt DB-level similarity using pgvector (fast path)
-        try:
-            idea_list = list(map(float, idea_emb))
-            # Query DB for top-5 closest by cosine distance
-            q = db.session.query(
-                Project,
-                ProjectVector.embedding.cosine_distance(idea_list).label('distance')
-            ).join(ProjectVector, Project.id == ProjectVector.project_id).order_by('distance').limit(5)
-
-            rows = q.all()
-            if not rows:
-                return jsonify({'novelty_score': 100.0, 'similar_projects': []}), 200
-
-            # rows: list of (Project, distance)
-            closest_distance = rows[0][1]
-            # Map distance (cosine distance) to novelty score: 0 -> 0 novelty, 1 -> 100
-            novelty_score = round(min(max(float(closest_distance) * 100.0, 0.0), 100.0), 2)
-
-            similar_projects = []
-            for proj, dist in rows:
-                similarity_percent = max(0.0, 100.0 - (float(dist) * 100.0))
-                similar_projects.append({
-                    'id': proj.id,
-                    'title': proj.title,
-                    'url': proj.url,
-                    'description': proj.description,
-                    'similarity_percent': round(similarity_percent, 2)
-                })
-
-            return jsonify({'novelty_score': novelty_score, 'similar_projects': similar_projects}), 200
-
-        except Exception as db_exc:
-            # Fallback to in-Python similarity if DB-level query fails
-            print('DB-level pgvector similarity failed, falling back to in-Python compute:', db_exc)
-
-            vectors = ProjectVector.query.join(Project).all()
-            if not vectors:
-                return jsonify({'novelty_score': 100.0, 'similar_projects': []})
-
-            sims = []
-            idea_arr = np.array(idea_emb, dtype=float)
-            idea_norm = np.linalg.norm(idea_arr)
-            for pv in vectors:
-                if not pv.embedding:
-                    continue
-                emb = np.array(pv.embedding, dtype=float)
-                denom = (np.linalg.norm(emb) * idea_norm)
-                if denom == 0:
-                    cos = 0.0
-                else:
-                    cos = float(np.dot(idea_arr, emb) / denom)
-                sims.append((pv.project, cos))
-
-            sims.sort(key=lambda x: x[1], reverse=True)
-            top_n = sims[:5]
-            most_sim = top_n[0][1] if top_n else 0.0
-            novelty_score = round(max(0.0, (1.0 - most_sim)) * 100.0, 2)
-            similar_projects = []
-            for proj, cos in top_n:
-                similar_projects.append({
-                    'id': proj.id,
-                    'title': proj.title,
-                    'url': proj.url,
-                    'description': proj.description,
-                    'similarity_percent': round(cos * 100.0, 2)
-                })
-
-            return jsonify({'novelty_score': novelty_score, 'similar_projects': similar_projects}), 200
-
-    except Exception as e:
-        logger.exception('Error in novelty endpoint: %s', e)
-        return jsonify({'error': 'Failed to process novelty request'}), 500
+    return jsonify({
+        "error": "Legacy novelty scoring deprecated"
+    }), 410
 
 
 
@@ -386,74 +302,24 @@ def check_novelty():
 
 
 @app.route('/api/generate-idea', methods=['POST'])
-@jwt_required()
 def handle_generate_idea():
-    """
-    Handles a request to generate a new project idea using the RAG chain.
-    """
-    data = request.get_json()
-    user_query = data.get('query') # Get the user's raw query
+    return jsonify({
+        "error": "Legacy AI pipeline deprecated"
+    }), 410
 
-    if not user_query:
-        return jsonify({'error': 'A query is required.'}), 400
 
-    # --- THIS IS THE FIX ---
-    # We "wrap" the user's topic in a clear instruction for the RAG chain.
-    # You can customize this prompt to be more specific.
-    rag_query = f"Generate a creative and novel project idea for a student about: {user_query}"
-    # --- END OF FIX ---
+@app.route('/api/ai/pipeline-version', methods=['GET'])
+def get_pipeline_version():
+    """Get the active AI pipeline version"""
+    version = get_active_ai_pipeline_version()
+    return jsonify({"version": version}), 200
 
-    try:
-        # Import RAG chain lazily so the server can start even if ML deps are missing
-        try:
-            from backend.rag_chain import generate_idea, is_rag_available
-        except Exception as import_err:
-            logger.warning("RAG chain unavailable: %s", import_err)
-            return jsonify({'error': 'Idea generation is currently unavailable.'}), 503
 
-        if not is_rag_available():
-            return jsonify({"error": "Idea generation temporarily unavailable"}), 503
-
-        # Call the RAG chain with the new, improved query
-        result = generate_idea(rag_query)
-
-        # Extract relevant info to send to frontend
-        # Build response including clickable source URLs where available.
-        source_documents = []
-        for doc in result.get('source_documents', []):
-            meta = getattr(doc, 'metadata', {}) or {}
-            title = meta.get('title') or meta.get('paper_title') or 'Unknown Title'
-            # Determine URL: prefer explicit url, then arxiv id, then source
-            url = meta.get('url') or meta.get('source') or None
-            # If an arXiv id is present, build a canonical arXiv URL
-            arxiv_id = meta.get('arxiv_id') or meta.get('arxiv')
-            if not url and arxiv_id:
-                url = f"https://arxiv.org/abs/{arxiv_id}"
-
-            summary = ''
-            try:
-                summary = (doc.page_content or '')[:250]
-                if len(doc.page_content or '') > 250:
-                    summary += '...'
-            except Exception:
-                summary = ''
-
-            source_documents.append({
-                'title': title,
-                'summary': summary,
-                'url': url,
-                'raw_metadata': meta
-            })
-
-        response_data = {
-            "generated_text": result.get('result'),
-            "source_documents": source_documents
-        }
-        return jsonify(response_data), 200
-
-    except Exception as e:
-        logger.exception('Error during idea generation: %s', e)
-        return jsonify({'error': 'Failed to generate idea.'}), 500
+@app.route('/api/domains', methods=['GET'])
+def get_domains():
+    """Get all domains with their categories"""
+    domains = Domain.query.all()
+    return jsonify({"domains": [domain.to_dict() for domain in domains]}), 200
 
 
 if __name__ == '__main__':

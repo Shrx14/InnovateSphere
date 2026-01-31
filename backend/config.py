@@ -2,6 +2,7 @@
 Centralized configuration module reading from environment variables.
 All sensitive values (DATABASE_URL, secrets) come from .env file.
 """
+ENABLE_LEGACY_AI = False
 
 import os
 from typing import List
@@ -65,6 +66,10 @@ class Config:
 
     # External APIs
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+
+    # AI Pipeline Versioning (Segment 0.1)
+    DEFAULT_AI_PIPELINE_VERSION = "v2"
+    ENABLE_AI_PIPELINES = ["v2"]
 
     @staticmethod
     def get_cors_origins() -> List[str]:

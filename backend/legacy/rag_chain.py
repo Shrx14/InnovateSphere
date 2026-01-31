@@ -1,3 +1,7 @@
+raise RuntimeError(
+    "Legacy RAG chain deprecated. Do not import or use."
+)
+
 # Optional heavy dependency; handle gracefully if missing
 try:
     import torch
