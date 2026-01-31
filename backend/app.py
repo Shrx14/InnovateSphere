@@ -14,6 +14,7 @@ from backend.db import db
 from backend.auth import create_access_token, jwt_required
 from backend.models import Domain, DomainCategory, ProjectIdea, IdeaRequest, IdeaReview, IdeaSource
 from backend.ai_registry import get_active_ai_pipeline_version
+from backend.retrieval.orchestrator import retrieve_sources
 import jwt
 
 # Load environment variables
@@ -623,6 +624,30 @@ def admin_time_trends():
     ]
 
     return jsonify({"trends": trends}), 200
+
+@app.route('/api/retrieval/sources', methods=['POST'])
+@jwt_required()
+def retrieve_sources_endpoint():
+    """Retrieve sources from external APIs (arXiv, GitHub)"""
+    data = request.get_json()
+
+    if not data or 'query' not in data or 'domain_id' not in data:
+        return jsonify({"error": "query and domain_id are required"}), 400
+
+    query = data['query']
+    domain_id = data['domain_id']
+
+    # Fetch domain name from database
+    domain = Domain.query.get(domain_id)
+    if not domain:
+        return jsonify({"error": "Invalid domain_id"}), 400
+
+    domain_name = domain.name
+
+    # Call retrieval function
+    result = retrieve_sources(query, domain_name)
+
+    return jsonify(result), 200
 
 
 if __name__ == '__main__':
