@@ -10,6 +10,7 @@ import logging
 import numpy as np
 from dotenv import load_dotenv
 from sqlalchemy import func
+from sqlalchemy.engine.url import make_url
 from backend.db import db
 from backend.auth import create_access_token, jwt_required
 from backend.models import Domain, DomainCategory, ProjectIdea, IdeaRequest, IdeaReview, IdeaSource
@@ -45,18 +46,35 @@ app.config['SECRET_KEY'] = Config.SECRET_KEY
 # Some managed Postgres instances present an empty search_path by default which
 # causes errors like: "no schema has been selected to create in". Setting the
 # `options` connect arg ensures connections use the `public` schema.
-DATABASE_URL = app.config.get('SQLALCHEMY_DATABASE_URI', '')
-
-# Neon pooler rejects startup `options` containing `search_path`. Only add
-# the `-csearch_path` connect arg for servers that support it (e.g., local
-# Postgres or non-pooled connections).
+database_url = Config.DATABASE_URL
 engine_opts = {}
-if DATABASE_URL and 'neon.tech' not in DATABASE_URL:
-    engine_opts = {
-        'connect_args': {'options': '-csearch_path=public'}
-    }
 
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_opts
+if database_url:
+    try:
+        url = make_url(database_url)
+
+        if url.drivername.startswith("postgresql"):
+            host = url.host or ""
+
+            # Neon pooled connections do NOT support startup options
+            is_neon_pooler = "neon.tech" in host and "pooler" in host
+
+            if not is_neon_pooler:
+                engine_opts = {
+                    "pool_pre_ping": True,
+                    "connect_args": {
+                        "options": "-c statement_timeout=5000"
+                    }
+                }
+            else:
+                engine_opts = {
+                    "pool_pre_ping": True
+                }
+
+    except Exception:
+        engine_opts = {}
+
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_opts
 
 # Initialize extensions
 db.init_app(app)
@@ -628,7 +646,7 @@ def admin_time_trends():
 @app.route('/api/retrieval/sources', methods=['POST'])
 @jwt_required()
 def retrieve_sources_endpoint():
-    """Retrieve sources from external APIs (arXiv, GitHub)"""
+    """Retrieve sources from external APIs (arXiv, GitHub) with optional semantic filtering"""
     data = request.get_json()
 
     if not data or 'query' not in data or 'domain_id' not in data:
@@ -636,6 +654,12 @@ def retrieve_sources_endpoint():
 
     query = data['query']
     domain_id = data['domain_id']
+    semantic_filter = data.get('semantic_filter', False)
+    similarity_threshold = data.get('similarity_threshold', 0.6)
+
+    # Validate similarity_threshold
+    if not isinstance(similarity_threshold, (int, float)) or not 0 <= similarity_threshold <= 1:
+        return jsonify({"error": "similarity_threshold must be a float between 0 and 1"}), 400
 
     # Fetch domain name from database
     domain = Domain.query.get(domain_id)
@@ -644,8 +668,13 @@ def retrieve_sources_endpoint():
 
     domain_name = domain.name
 
-    # Call retrieval function
-    result = retrieve_sources(query, domain_name)
+    # Call retrieval function with semantic options
+    result = retrieve_sources(
+        query=query,
+        domain=domain_name,
+        semantic_filter=semantic_filter,
+        similarity_threshold=similarity_threshold
+    )
 
     return jsonify(result), 200
 

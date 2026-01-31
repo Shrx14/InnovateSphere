@@ -17,21 +17,17 @@ def seed_initial_data():
     try:
         # Seed domains
         domains_data = [
-            {'name': 'AI', 'description': 'Artificial Intelligence and Machine Learning'},
-            {'name': 'Web Development', 'description': 'Web application development and technologies'},
-            {'name': 'Data Science', 'description': 'Data analysis, visualization, and statistical modeling'},
-            {'name': 'Cybersecurity', 'description': 'Security, encryption, and threat protection'},
-            {'name': 'IoT', 'description': 'Internet of Things and embedded systems'}
+            {'name': 'AI'},
+            {'name': 'Web Development'},
+            {'name': 'Data Science'},
+            {'name': 'Cybersecurity'},
+            {'name': 'IoT'}
         ]
 
         for domain_data in domains_data:
             existing = Domain.query.filter_by(name=domain_data['name']).first()
             if not existing:
-                domain = Domain(
-                    name=domain_data['name'],
-                    description=domain_data['description'],
-                    is_active=True
-                )
+                domain = Domain(name=domain_data['name'])
                 db.session.add(domain)
                 print(f"Added domain: {domain_data['name']}")
 
@@ -43,7 +39,6 @@ def seed_initial_data():
         if not existing_version:
             ai_version = AiPipelineVersion(
                 version='v2',
-                description='Initial AI pipeline version for Segment 0.1',
                 is_active=True
             )
             db.session.add(ai_version)

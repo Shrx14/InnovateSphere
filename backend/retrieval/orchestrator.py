@@ -2,7 +2,7 @@ import datetime
 from backend.retrieval.arxiv_client import search_arxiv
 from backend.retrieval.github_client import search_github
 
-def retrieve_sources(query, domain, limit=10):
+def retrieve_sources(query, domain, limit=10, semantic_filter=False, similarity_threshold=0.6):
     """
     Orchestrate retrieval from multiple sources.
     Returns structured results with sources and retrieved_at timestamp.
@@ -48,6 +48,22 @@ def retrieve_sources(query, domain, limit=10):
 
     # Return at most limit results
     final_sources = ranked_sources[:limit]
+
+    # Optional semantic filtering stage
+    if semantic_filter:
+        try:
+            from backend.semantic.filter import filter_by_semantic_similarity
+            from backend.semantic.ranker import rank_sources
+
+            filtered = filter_by_semantic_similarity(
+                query,
+                final_sources,
+                similarity_threshold
+            )
+            final_sources = rank_sources(filtered)
+
+        except Exception:
+            pass
 
     return {
         "sources": final_sources,
