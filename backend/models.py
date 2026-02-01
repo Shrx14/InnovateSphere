@@ -4,213 +4,284 @@ from backend.db import db
 
 # ⚠️ LEGACY KNOWLEDGE TABLE — deprecated
 class Project(db.Model):
-    __tablename__ = 'projects'
+    __tablename__ = "projects"
+
     id = db.Column(db.Integer, primary_key=True)
-    source = db.Column(db.String(50), nullable=False)  # 'github' | 'arxiv' | 'other'
+    source = db.Column(db.String(50), nullable=False)
     title = db.Column(db.String(255), nullable=False)
-    description = db.Column(db.Text, nullable=True)
+    description = db.Column(db.Text)
     url = db.Column(db.String(1024), unique=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    vector = db.relationship('ProjectVector', back_populates='project', uselist=False)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'source': self.source,
-            'title': self.title,
-            'description': self.description,
-            'url': self.url,
-            'created_at': self.created_at.isoformat()
-        }
+    vector = db.relationship("ProjectVector", back_populates="project", uselist=False)
 
 
 class ProjectVector(db.Model):
-    __tablename__ = 'project_vectors'
+    __tablename__ = "project_vectors"
+
     id = db.Column(db.Integer, primary_key=True)
-    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, unique=True)
-    # Legacy embedding column, deprecated
+    project_id = db.Column(
+        db.Integer, db.ForeignKey("projects.id"), nullable=False, unique=True
+    )
     embedding = db.Column(db.JSON)
 
-    project = db.relationship('Project', back_populates='vector')
-
-    def __repr__(self):
-        length = None
-        try:
-            length = len(self.embedding) if self.embedding is not None else 0
-        except Exception:
-            length = None
-        return f"<ProjectVector project_id={self.project_id} len={length}>"
+    project = db.relationship("Project", back_populates="vector")
 
 
 class Domain(db.Model):
-    __tablename__ = 'domains'
+    __tablename__ = "domains"
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
-    categories = db.relationship('DomainCategory', backref='domain', lazy=True)
+
+    categories = db.relationship("DomainCategory", backref="domain", lazy=True)
+    project_ideas = db.relationship("ProjectIdea", back_populates="domain", lazy=True)
 
     def to_dict(self):
         return {
-            'id': self.id,
-            'name': self.name,
-            'categories': [cat.to_dict() for cat in self.categories]
+            "id": self.id,
+            "name": self.name,
+            "categories": [
+                {"id": c.id, "name": c.name} for c in self.categories
+            ],
         }
 
 
 class DomainCategory(db.Model):
-    __tablename__ = 'domain_categories'
+    __tablename__ = "domain_categories"
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    domain_id = db.Column(db.Integer, db.ForeignKey('domains.id'), nullable=False)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name
-        }
+    domain_id = db.Column(db.Integer, db.ForeignKey("domains.id"), nullable=False)
 
 
 class AiPipelineVersion(db.Model):
-    __tablename__ = 'ai_pipeline_versions'
+    __tablename__ = "ai_pipeline_versions"
+
     id = db.Column(db.Integer, primary_key=True)
     version = db.Column(db.String(50), unique=True, nullable=False)
     is_active = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'version': self.version,
-            'is_active': self.is_active,
-            'created_at': self.created_at.isoformat()
-        }
 
-
-# Analytics Models (Segment 1.1) - Analytics-first database schema for tracking project ideas, user requests, popularity, and feedback
+# ----------------------------
+# Analytics + HITL Core
+# ----------------------------
 
 class ProjectIdea(db.Model):
-    """
-    Represents a generated or stored project idea.
-    Purpose: Stores ideas shown to users for popularity tracking, novelty baselines, and analytics dashboards.
-    """
-    __tablename__ = 'project_ideas'
+    __tablename__ = "project_ideas"
+
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), nullable=False)
-    problem_statement = db.Column(db.Text, nullable=False)  # Human-readable summary
-    problem_statement_json = db.Column(db.JSON, nullable=False)  # Full structured data
-    tech_stack = db.Column(db.Text, nullable=False)  # Human-readable summary
-    tech_stack_json = db.Column(db.JSON, nullable=False)  # Full structured data
-    domain_id = db.Column(db.Integer, db.ForeignKey('domains.id'), nullable=True)
+
+    problem_statement = db.Column(db.Text, nullable=False)
+    problem_statement_json = db.Column(db.JSON, nullable=False)
+
+    tech_stack = db.Column(db.Text, nullable=False)
+    tech_stack_json = db.Column(db.JSON, nullable=False)
+
+    domain_id = db.Column(db.Integer, db.ForeignKey("domains.id"))
     ai_pipeline_version = db.Column(db.String(50), nullable=False)
+
     is_ai_generated = db.Column(db.Boolean, nullable=False)
     is_public = db.Column(db.Boolean, default=True, nullable=False)
     is_validated = db.Column(db.Boolean, default=False, nullable=False)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
-    domain = db.relationship('Domain', backref='project_ideas')
-    requests = db.relationship('IdeaRequest', back_populates='idea', lazy=True)
-    sources = db.relationship('IdeaSource', back_populates='idea', lazy=True)
-    reviews = db.relationship('IdeaReview', back_populates='idea', lazy=True)
-
-    # Indexes for analytics queries
-    __table_args__ = (
-        db.Index('idx_project_ideas_domain_id', 'domain_id'),
-        db.Index('idx_project_ideas_created_at', 'created_at'),
+    domain = db.relationship("Domain", back_populates="project_ideas")
+    requests = db.relationship("IdeaRequest", back_populates="idea", lazy=True)
+    sources = db.relationship(
+        "IdeaSource", back_populates="idea", lazy=True, cascade="all, delete-orphan"
+    )
+    reviews = db.relationship(
+        "IdeaReview", back_populates="idea", lazy=True, cascade="all, delete-orphan"
     )
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'title': self.title,
-            'problem_statement': self.problem_statement,
-            'tech_stack': self.tech_stack,
-            'domain_id': self.domain_id,
-            'ai_pipeline_version': self.ai_pipeline_version,
-            'is_ai_generated': self.is_ai_generated,
-            'is_public': self.is_public,
-            'created_at': self.created_at.isoformat()
+    feedbacks = db.relationship(
+        "IdeaFeedback",
+        back_populates="idea",
+        lazy=True,
+        cascade="all, delete-orphan",
+    )
+
+    admin_verdict = db.relationship(
+        "AdminVerdict",
+        back_populates="idea",
+        uselist=False,
+        lazy=True,
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        db.Index("idx_project_ideas_domain_id", "domain_id"),
+        db.Index("idx_project_ideas_created_at", "created_at"),
+    )
+
+    # ----------------------------
+    # HITL Metrics
+    # ----------------------------
+
+    @property
+    def quality_score(self):
+        base = 50
+
+        weights = {
+            "high_quality": 15,
+            "factual_error": -20,
+            "hallucinated_source": -25,
+            "weak_novelty": -15,
+            "poor_justification": -10,
+            "unclear_scope": -10,
         }
+
+        counts = {}
+        for fb in self.feedbacks:
+            counts[fb.feedback_type] = counts.get(fb.feedback_type, 0) + 1
+
+        raw_feedback_impact = sum(
+            min(count, 3) * weights.get(ftype, 0)
+            for ftype, count in counts.items()
+        )
+
+        feedback_impact = max(raw_feedback_impact, -40)
+
+        evidence_bonus = min(len(self.sources) * 2, 20)
+
+        avg_rating = (
+            sum(r.rating for r in self.reviews) / len(self.reviews)
+            if self.reviews else 3
+        )
+        rating_bonus = (avg_rating - 3) * 2
+
+        verdict_multiplier = 1.0
+        if self.admin_verdict:
+            verdict_multiplier = {
+                "validated": 1.2,
+                "downgraded": 0.8,
+                "rejected": 0.5,
+            }.get(self.admin_verdict.verdict, 1.0)
+
+        score = (
+            base + feedback_impact + evidence_bonus + rating_bonus
+        ) * verdict_multiplier
+
+        return max(0, min(100, int(score)))
+
+    @property
+    def hallucination_risk_level(self):
+        count = sum(
+            1 for fb in self.feedbacks if fb.feedback_type == "hallucinated_source"
+        )
+        if count >= 3:
+            return "high"
+        if count >= 1 or len(self.sources) < 3:
+            return "medium"
+        return "low"
+
+    @property
+    def evidence_strength(self):
+        types = {s.source_type for s in self.sources}
+        factual_errors = sum(
+            1 for fb in self.feedbacks if fb.feedback_type == "factual_error"
+        )
+
+        if len(self.sources) >= 5 and len(types) >= 3 and factual_errors == 0:
+            return "high"
+        if len(self.sources) >= 3 and len(types) >= 2 and factual_errors <= 1:
+            return "medium"
+        return "low"
+
+    @property
+    def novelty_confidence(self):
+        weak = sum(1 for fb in self.feedbacks if fb.feedback_type == "weak_novelty")
+        good = sum(1 for fb in self.feedbacks if fb.feedback_type == "high_quality")
+
+        if weak >= 2:
+            return "low"
+        if good >= 1 and weak == 0:
+            return "high"
+        return "medium"
 
 
 class IdeaRequest(db.Model):
-    """
-    Tracks each time a user requests an idea.
-    Purpose: Tracks demand, enables "most recommended ideas", and domain-wise trends over time.
-    """
-    __tablename__ = 'idea_requests'
+    __tablename__ = "idea_requests"
+
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    idea_id = db.Column(db.Integer, db.ForeignKey('project_ideas.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    idea_id = db.Column(db.Integer, db.ForeignKey("project_ideas.id"), nullable=False)
     requested_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Relationships
-    user = db.relationship('User', backref='idea_requests', lazy=True)
-    idea = db.relationship('ProjectIdea', back_populates='requests', lazy=True)
-
-    # Indexes for analytics queries
-    __table_args__ = (
-        db.Index('idx_idea_requests_user_id', 'user_id'),
-        db.Index('idx_idea_requests_idea_id', 'idea_id'),
-        db.Index('idx_idea_requests_requested_at', 'requested_at'),
-    )
+    idea = db.relationship("ProjectIdea", back_populates="requests")
 
 
 class IdeaSource(db.Model):
-    """
-    Stores metadata references used to generate ideas.
-    Purpose: Provides transparency, explainability, and inputs for future novelty scoring.
-    """
-    __tablename__ = 'idea_sources'
+    __tablename__ = "idea_sources"
+
     id = db.Column(db.Integer, primary_key=True)
-    idea_id = db.Column(db.Integer, db.ForeignKey('project_ideas.id'), nullable=False)
-    source_type = db.Column(db.String(50), nullable=False)  # e.g., "arxiv", "github", "blog"
+    idea_id = db.Column(db.Integer, db.ForeignKey("project_ideas.id"), nullable=False)
+
+    source_type = db.Column(db.String(50), nullable=False)
     title = db.Column(db.String(255), nullable=False)
     url = db.Column(db.String(1024), nullable=False)
-    published_date = db.Column(db.Date, nullable=True)
-    summary = db.Column(db.Text, nullable=True)
+    summary = db.Column(db.Text)
+    published_date = db.Column(db.Date)
 
-    # Relationships
-    idea = db.relationship('ProjectIdea', back_populates='sources', lazy=True)
-
-    # Indexes for analytics queries
-    __table_args__ = (
-        db.Index('idx_idea_sources_idea_id', 'idea_id'),
-    )
+    idea = db.relationship("ProjectIdea", back_populates="sources")
 
 
 class IdeaReview(db.Model):
-    """
-    Tracks user feedback on ideas.
-    Purpose: Provides human-in-the-loop signals for quality ranking and analytics.
-    Rules: One review per user per idea (enforced via unique constraint).
-    """
-    __tablename__ = 'idea_reviews'
+    __tablename__ = "idea_reviews"
+
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    idea_id = db.Column(db.Integer, db.ForeignKey('project_ideas.id'), nullable=False)
-    rating = db.Column(db.Integer, nullable=False)  # 1-5 scale
-    comment = db.Column(db.Text, nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    idea_id = db.Column(db.Integer, db.ForeignKey("project_ideas.id"), nullable=False)
+
+    rating = db.Column(db.Integer, nullable=False)
+    comment = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Relationships
-    user = db.relationship('User', backref='idea_reviews', lazy=True)
-    idea = db.relationship('ProjectIdea', back_populates='reviews', lazy=True)
+    idea = db.relationship("ProjectIdea", back_populates="reviews")
 
-    # Unique constraint: one review per user per idea
     __table_args__ = (
-        db.UniqueConstraint('user_id', 'idea_id', name='unique_user_idea_review'),
-        db.Index('idx_idea_reviews_user_id', 'user_id'),
-        db.Index('idx_idea_reviews_idea_id', 'idea_id'),
-        db.Index('idx_idea_reviews_created_at', 'created_at'),
+        db.UniqueConstraint("user_id", "idea_id", name="unique_user_idea_review"),
     )
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'idea_id': self.idea_id,
-            'rating': self.rating,
-            'comment': self.comment,
-            'created_at': self.created_at.isoformat()
-        }
+
+class IdeaFeedback(db.Model):
+    __tablename__ = "idea_feedbacks"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    idea_id = db.Column(db.Integer, db.ForeignKey("project_ideas.id"), nullable=False)
+
+    feedback_type = db.Column(db.String(50), nullable=False)
+    comment = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    idea = db.relationship("ProjectIdea", back_populates="feedbacks")
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "user_id", "idea_id", "feedback_type",
+            name="unique_user_idea_feedback_type"
+        ),
+        db.Index("idx_feedback_type", "feedback_type"),
+    )
+
+
+class AdminVerdict(db.Model):
+    __tablename__ = "admin_verdicts"
+
+    id = db.Column(db.Integer, primary_key=True)
+    idea_id = db.Column(
+        db.Integer, db.ForeignKey("project_ideas.id"), nullable=False, unique=True
+    )
+    admin_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+
+    verdict = db.Column(db.String(20), nullable=False)
+    reason = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    idea = db.relationship("ProjectIdea", back_populates="admin_verdict")

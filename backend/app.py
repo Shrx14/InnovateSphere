@@ -24,6 +24,8 @@ from backend.models import (
     IdeaRequest,
     IdeaReview,
     IdeaSource,
+    IdeaFeedback,
+    AdminVerdict,
 )
 
 # ------------------------------------------------------------------
@@ -193,6 +195,12 @@ def serialize_full_idea(idea):
             if idea.reviews
             else None,
             "requested_count": len(idea.requests),
+            # Segment 3.2: Trust signals for authenticated users only
+            "quality_score": idea.quality_score,
+            "novelty_confidence": idea.novelty_confidence,
+            "evidence_strength": idea.evidence_strength,
+            "admin_verdict": idea.admin_verdict.verdict if idea.admin_verdict else None,
+            "warning": "This idea is experimental and under review." if idea.admin_verdict and idea.admin_verdict.verdict == "rejected" else None,
         }
     )
     return data
@@ -302,38 +310,30 @@ def admin_domains():
 
 @app.route("/api/public/ideas", methods=["GET"])
 def public_ideas():
-    """
-    Anonymous access to validated public ideas.
-    Pure DB query, limited fields.
-    """
-    keyword = request.args.get('q', '')
-    domain_id = request.args.get('domain_id')
-    sort_by = request.args.get('sort', 'popularity')  # popularity or recency
+    query = (
+        ProjectIdea.query
+        .outerjoin(AdminVerdict)
+        .filter(
+            ProjectIdea.is_public.is_(True),
+            db.or_(
+                AdminVerdict.verdict.is_(None),
+                AdminVerdict.verdict != "rejected"
+            )
+        )
+    )
 
-    query = ProjectIdea.query.filter_by(is_public=True, is_validated=True)
-
-    if domain_id:
-        query = query.filter_by(domain_id=int(domain_id))
-
-    if keyword:
-        query = query.filter(ProjectIdea.title.ilike(f'%{keyword}%'))
-
-    if sort_by == 'popularity':
-        # Sort by request count desc
-        query = query.outerjoin(IdeaRequest).group_by(ProjectIdea.id).order_by(func.count(IdeaRequest.id).desc())
-    else:
-        # Recency
-        query = query.order_by(ProjectIdea.created_at.desc())
-
-    ideas = query.all()
+    ideas = query.order_by(ProjectIdea.created_at.desc()).all()
 
     return jsonify({
-        "ideas": [serialize_public_idea(idea) for idea in ideas],
-        "login_required_for": [
-            "full description",
-            "evidence",
-            "novelty analysis",
-            "custom idea generation"
+        "ideas": [
+            {
+                "id": i.id,
+                "title": i.title,
+                "problem_statement": i.problem_statement,
+                "tech_stack": i.tech_stack,
+                "domain": i.domain.name if i.domain else None,
+            }
+            for i in ideas
         ]
     }), 200
 
@@ -368,6 +368,137 @@ def generate_idea():
         return jsonify(result), 400
 
     return jsonify(result), 201
+
+
+# ------------------------------------------------------------------
+# Human-in-the-Loop (HITL) Refinement (Segment 3.2)
+# ------------------------------------------------------------------
+
+@app.route("/api/ideas/<int:idea_id>/feedback", methods=["POST"])
+@jwt_required()
+def submit_idea_feedback(idea_id):
+    """
+    Submit structured feedback on idea quality (Segment 3.2).
+    Enforces one feedback per user per idea per type.
+    """
+    data = request.get_json() or {}
+    feedback_type = data.get("feedback_type")
+    comment = data.get("comment", "").strip()
+
+    if feedback_type not in ["factual_error", "hallucinated_source", "weak_novelty", "poor_justification", "unclear_scope", "high_quality"]:
+        return jsonify({"error": "Invalid feedback_type"}), 400
+
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    idea = ProjectIdea.query.get(idea_id)
+    if not idea:
+        return jsonify({"error": "Idea not found"}), 404
+
+    # Check for existing feedback (unique constraint)
+    existing = IdeaFeedback.query.filter_by(
+        user_id=user_id, idea_id=idea_id, feedback_type=feedback_type
+    ).first()
+    if existing:
+        return jsonify({"error": "Feedback already submitted for this type"}), 409
+
+    feedback = IdeaFeedback(
+        user_id=user_id,
+        idea_id=idea_id,
+        feedback_type=feedback_type,
+        comment=comment if comment else None
+    )
+    db.session.add(feedback)
+    db.session.commit()
+
+    return jsonify({"message": "Feedback submitted successfully"}), 201
+
+
+@app.route("/api/admin/ideas/quality-review", methods=["GET"])
+@jwt_required()
+def admin_quality_review():
+    """
+    Admin review queue for ideas needing governance (Segment 3.2).
+    Returns ideas with low quality signals for admin validation.
+    """
+    if not require_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    # Query ideas with quality issues
+    ideas = ProjectIdea.query.filter(
+        db.or_(
+            ProjectIdea.id.in_(
+                db.session.query(IdeaFeedback.idea_id).filter(
+                    db.or_(
+                        IdeaFeedback.feedback_type == "hallucinated_source",
+                        IdeaFeedback.feedback_type == "weak_novelty"
+                    )
+                ).group_by(IdeaFeedback.idea_id).having(func.count() >= 1)
+            ),
+            # Low evidence strength (computed property, so we use source count as proxy)
+            ProjectIdea.id.in_(
+                db.session.query(IdeaSource.idea_id).group_by(IdeaSource.idea_id).having(func.count() < 3)
+            )
+        )
+    ).all()
+
+    result = []
+    for idea in ideas:
+        feedback_breakdown = {}
+        for fb in idea.feedbacks:
+            feedback_breakdown[fb.feedback_type] = feedback_breakdown.get(fb.feedback_type, 0) + 1
+
+        result.append({
+            "idea_id": idea.id,
+            "title": idea.title,
+            "novelty_score": None,  # Would need to compute or store
+            "evidence_strength": idea.evidence_strength,
+            "feedback_breakdown": feedback_breakdown,
+            "source_count": len(idea.sources),
+            "sources": [{"type": s.source_type, "title": s.title, "url": s.url} for s in idea.sources[:5]]
+        })
+
+    return jsonify({"review_queue": result}), 200
+
+
+@app.route("/api/admin/ideas/<int:idea_id>/verdict", methods=["POST"])
+@jwt_required()
+def admin_verdict(idea_id):
+    if not require_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    data = request.get_json() or {}
+    verdict = data.get("verdict")
+    reason = data.get("reason", "").strip()
+
+    if verdict not in ("validated", "downgraded", "rejected"):
+        return jsonify({"error": "Invalid verdict"}), 400
+
+    if not reason:
+        return jsonify({"error": "Reason required"}), 400
+
+    idea = ProjectIdea.query.get(idea_id)
+    if not idea:
+        return jsonify({"error": "Idea not found"}), 404
+
+    if idea.admin_verdict:
+        return jsonify({"error": "Verdict already exists"}), 409
+
+    if verdict == "validated":
+        idea.is_validated = True
+    else:
+        idea.is_validated = False
+
+    db.session.add(AdminVerdict(
+        idea_id=idea_id,
+        admin_id=get_current_user_id(),
+        verdict=verdict,
+        reason=reason,
+    ))
+
+    db.session.commit()
+    return jsonify({"message": f"Idea {verdict}"}), 200
 
 # ------------------------------------------------------------------
 # Entry
