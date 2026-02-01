@@ -1,6 +1,3 @@
-- [ ] Revise hero headline to "Project ideas from research evidence." with line break.
-- [ ] Shorten hero subtext to one sentence.
-- [ ] Change CTAs to "Explore ideas" and "Sign up".
-- [ ] Shorten feature descriptions for clarity.
-- [ ] Adjust section padding and max-widths for readability.
-- [ ] Ensure visual hierarchy is obvious.
+- [ ] Wrap filter bar in subtle container with bg-neutral-900/60 border border-neutral-800 rounded-lg p-4
+- [ ] Style filter spans as inactive controls: border border-neutral-700 bg-neutral-900 hover:border-neutral-600 px-4 py-2 rounded text-neutral-300
+- [ ] Add hover affordances to populated cards: hover:border-neutral-600 hover:bg-neutral-800/60 cursor-pointer transition-colors

@@ -5,6 +5,7 @@ import AppShell from './app/layout/AppShell';
 import LandingPage from './app/landing/LandingPage';
 import IdeaDetail from './app/idea/IdeaDetail';
 import ReviewQueue from './app/admin/ReviewQueue';
+import ExplorePage from './app/explore/ExplorePage';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/idea/:id" element={<IdeaDetail />} />
           <Route path="/admin/review" element={<ReviewQueue />} />
+          <Route path="/explore" element={<ExplorePage />} />
         </Routes>
       </AppShell>
     </Router>
