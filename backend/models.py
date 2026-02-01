@@ -96,15 +96,19 @@ class ProjectIdea(db.Model):
     __tablename__ = 'project_ideas'
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), nullable=False)
-    problem_statement = db.Column(db.Text, nullable=False)
-    tech_stack = db.Column(db.Text, nullable=False)
+    problem_statement = db.Column(db.Text, nullable=False)  # Human-readable summary
+    problem_statement_json = db.Column(db.JSON, nullable=False)  # Full structured data
+    tech_stack = db.Column(db.Text, nullable=False)  # Human-readable summary
+    tech_stack_json = db.Column(db.JSON, nullable=False)  # Full structured data
     domain_id = db.Column(db.Integer, db.ForeignKey('domains.id'), nullable=True)
     ai_pipeline_version = db.Column(db.String(50), nullable=False)
     is_ai_generated = db.Column(db.Boolean, nullable=False)
     is_public = db.Column(db.Boolean, default=True, nullable=False)
+    is_validated = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
+    domain = db.relationship('Domain', backref='project_ideas')
     requests = db.relationship('IdeaRequest', back_populates='idea', lazy=True)
     sources = db.relationship('IdeaSource', back_populates='idea', lazy=True)
     reviews = db.relationship('IdeaReview', back_populates='idea', lazy=True)

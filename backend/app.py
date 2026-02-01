@@ -295,6 +295,80 @@ def admin_domains():
         }
     )
 
+
+# ------------------------------------------------------------------
+# Public Idea Exposure (Segment 3.1) - Anonymous, DB-only
+# ------------------------------------------------------------------
+
+@app.route("/api/public/ideas", methods=["GET"])
+def public_ideas():
+    """
+    Anonymous access to validated public ideas.
+    Pure DB query, limited fields.
+    """
+    keyword = request.args.get('q', '')
+    domain_id = request.args.get('domain_id')
+    sort_by = request.args.get('sort', 'popularity')  # popularity or recency
+
+    query = ProjectIdea.query.filter_by(is_public=True, is_validated=True)
+
+    if domain_id:
+        query = query.filter_by(domain_id=int(domain_id))
+
+    if keyword:
+        query = query.filter(ProjectIdea.title.ilike(f'%{keyword}%'))
+
+    if sort_by == 'popularity':
+        # Sort by request count desc
+        query = query.outerjoin(IdeaRequest).group_by(ProjectIdea.id).order_by(func.count(IdeaRequest.id).desc())
+    else:
+        # Recency
+        query = query.order_by(ProjectIdea.created_at.desc())
+
+    ideas = query.all()
+
+    return jsonify({
+        "ideas": [serialize_public_idea(idea) for idea in ideas],
+        "login_required_for": [
+            "full description",
+            "evidence",
+            "novelty analysis",
+            "custom idea generation"
+        ]
+    }), 200
+
+
+# ------------------------------------------------------------------
+# Authenticated Idea Generation (Segment 3.1)
+# ------------------------------------------------------------------
+
+@app.route("/api/ideas/generate", methods=["POST"])
+@jwt_required()
+def generate_idea():
+    """
+    Evidence-anchored idea generation for authenticated users.
+    Imports generation module ONLY here for structural safety.
+    """
+    from backend.generation.generator import generate_idea as do_generate
+
+    data = request.get_json() or {}
+    query = data.get('query')
+    domain_id = data.get('domain_id')
+
+    if not query or not domain_id:
+        return jsonify({"error": "query and domain_id required"}), 400
+
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    result = do_generate(query, domain_id, user_id)
+
+    if 'error' in result:
+        return jsonify(result), 400
+
+    return jsonify(result), 201
+
 # ------------------------------------------------------------------
 # Entry
 # ------------------------------------------------------------------
