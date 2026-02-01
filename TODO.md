@@ -1,3 +1,4 @@
-- [ ] Wrap filter bar in subtle container with bg-neutral-900/60 border border-neutral-800 rounded-lg p-4
-- [ ] Style filter spans as inactive controls: border border-neutral-700 bg-neutral-900 hover:border-neutral-600 px-4 py-2 rounded text-neutral-300
-- [ ] Add hover affordances to populated cards: hover:border-neutral-600 hover:bg-neutral-800/60 cursor-pointer transition-colors
+- [x] Add "Conceptual breakdown" section to IdeaDetail.jsx below "Evidence & confidence"
+- [x] Include 3 conceptual blocks: Bias detection, Triage prioritization, Fairness metrics
+- [x] Style each block as vertical cards with specified classes
+- [x] Ensure headings and descriptions match the design language
