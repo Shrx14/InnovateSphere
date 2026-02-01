@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { FiHome, FiCpu, FiSettings, FiLogOut, FiMenu, FiX, FiZap, FiShield } from 'react-icons/fi';
 
+const ENABLE_LEGACY_UI = false;
+
 const DashboardLayout = ({ children, onLogout, currentPage, onPageChange, user }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -100,20 +102,24 @@ const DashboardLayout = ({ children, onLogout, currentPage, onPageChange, user }
                 onClick={() => onPageChange('dashboard')}
               />
               {user?.role === 'admin' ? (
-                <NavLink
-                  icon={FiShield}
-                  text="Admin Dashboard"
-                  isActive={currentPage === 'admin'}
-                  onClick={() => onPageChange('admin')}
-                />
+                ENABLE_LEGACY_UI && (
+                  <NavLink
+                    icon={FiShield}
+                    text="Admin Dashboard"
+                    isActive={currentPage === 'admin'}
+                    onClick={() => onPageChange('admin')}
+                  />
+                )
               ) : (
                 <>
-                  <NavLink
-                    icon={FiCpu}
-                    text="Project Ideas"
-                    isActive={currentPage === 'projects'}
-                    onClick={() => onPageChange('projects')}
-                  />
+                  {ENABLE_LEGACY_UI && (
+                    <NavLink
+                      icon={FiCpu}
+                      text="Project Ideas"
+                      isActive={currentPage === 'projects'}
+                      onClick={() => onPageChange('projects')}
+                    />
+                  )}
                   <NavLink
                     icon={FiSettings}
                     text="Settings"

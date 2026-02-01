@@ -1,12 +1,22 @@
 import React from 'react';
-import InnovateSphereAuth from './components/InnovateSphereAuth';
-import './App.css';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+
+import AppShell from './app/layout/AppShell';
+import LandingPage from './app/landing/LandingPage';
+import IdeaDetail from './app/idea/IdeaDetail';
+import ReviewQueue from './app/admin/ReviewQueue';
 
 function App() {
   return (
-    <div className="App">
-      <InnovateSphereAuth />
-    </div>
+    <Router>
+      <AppShell>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/idea/:id" element={<IdeaDetail />} />
+          <Route path="/admin/review" element={<ReviewQueue />} />
+        </Routes>
+      </AppShell>
+    </Router>
   );
 }
 

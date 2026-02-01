@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from './DashboardLayout';
 import Settings from './Settings';
-import ProjectIdeas from './ProjectIdeas';
-import AdminDashboard from './AdminDashboard';
+import ProjectIdeas from '../legacy/ProjectIdeas';
+import AdminDashboard from '../legacy/AdminDashboard';
 import { API_BASE_URL } from '../config';
 
 const InnovateSphereAuth = () => {
@@ -437,7 +437,12 @@ const InnovateSphereAuth = () => {
       switch(currentPage) {
         case 'admin':
           if (user?.role === 'admin') {
-            return <AdminDashboard user={user} />;
+            return (
+              <div className="max-w-4xl mx-auto text-center">
+                <h2 className="text-3xl font-bold mb-8 text-orange-600">Legacy UI Deprecated</h2>
+                <p className="text-gray-600">This component has been moved to src/legacy/ for reference. Enable ENABLE_LEGACY_UI to re-enable.</p>
+              </div>
+            );
           } else {
             return (
               <div className="max-w-4xl mx-auto text-center">
@@ -449,14 +454,19 @@ const InnovateSphereAuth = () => {
         case 'settings':
           return <Settings user={user} />;
         case 'projects':
-          return <ProjectIdeas user={user} />;
+          return (
+            <div className="max-w-4xl mx-auto text-center">
+              <h2 className="text-3xl font-bold mb-8 text-orange-600">Legacy UI Deprecated</h2>
+              <p className="text-gray-600">This component has been moved to src/legacy/ for reference. Enable ENABLE_LEGACY_UI to re-enable.</p>
+            </div>
+          );
         default:
           return (
             <div className="max-w-6xl mx-auto">
               <h2 className="text-3xl font-bold mb-8 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 Welcome back, {user?.username}! 👋
               </h2>
-              
+
               {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
@@ -504,7 +514,7 @@ const InnovateSphereAuth = () => {
                 <p className="text-lg mb-6 opacity-90">
                   Our AI is ready to help you generate innovative project ideas tailored to your interests and skill level.
                 </p>
-                <button 
+                <button
                   onClick={() => setCurrentPage('projects')}
                   className="bg-white text-blue-600 font-semibold py-3 px-8 rounded-full hover:bg-gray-100 transition-colors duration-200"
                 >
