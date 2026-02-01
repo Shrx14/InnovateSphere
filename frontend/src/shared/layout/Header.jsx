@@ -3,25 +3,36 @@ import { Link } from 'react-router-dom';
 
 const Header = () => {
   return (
-    <header className="sticky top-0 z-50 bg-neutral-950/80 backdrop-blur border-b border-neutral-800">
+    <header className="sticky top-0 z-50 bg-neutral-950/70 backdrop-blur border-b border-neutral-800">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        <div className="text-sm font-semibold tracking-wide">
+        <Link
+          to="/"
+          className="text-sm font-semibold tracking-wide text-neutral-200 hover:text-neutral-100 transition"
+        >
           InnovateSphere
-        </div>
+        </Link>
 
-        <nav className="flex items-center gap-6 text-sm text-neutral-400">
-          <Link to="/" className="hover:text-neutral-200 transition">
-            Explore
-          </Link>
-          <Link to="/login" className="hover:text-neutral-200 transition">
-            Sign in
-          </Link>
-          <Link
-            to="/register"
-            className="px-4 py-2 rounded-md border border-neutral-700 hover:border-neutral-500 text-neutral-200 transition"
-          >
-            Get started
-          </Link>
+        <nav aria-label="Primary navigation">
+          <ul className="flex items-center gap-6 text-sm text-neutral-400">
+            <li>
+              <Link to="/explore" className="hover:text-neutral-200 transition">
+                Explore
+              </Link>
+            </li>
+            <li>
+              <Link to="/login" className="hover:text-neutral-200 transition">
+                Sign in
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/register"
+                className="px-4 py-2 rounded-md border border-neutral-700 hover:border-neutral-500 text-neutral-200 transition"
+              >
+                Get started
+              </Link>
+            </li>
+          </ul>
         </nav>
       </div>
     </header>

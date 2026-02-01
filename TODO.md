@@ -1,0 +1,6 @@
+- [ ] Revise hero headline to "Project ideas from research evidence." with line break.
+- [ ] Shorten hero subtext to one sentence.
+- [ ] Change CTAs to "Explore ideas" and "Sign up".
+- [ ] Shorten feature descriptions for clarity.
+- [ ] Adjust section padding and max-widths for readability.
+- [ ] Ensure visual hierarchy is obvious.
