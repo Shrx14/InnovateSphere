@@ -2,6 +2,7 @@ import datetime
 import logging
 from backend.retrieval.arxiv_client import search_arxiv
 from backend.retrieval.github_client import search_github
+from backend.retrieval.source_reputation import get_source_reputation
 
 def retrieve_sources(
     query,
@@ -40,6 +41,13 @@ def retrieve_sources(
         if url and url not in seen_urls:
             seen_urls.add(url)
             unique_sources.append(source)
+
+    reputation = get_source_reputation()
+
+    for src in unique_sources:
+        rep = reputation.get(src.get("url"), {})
+        src["admin_rejected_count"] = rep.get("rejected", 0)
+        src["admin_validated_count"] = rep.get("validated", 0)
 
     # Apply simple ranking
     def sort_key(source):

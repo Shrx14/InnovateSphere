@@ -1,111 +1,192 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import json
 import logging
 from datetime import datetime, timedelta
 
+from backend.config import Config
 from backend.db import db
 from backend.models import (
     ProjectIdea,
     IdeaRequest,
     IdeaSource,
     Domain,
-    AdminVerdict,
 )
 from backend.retrieval.orchestrator import retrieve_sources
 from backend.semantic.filter import filter_sources
 from backend.semantic.ranker import rank_sources
 from backend.services.novelty_service import analyze_novelty
 from backend.ai_registry import get_active_ai_pipeline_version
-from .prompt_builder import build_generation_prompt
+from backend.ai.llm_client import generate_json
+from backend.ai.prompts import (
+    PASS1_SYSTEM,
+    PASS1_PROMPT_TEMPLATE,
+    PASS2_SYSTEM,
+    PASS2_PROMPT_TEMPLATE,
+    PASS3_SYSTEM,
+    PASS3_PROMPT_TEMPLATE,
+    PASS4_PROMPT_TEMPLATE,
+)
 from .schemas import validate_generated_idea
+from .constraints import build_hitl_constraints, is_rejected_pattern
 
 logger = logging.getLogger(__name__)
 
 
-def check_evidence_sufficiency(sources: list, novelty_score: float) -> Optional[str]:
-    if len(sources) < 4:
+# Evidence sufficiency gate (cheap, pre-LLM)
+def check_evidence_sufficiency(
+    sources: List[Dict[str, Any]], novelty_score: float
+) -> Optional[str]:
+    if len(sources) < Config.MIN_EVIDENCE_REQUIRED:
         return "evidence_insufficient_count"
+
     if len({s.get("source_type") for s in sources}) < 2:
         return "evidence_insufficient_diversity"
-    if novelty_score < 45:
+
+    if novelty_score < 40:
         return "novelty_below_threshold"
+
     return None
 
 
-def mock_llm_generate(prompt: str) -> str:
-    return json.dumps({
-        "title": "AI-Powered Code Review Assistant",
-        "problem_formulation": {
-            "context": "Manual code reviews are slow and inconsistent.",
-            "why_this_problem_matters": "Improves software quality and velocity."
-        },
-        "technology_choices": [{"technology": "Python"}],
-        "evidence_sources": []
-    })
-
-
+# HITL guardrails (domain-level safety)
 def check_hitl_guardrails(domain_id: int):
     cutoff = datetime.utcnow() - timedelta(days=30)
 
     ideas = ProjectIdea.query.filter(
         ProjectIdea.domain_id == domain_id,
-        ProjectIdea.created_at >= cutoff
+        ProjectIdea.created_at >= cutoff,
     ).all()
 
     if not ideas:
         return None
 
-    bad_ideas = 0
-    for idea in ideas:
-        if (
-            idea.evidence_strength == "low"
-            or idea.hallucination_risk_level == "high"
-            or idea.novelty_confidence == "low"
-        ):
-            bad_ideas += 1
+    bad = sum(
+        1
+        for idea in ideas
+        if idea.evidence_strength == "low"
+        or idea.hallucination_risk_level == "high"
+        or idea.novelty_confidence == "low"
+    )
 
-    if bad_ideas / len(ideas) > 0.5:
+    if bad / len(ideas) > 0.5:
         return {
             "error": "Idea generation blocked",
-            "reason": "Domain exhibits sustained low-quality or high-risk ideas",
+            "reason": "Sustained low-quality output in this domain",
         }
+
     return None
 
 
-def apply_hitl_filters(sources: list) -> list:
-    if not sources:
-        return sources
+# Grounding enforcement (critical)
+def enforce_grounding(final: Dict[str, Any]):
+    source_ids = {str(s["source_id"]) for s in final.get("evidence_sources", [])}
 
-    for i, src in enumerate(sources):
-        src.setdefault("score", max(0, 100 - i))
+    for section in (
+        final["problem_formulation"],
+        final["related_work_synthesis"],
+        final["proposed_contribution"],
+    ):
+        for sid in section["evidence_basis"]:
+            if sid not in source_ids:
+                raise ValueError(f"Ungrounded evidence reference: {sid}")
 
-    rejected = {
-        r[0] for r in
-        db.session.query(IdeaSource.url)
-        .join(AdminVerdict)
-        .filter(AdminVerdict.verdict == "rejected")
-        .all()
-    }
 
-    validated = {
-        r[0] for r in
-        db.session.query(IdeaSource.url)
-        .join(AdminVerdict)
-        .filter(AdminVerdict.verdict == "validated")
-        .all()
-    }
+# Multi-pass LLM pipeline (core)
+def multi_pass_llm_generate(
+    query: str,
+    domain: str,
+    sources: List[Dict[str, Any]],
+    novelty: Dict[str, Any],
+    constraints: Dict[str, Any],
+) -> Dict[str, Any]:
 
+    # Apply HITL source penalties (deterministic weighting)
     for src in sources:
-        if src.get("url") in rejected:
-            src["score"] -= 2
-        elif src.get("url") in validated:
-            src["score"] += 1
+        url = src.get("url")
+        penalty = constraints["source_penalties"].get(url, 1.0)
+        src["_hitl_weight"] = penalty
 
-        src["score"] = max(0, src["score"])
+    # Sort sources by HITL weight descending (higher weight first)
+    sources = sorted(sources, key=lambda s: s["_hitl_weight"], reverse=True)
 
-    return sorted(sources, key=lambda s: s["score"], reverse=True)
+    sources = sources[: Config.MAX_SOURCES_FOR_LLM]
+
+    # Inject HITL constraints into prompts
+    pass1_system = PASS1_SYSTEM
+    if constraints["domain_strictness"] > 1.0:
+        pass1_system += "\n\nADDITIONAL CONSTRAINTS:\n- Use conservative analysis and avoid speculative gaps.\n- Require stronger evidence for any identified limitations."
+
+    penalized_urls = [url for url, mult in constraints["source_penalties"].items() if mult < 1.0]
+    if penalized_urls:
+        pass1_system += "\n- Avoid over-reliance on sources that have been previously rejected by reviewers."
+
+    # PASS 1 — idea space analysis
+    analysis = generate_json(
+        pass1_system
+        + PASS1_PROMPT_TEMPLATE.format(
+            domain=domain,
+            sources="\n".join(
+                f"[{i}] {s['title']} ({s['source_type']})"
+                for i, s in enumerate(sources)
+            ),
+        )
+    )
+
+    # PASS 2 — problem framing
+    idea = generate_json(
+        PASS2_SYSTEM
+        + PASS2_PROMPT_TEMPLATE.format(
+            analysis=json.dumps(analysis),
+            context=query,
+        )
+    )
+
+    # PASS 3 — evidence validation
+    evidence = generate_json(
+        PASS3_SYSTEM
+        + PASS3_PROMPT_TEMPLATE.format(
+            idea=json.dumps(idea),
+            sources="\n".join(
+                f"[{i}] {s['title']} — {s['url']}"
+                for i, s in enumerate(sources)
+            ),
+        )
+    )
+
+    if len(evidence.get("validated_sources", [])) < Config.MIN_EVIDENCE_REQUIRED:
+        raise ValueError("Insufficient validated evidence")
+
+    validated_ids = {
+        str(s["id"]): s for s in evidence["validated_sources"]
+    }
+
+    # Enforce admin-validated evidence preference
+    validated_urls = {
+        s["url"] for s in evidence["validated_sources"]
+    }
+    sources = [
+        s for s in sources
+        if s["url"] in validated_urls
+    ]
+
+    # PASS 4 — grounded assembly
+    final = generate_json(
+        PASS4_PROMPT_TEMPLATE.format(
+            analysis=json.dumps(analysis),
+            evidence=json.dumps(evidence),
+            novelty=json.dumps(novelty),
+        )
+    )
+
+    for src in final["evidence_sources"]:
+        if str(src["source_id"]) not in validated_ids:
+            raise ValueError("PASS4 used non-validated source")
+
+    enforce_grounding(final)
+    return final
 
 
+# Main entry: generate_idea
 def generate_idea(query: str, domain_id: int, user_id: int) -> Dict[str, Any]:
     domain = Domain.query.get(domain_id)
     if not domain:
@@ -117,21 +198,24 @@ def generate_idea(query: str, domain_id: int, user_id: int) -> Dict[str, Any]:
 
     retrieved = retrieve_sources(query=query, domain=domain.name)
     filtered = filter_sources(retrieved.get("sources", []), query)
-    ranked = apply_hitl_filters(rank_sources(filtered, query)[:10])
+    ranked = rank_sources(filtered, query)
 
     novelty_input = "\n".join(
         f"[{s['source_type']}] {s['title']}" for s in ranked
     )
     novelty = analyze_novelty(novelty_input, domain.name)
-    novelty_score = novelty.get("novelty_score", 0)
 
-    gate_error = check_evidence_sufficiency(ranked, novelty_score)
+    gate_error = check_evidence_sufficiency(ranked, novelty.get("novelty_score", 0))
     if gate_error:
         return {"error": gate_error}
 
-    prompt = build_generation_prompt(query, domain.name, ranked, novelty)
-    parsed = validate_generated_idea(json.loads(mock_llm_generate(prompt))).dict()
+    # Build HITL constraints
+    constraints = build_hitl_constraints(domain.name, ranked)
 
+    final = multi_pass_llm_generate(query, domain.name, ranked, novelty, constraints)
+    parsed = validate_generated_idea(final).dict()
+
+    # Persist idea + sources
     idea = ProjectIdea(
         title=parsed["title"],
         problem_statement=parsed["problem_formulation"]["context"],
@@ -149,15 +233,31 @@ def generate_idea(query: str, domain_id: int, user_id: int) -> Dict[str, Any]:
     db.session.flush()
 
     for src in parsed["evidence_sources"]:
-        db.session.add(IdeaSource(
-            idea_id=idea.id,
-            source_type=src["source_type"],
-            title=src["title"],
-            url=src["url"],
-            summary=src.get("used_for"),
-        ))
+        db.session.add(
+            IdeaSource(
+                idea_id=idea.id,
+                source_type=src["source_type"],
+                title=src["title"],
+                url=src["url"],
+                summary=src["used_for"],
+            )
+        )
 
     db.session.add(IdeaRequest(user_id=user_id, idea_id=idea.id))
     db.session.commit()
 
-    return {"idea": parsed, "novelty_score": novelty_score}
+    # Compute metadata
+    penalized_sources_count = len([url for url, mult in constraints["source_penalties"].items() if mult < 1.0])
+    validated_sources = [s for s in parsed["evidence_sources"] if s["url"] in constraints["source_penalties"]]
+    validated_source_ratio = len(validated_sources) / len(parsed["evidence_sources"]) if parsed["evidence_sources"] else 0.0
+
+    return {
+        "idea": parsed,
+        "novelty_score": parsed["novelty_positioning"]["novelty_score"],
+        "generation_metadata": {
+            "hitl_influenced": True,
+            "penalized_sources_count": penalized_sources_count,
+            "domain_strictness": constraints["domain_strictness"],
+            "validated_source_ratio": validated_source_ratio
+        }
+    }

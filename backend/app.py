@@ -27,6 +27,7 @@ from backend.models import (
     IdeaFeedback,
     AdminVerdict,
 )
+from backend.health.startup_checks import run_startup_checks
 
 # ------------------------------------------------------------------
 # Environment & Config
@@ -96,6 +97,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 Config.log_config_startup()
+run_startup_checks()
 
 # ------------------------------------------------------------------
 # Blueprints

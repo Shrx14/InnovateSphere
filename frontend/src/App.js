@@ -17,7 +17,11 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/explore" element={<ExplorePage />} />
           <Route path="/idea/:id" element={<IdeaDetail />} />
-          <Route path="/admin/review" element={<ReviewQueue />} />
+          <Route path="/admin/review" element={
+            <ProtectedRoute role="admin">
+              <ReviewQueue />
+            </ProtectedRoute>
+          } />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Routes>
