@@ -24,6 +24,7 @@ from backend.ai.prompts import (
     PASS2_PROMPT_TEMPLATE,
     PASS3_SYSTEM,
     PASS3_PROMPT_TEMPLATE,
+    PASS4_SYSTEM,
     PASS4_PROMPT_TEMPLATE,
 )
 from .schemas import validate_generated_idea
@@ -168,10 +169,12 @@ def multi_pass_llm_generate(
         s for s in sources
         if s["url"] in validated_urls
     ]
+    # Preserve HITL weighting order — do not re-sort
 
     # PASS 4 — grounded assembly
     final = generate_json(
-        PASS4_PROMPT_TEMPLATE.format(
+        PASS4_SYSTEM
+        + PASS4_PROMPT_TEMPLATE.format(
             analysis=json.dumps(analysis),
             evidence=json.dumps(evidence),
             novelty=json.dumps(novelty),
@@ -215,6 +218,10 @@ def generate_idea(query: str, domain_id: int, user_id: int) -> Dict[str, Any]:
     final = multi_pass_llm_generate(query, domain.name, ranked, novelty, constraints)
     parsed = validate_generated_idea(final).dict()
 
+    pattern_check = is_rejected_pattern(parsed, constraints)
+    if pattern_check:
+        return pattern_check
+
     # Persist idea + sources
     idea = ProjectIdea(
         title=parsed["title"],
@@ -231,6 +238,10 @@ def generate_idea(query: str, domain_id: int, user_id: int) -> Dict[str, Any]:
 
     db.session.add(idea)
     db.session.flush()
+
+    idea.quality_score_cached = idea.quality_score
+    idea.novelty_score_cached = parsed["novelty_positioning"]["novelty_score"]
+    idea.novelty_context = novelty
 
     for src in parsed["evidence_sources"]:
         db.session.add(

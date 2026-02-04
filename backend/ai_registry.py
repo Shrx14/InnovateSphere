@@ -6,7 +6,7 @@ This module centralizes AI pipeline management to ensure future-proof evolution.
 """
 
 from backend.db import db
-from backend.models import AiPipelineVersion
+from backend.models import AiPipelineVersion, PromptVersion
 from backend.config import Config
 
 
@@ -31,3 +31,25 @@ def get_active_ai_pipeline_version():
         # In case of DB issues, fallback to config
         print(f"Warning: Could not retrieve active AI pipeline version: {e}")
         return Config.DEFAULT_AI_PIPELINE_VERSION
+
+
+def get_active_prompt_version():
+    """
+    Retrieves the currently active prompt version.
+
+    Returns:
+        dict: The active prompts JSON, or None if no active version is found.
+
+    This function queries the prompt_versions table for the active version.
+    If no active version is found, it returns None.
+    """
+    try:
+        active_version = PromptVersion.query.filter_by(is_active=True).first()
+        if active_version:
+            return active_version.prompts_json
+        else:
+            return None
+    except Exception as e:
+        # In case of DB issues, fallback to None
+        print(f"Warning: Could not retrieve active prompt version: {e}")
+        return None

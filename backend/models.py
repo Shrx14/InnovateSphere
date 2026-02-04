@@ -64,6 +64,16 @@ class AiPipelineVersion(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class PromptVersion(db.Model):
+    __tablename__ = "prompt_versions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    prompts_json = db.Column(db.JSON, nullable=False)
+    is_active = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 # ----------------------------
 # Analytics + HITL Core
 # ----------------------------
@@ -89,6 +99,9 @@ class ProjectIdea(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     view_count = db.Column(db.Integer, default=0, nullable=False)
+    quality_score_cached = db.Column(db.Integer)
+    novelty_score_cached = db.Column(db.Integer)
+    novelty_context = db.Column(db.JSON)
 
     # Relationships
     domain = db.relationship("Domain", back_populates="project_ideas")
@@ -286,3 +299,12 @@ class AdminVerdict(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     idea = db.relationship("ProjectIdea", back_populates="admin_verdict")
+
+
+class IdeaView(db.Model):
+    __tablename__ = "idea_views"
+
+    id = db.Column(db.Integer, primary_key=True)
+    idea_id = db.Column(db.Integer, db.ForeignKey("project_ideas.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    viewed_at = db.Column(db.DateTime, default=datetime.utcnow)

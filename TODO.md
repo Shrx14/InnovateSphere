@@ -1,4 +1,4 @@
-# Cosine Similarity Implementation Task
-
-## Tasks
-- [x] Update `_cosine_similarity` function in `backend/semantic/filter.py` to use the exact formula: `den = np.linalg.norm(a) * np.linalg.norm(b); sim = np.dot(a, b) / den if den else 0.0`
+- [x] Add PromptVersion model to backend/models.py
+- [x] Add get_active_prompt_version function to backend/ai_registry.py
+- [x] Refactor backend/ai/prompts.py to load prompts from DB with defaults
+- [x] Update backend/generation/generator.py to use prompts dict

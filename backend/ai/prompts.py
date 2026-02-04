@@ -1,10 +1,12 @@
 # backend/ai/prompts.py
 
+from backend.ai_registry import get_active_prompt_version
+
 # ==============================
-# PASS 1 — IDEA SPACE ANALYSIS
+# DEFAULT PROMPTS
 # ==============================
 
-PASS1_SYSTEM = """
+DEFAULT_PASS1_SYSTEM = """
 You are a senior research analyst.
 
 Your ONLY task is to analyze the existing idea space.
@@ -19,7 +21,7 @@ You must:
 If you propose a solution, the response is INVALID.
 """
 
-PASS1_PROMPT_TEMPLATE = """
+DEFAULT_PASS1_PROMPT_TEMPLATE = """
 Domain: {domain}
 
 Retrieved Sources (titles only):
@@ -48,12 +50,7 @@ Rules:
 - No solutions
 """
 
-
-# ==============================
-# PASS 2 — PROBLEM FORMULATION
-# ==============================
-
-PASS2_SYSTEM = """
+DEFAULT_PASS2_SYSTEM = """
 You are an engineering problem-framing expert.
 
 Your task is to define a SINGLE, well-scoped problem
@@ -63,7 +60,7 @@ DO NOT design a solution.
 DO NOT describe system architecture.
 """
 
-PASS2_PROMPT_TEMPLATE = """
+DEFAULT_PASS2_PROMPT_TEMPLATE = """
 Analysis Output:
 {analysis}
 
@@ -88,12 +85,7 @@ Rules:
 - No solution description
 """
 
-
-# ==============================
-# PASS 3 — EVIDENCE VALIDATION
-# ==============================
-
-PASS3_SYSTEM = """
+DEFAULT_PASS3_SYSTEM = """
 You are a strict evidence auditor.
 
 You must validate sources that SUPPORT the defined problem.
@@ -101,7 +93,7 @@ You may ONLY select from the provided sources.
 Hallucinated or external sources are STRICTLY forbidden.
 """
 
-PASS3_PROMPT_TEMPLATE = """
+DEFAULT_PASS3_PROMPT_TEMPLATE = """
 Problem Definition:
 {idea}
 
@@ -127,12 +119,7 @@ Rules:
 - Do NOT invent sources
 """
 
-
-# ==============================
-# PASS 4 — SOLUTION SYNTHESIS
-# ==============================
-
-PASS4_SYSTEM = """
+DEFAULT_PASS4_SYSTEM = """
 You are a senior systems architect.
 
 Your task is to synthesize a solution that is:
@@ -144,7 +131,7 @@ Every claim MUST be supported by source IDs.
 If a claim cannot be supported, DO NOT include it.
 """
 
-PASS4_PROMPT_TEMPLATE = """
+DEFAULT_PASS4_PROMPT_TEMPLATE = """
 Validated Evidence:
 {evidence}
 
@@ -189,3 +176,62 @@ Return STRICT JSON:
 
 If grounding rules cannot be satisfied, return an EMPTY JSON object.
 """
+
+# Load active prompts from DB
+_ACTIVE = get_active_prompt_version()
+
+# Guardrail 2 — validate prompt schema
+REQUIRED_KEYS = {
+    "PASS1_SYSTEM",
+    "PASS1_PROMPT_TEMPLATE",
+    "PASS2_SYSTEM",
+    "PASS2_PROMPT_TEMPLATE",
+    "PASS3_SYSTEM",
+    "PASS3_PROMPT_TEMPLATE",
+    "PASS4_SYSTEM",
+    "PASS4_PROMPT_TEMPLATE",
+}
+
+if _ACTIVE and not REQUIRED_KEYS.issubset(_ACTIVE):
+    raise RuntimeError("Incomplete prompt version in DB")
+
+# Fallback to defaults if DB is empty
+PASS1_SYSTEM = (
+    _ACTIVE.get("PASS1_SYSTEM")
+    if _ACTIVE else DEFAULT_PASS1_SYSTEM
+)
+
+PASS1_PROMPT_TEMPLATE = (
+    _ACTIVE.get("PASS1_PROMPT_TEMPLATE")
+    if _ACTIVE else DEFAULT_PASS1_PROMPT_TEMPLATE
+)
+
+PASS2_SYSTEM = (
+    _ACTIVE.get("PASS2_SYSTEM")
+    if _ACTIVE else DEFAULT_PASS2_SYSTEM
+)
+
+PASS2_PROMPT_TEMPLATE = (
+    _ACTIVE.get("PASS2_PROMPT_TEMPLATE")
+    if _ACTIVE else DEFAULT_PASS2_PROMPT_TEMPLATE
+)
+
+PASS3_SYSTEM = (
+    _ACTIVE.get("PASS3_SYSTEM")
+    if _ACTIVE else DEFAULT_PASS3_SYSTEM
+)
+
+PASS3_PROMPT_TEMPLATE = (
+    _ACTIVE.get("PASS3_PROMPT_TEMPLATE")
+    if _ACTIVE else DEFAULT_PASS3_PROMPT_TEMPLATE
+)
+
+PASS4_SYSTEM = (
+    _ACTIVE.get("PASS4_SYSTEM")
+    if _ACTIVE else DEFAULT_PASS4_SYSTEM
+)
+
+PASS4_PROMPT_TEMPLATE = (
+    _ACTIVE.get("PASS4_PROMPT_TEMPLATE")
+    if _ACTIVE else DEFAULT_PASS4_PROMPT_TEMPLATE
+)

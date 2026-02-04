@@ -5,11 +5,14 @@ import bcrypt
 import logging
 from datetime import datetime
 from dotenv import load_dotenv
+from functools import wraps
 
 from flask import Flask, request, jsonify, g, session
 from flask_cors import CORS
 from flask_caching import Cache
 from flask_jwt_extended import jwt_required, get_jwt, get_jwt_identity
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from sqlalchemy import func
 from sqlalchemy.engine.url import make_url
 
@@ -27,6 +30,7 @@ from backend.models import (
     IdeaSource,
     IdeaFeedback,
     AdminVerdict,
+    IdeaView,
 )
 from backend.health.startup_checks import run_startup_checks
 
@@ -50,6 +54,12 @@ if not DATABASE_URL:
 # ------------------------------------------------------------------
 
 app = Flask(__name__)
+
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=[]
+)
 
 app.config.update(
     SQLALCHEMY_DATABASE_URI=DATABASE_URL,
@@ -415,15 +425,32 @@ def public_idea_detail(idea_id):
     if not idea:
         return jsonify({"error": "Idea not found"}), 404
 
-    # Increment view count (per-session deduplication)
-    viewed = session.get("viewed_idea_ids", set())
-    viewed = set(viewed)
+    # Increment view count (DB-based for authenticated users, session fallback for anonymous)
+    user_id = get_jwt_identity()
 
-    if idea.id not in viewed:
-        idea.view_count += 1
-        viewed.add(idea.id)
-        session["viewed_idea_ids"] = list(viewed)
-        db.session.commit()
+    if user_id:
+        # Authenticated user: check DB for previous view
+        already_viewed = IdeaView.query.filter(
+            IdeaView.idea_id == idea.id,
+            IdeaView.user_id == user_id
+        ).first()
+
+        if not already_viewed:
+            idea.view_count += 1
+            db.session.add(
+                IdeaView(idea_id=idea.id, user_id=user_id)
+            )
+            db.session.commit()
+    else:
+        # Anonymous user: fallback to session deduplication
+        viewed = session.get("viewed_idea_ids", set())
+        viewed = set(viewed)
+
+        if idea.id not in viewed:
+            idea.view_count += 1
+            viewed.add(idea.id)
+            session["viewed_idea_ids"] = list(viewed)
+            db.session.commit()
 
     return jsonify({
         "idea": {
@@ -556,8 +583,19 @@ def public_stats():
 # Authenticated Idea Generation (Segment 3.1)
 # ------------------------------------------------------------------
 
+def admin_bypass_limit(limit_str):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if require_admin():
+                return func(*args, **kwargs)
+            return limiter.limit(limit_str)(func)(*args, **kwargs)
+        return wrapper
+    return decorator
+
 @app.route("/api/ideas/generate", methods=["POST"])
 @jwt_required()
+@admin_bypass_limit("20/hour")
 def generate_idea():
     """
     Evidence-anchored idea generation for authenticated users.
