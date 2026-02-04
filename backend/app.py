@@ -481,6 +481,45 @@ def public_idea_detail(idea_id):
 
 
 # ------------------------------------------------------------------
+# User Analytics API (Segment 6.1)
+# ------------------------------------------------------------------
+
+@app.route("/api/ideas/mine", methods=["GET"])
+@jwt_required()
+def my_ideas():
+    user_id = get_current_user_id()
+
+    ideas = (
+        db.session.query(ProjectIdea)
+        .join(IdeaRequest, IdeaRequest.idea_id == ProjectIdea.id)
+        .join(Domain, Domain.id == ProjectIdea.domain_id)
+        .outerjoin(AdminVerdict)
+        .filter(IdeaRequest.user_id == user_id)
+        .order_by(ProjectIdea.created_at.desc())
+        .all()
+    )
+
+    return jsonify({
+        "ideas": [
+            {
+                "id": idea.id,
+                "title": idea.title,
+                "domain": idea.domain.name if idea.domain else None,
+                "novelty_score": idea.novelty_score_cached,
+                "quality_score": idea.quality_score_cached,
+                "status": (
+                    idea.admin_verdict.verdict
+                    if idea.admin_verdict
+                    else "pending"
+                ),
+                "created_at": idea.created_at.isoformat()
+            }
+            for idea in ideas
+        ]
+    }), 200
+
+
+# ------------------------------------------------------------------
 # Public Top Ideas, Domains, and Stats
 # ------------------------------------------------------------------
 

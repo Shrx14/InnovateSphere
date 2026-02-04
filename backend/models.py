@@ -98,6 +98,7 @@ class ProjectIdea(db.Model):
     is_validated = db.Column(db.Boolean, default=False, nullable=False)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # view_count added manually in Neon (no migration)
     view_count = db.Column(db.Integer, default=0, nullable=False)
     quality_score_cached = db.Column(db.Integer)
     novelty_score_cached = db.Column(db.Integer)
@@ -302,6 +303,7 @@ class AdminVerdict(db.Model):
     idea = db.relationship("ProjectIdea", back_populates="admin_verdict")
 
 
+# idea_views table added manually in Neon (no migration)
 class IdeaView(db.Model):
     __tablename__ = "idea_views"
 
