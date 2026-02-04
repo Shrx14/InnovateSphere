@@ -15,6 +15,7 @@ from backend.novelty.signals.similarity import compute_similarity_stats
 from backend.novelty.signals.specificity import compute_specificity
 from backend.novelty.signals.temporal import compute_temporal_signals
 from backend.novelty.normalization import determine_level
+from backend.novelty.explain import generate_explanation
 
 from backend.retrieval.cached_retrieval import cached_retrieve_sources
 from backend.semantic.cached_embedder import CachedEmbedder
@@ -120,10 +121,19 @@ class NoveltyAnalyzer:
 
         base = compute_base_score(signals)
         bonus = compute_bonuses(description, domain)
-        score = blend(base * 0.9, base + bonus)
+        hitl_penalty = self._compute_hitl_penalty(sources)
+        score = blend(base * 0.9, base + bonus + hitl_penalty)
 
         weighted = score * DOMAIN_NOVELTY_WEIGHT.get(domain.lower(), 1.0)
         stabilized = stabilize_score(description + domain, weighted, "Medium")
+
+        explanations = generate_explanation(
+            novelty_score=stabilized,
+            similarity_stats=sim_stats,
+            source_count=len(sources),
+            avg_popularity_penalty=saturation,
+            sources=sources,
+        )
 
         record("novelty.software.score", stabilized)
         trace_id = log_trace({"score": stabilized, "sources": len(sources)})
@@ -132,6 +142,7 @@ class NoveltyAnalyzer:
             "novelty_score": round(stabilized, 1),
             "novelty_level": determine_level(stabilized),
             "confidence": "High" if len(sources) >= 8 else "Medium",
+            "explanations": explanations,
             "engine": "software",
             "trace_id": trace_id,
             "debug": {

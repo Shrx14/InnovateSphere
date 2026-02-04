@@ -1,4 +1,3 @@
-- [x] Add PromptVersion model to backend/models.py
-- [x] Add get_active_prompt_version function to backend/ai_registry.py
-- [x] Refactor backend/ai/prompts.py to load prompts from DB with defaults
-- [x] Update backend/generation/generator.py to use prompts dict
+- [x] Add import for generate_explanation in backend/novelty/analyzer.py
+- [x] Call generate_explanation in the analyze method with required parameters
+- [x] Include "explanations" key in the return dictionary

@@ -6,6 +6,9 @@ def compute_similarities(description: str, sources: list, embedder) -> list:
         return []
 
     texts = [s.get("summary") or s.get("title", "") for s in sources]
+    if not any(texts):
+        return []
+
     vectors = embedder.encode(texts, normalize_embeddings=True)
     query_vec = embedder.encode([description], normalize_embeddings=True)[0]
 

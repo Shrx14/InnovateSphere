@@ -102,6 +102,7 @@ class ProjectIdea(db.Model):
     quality_score_cached = db.Column(db.Integer)
     novelty_score_cached = db.Column(db.Integer)
     novelty_context = db.Column(db.JSON)
+    idea_embedding = db.Column(db.JSON, nullable=True)
 
     # Relationships
     domain = db.relationship("Domain", back_populates="project_ideas")

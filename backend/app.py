@@ -10,7 +10,7 @@ from functools import wraps
 from flask import Flask, request, jsonify, g, session
 from flask_cors import CORS
 from flask_caching import Cache
-from flask_jwt_extended import jwt_required, get_jwt, get_jwt_identity
+from flask_jwt_extended import JWTManager, jwt_required, get_jwt, get_jwt_identity
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from sqlalchemy import func
@@ -100,6 +100,12 @@ except Exception:
     engine_opts = {}
 
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_opts
+
+# ------------------------------------------------------------------
+# JWT Manager
+# ------------------------------------------------------------------
+
+jwt_manager = JWTManager(app)
 
 # ------------------------------------------------------------------
 # Extensions
@@ -218,7 +224,7 @@ def serialize_full_idea(idea):
             else None,
             "requested_count": len(idea.requests),
             # Segment 3.2: Trust signals for authenticated users only
-            "quality_score": idea.quality_score,
+            "quality_score": idea.quality_score_cached,
             "novelty_confidence": idea.novelty_confidence,
             "evidence_strength": idea.evidence_strength,
             "admin_verdict": idea.admin_verdict.verdict if idea.admin_verdict else None,
@@ -497,10 +503,10 @@ def public_top_ideas():
         .all()
     )
 
-    # Step 2: rank in Python using computed metrics
+    # Step 2: rank in Python using cached metrics
     ideas = sorted(
         ideas,
-        key=lambda i: (i.quality_score, i.view_count),
+        key=lambda i: (i.quality_score_cached, i.view_count),
         reverse=True
     )[:10]
 
@@ -513,7 +519,7 @@ def public_top_ideas():
                 "tech_stack": i.tech_stack,
                 "domain": i.domain.name if i.domain else None,
                 "view_count": i.view_count,
-                "quality_score": i.quality_score,
+                "quality_score": i.quality_score_cached,
             }
             for i in ideas
         ]
