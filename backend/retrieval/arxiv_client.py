@@ -6,6 +6,9 @@ import datetime
 
 logger = logging.getLogger(__name__)
 
+def map_domain_to_external_category(domain):
+    return domain
+
 def search_arxiv(query, domain, max_results=10):
     """
     Search arXiv for papers matching the query and domain.

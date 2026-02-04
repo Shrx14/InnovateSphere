@@ -6,9 +6,10 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 
-from flask import Flask, request, jsonify, g
+from flask import Flask, request, jsonify, g, session
 from flask_cors import CORS
-from flask_jwt_extended import jwt_required, get_jwt
+from flask_caching import Cache
+from flask_jwt_extended import jwt_required, get_jwt, get_jwt_identity
 from sqlalchemy import func
 from sqlalchemy.engine.url import make_url
 
@@ -55,6 +56,18 @@ app.config.update(
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
     SECRET_KEY=Config.SECRET_KEY,
 )
+
+# ------------------------------------------------------------------
+# Caching
+# ------------------------------------------------------------------
+
+cache = Cache(
+    config={
+        "CACHE_TYPE": "SimpleCache",  # safe now, Redis later
+        "CACHE_DEFAULT_TIMEOUT": 300  # 5 minutes
+    }
+)
+cache.init_app(app)
 
 # ------------------------------------------------------------------
 # SQLAlchemy Engine Options (Neon-safe)
@@ -137,16 +150,13 @@ def require_admin():
 
 
 def get_current_user_id():
-    auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
-        return None
-    token = auth_header.split(" ", 1)[1]
+    """
+    Get current user ID using Flask-JWT-Extended's get_jwt_identity().
+    This standardizes JWT handling across the application.
+    """
     try:
-        payload = jwt.decode(
-            token, Config.JWT_SECRET, algorithms=[Config.JWT_ALGO]
-        )
-        return int(payload.get("sub"))
-    except jwt.InvalidTokenError:
+        return int(get_jwt_identity())
+    except (ValueError, TypeError):
         return None
 
 # ------------------------------------------------------------------
@@ -311,7 +321,16 @@ def admin_domains():
 # ------------------------------------------------------------------
 
 @app.route("/api/public/ideas", methods=["GET"])
+@cache.cached(timeout=300, query_string=True)
 def public_ideas():
+    """
+    Segment 2.2 — Logged-out idea browsing (DB-only).
+    No trust signals, no novelty, no AI.
+    """
+
+    domain = request.args.get("domain")
+    q = request.args.get("q")
+
     query = (
         ProjectIdea.query
         .outerjoin(AdminVerdict)
@@ -324,7 +343,33 @@ def public_ideas():
         )
     )
 
-    ideas = query.order_by(ProjectIdea.created_at.desc()).all()
+    # Domain filter
+    if domain:
+        query = query.join(Domain).filter(Domain.name == domain)
+
+    # Keyword search (simple + safe)
+    if q:
+        ilike = f"%{q.lower()}%"
+        query = query.filter(
+            db.or_(
+                func.lower(ProjectIdea.title).ilike(ilike),
+                func.lower(ProjectIdea.problem_statement).ilike(ilike),
+                func.lower(ProjectIdea.tech_stack).ilike(ilike),
+            )
+        )
+
+    page = max(int(request.args.get("page", 1)), 1)
+    limit = min(int(request.args.get("limit", 12)), 50)
+
+    total = query.count()
+
+    ideas = (
+        query
+        .order_by(ProjectIdea.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
 
     return jsonify({
         "ideas": [
@@ -334,9 +379,176 @@ def public_ideas():
                 "problem_statement": i.problem_statement,
                 "tech_stack": i.tech_stack,
                 "domain": i.domain.name if i.domain else None,
+                "created_at": i.created_at.isoformat(),
+            }
+            for i in ideas
+        ],
+        "meta": {
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "pages": (total + limit - 1) // limit,
+        }
+    }), 200
+
+
+@app.route("/api/public/ideas/<int:idea_id>", methods=["GET"])
+def public_idea_detail(idea_id):
+    """
+    Public endpoint to view individual idea details.
+    Increments view count only when idea is actually viewed.
+    """
+    idea = (
+        ProjectIdea.query
+        .outerjoin(AdminVerdict)
+        .filter(
+            ProjectIdea.id == idea_id,
+            ProjectIdea.is_public.is_(True),
+            db.or_(
+                AdminVerdict.verdict.is_(None),
+                AdminVerdict.verdict != "rejected"
+            )
+        )
+        .first()
+    )
+
+    if not idea:
+        return jsonify({"error": "Idea not found"}), 404
+
+    # Increment view count (per-session deduplication)
+    viewed = session.get("viewed_idea_ids", set())
+    viewed = set(viewed)
+
+    if idea.id not in viewed:
+        idea.view_count += 1
+        viewed.add(idea.id)
+        session["viewed_idea_ids"] = list(viewed)
+        db.session.commit()
+
+    return jsonify({
+        "idea": {
+            "id": idea.id,
+            "title": idea.title,
+            "problem_statement": idea.problem_statement,
+            "tech_stack": idea.tech_stack,
+            "domain": idea.domain.name if idea.domain else None,
+            "view_count": idea.view_count,
+            "created_at": idea.created_at.isoformat(),
+            "sources": [
+                {
+                    "source_type": s.source_type,
+                    "title": s.title,
+                    "url": s.url,
+                    "summary": s.summary,
+                }
+                for s in idea.sources
+            ],
+        }
+    }), 200
+
+
+# ------------------------------------------------------------------
+# Public Top Ideas, Domains, and Stats
+# ------------------------------------------------------------------
+
+@app.route("/api/public/top-ideas", methods=["GET"])
+@cache.cached()
+def public_top_ideas():
+    # Step 1: fetch a reasonable candidate pool from DB
+    ideas = (
+        ProjectIdea.query
+        .outerjoin(AdminVerdict)
+        .filter(
+            ProjectIdea.is_public.is_(True),
+            db.or_(
+                AdminVerdict.verdict.is_(None),
+                AdminVerdict.verdict != "rejected"
+            )
+        )
+        .order_by(ProjectIdea.view_count.desc())
+        .limit(50)
+        .all()
+    )
+
+    # Step 2: rank in Python using computed metrics
+    ideas = sorted(
+        ideas,
+        key=lambda i: (i.quality_score, i.view_count),
+        reverse=True
+    )[:10]
+
+    return jsonify({
+        "ideas": [
+            {
+                "id": i.id,
+                "title": i.title,
+                "problem_statement": i.problem_statement,
+                "tech_stack": i.tech_stack,
+                "domain": i.domain.name if i.domain else None,
+                "view_count": i.view_count,
+                "quality_score": i.quality_score,
             }
             for i in ideas
         ]
+    }), 200
+
+
+@app.route("/api/public/top-domains", methods=["GET"])
+@cache.cached()
+def public_top_domains():
+    rows = (
+        db.session.query(
+            Domain.name.label("domain"),
+            func.count(ProjectIdea.id).label("idea_count"),
+            func.coalesce(func.sum(ProjectIdea.view_count), 0).label("views")
+        )
+        .join(ProjectIdea)
+        .outerjoin(AdminVerdict)
+        .filter(
+            ProjectIdea.is_public.is_(True),
+            db.or_(
+                AdminVerdict.verdict.is_(None),
+                AdminVerdict.verdict != "rejected"
+            )
+        )
+        .group_by(Domain.id)
+        .order_by(func.count(ProjectIdea.id).desc())
+        .limit(10)
+        .all()
+    )
+
+    return jsonify({
+        "domains": [
+            {
+                "domain": r.domain,
+                "idea_count": int(r.idea_count),
+                "views": int(r.views),
+            }
+            for r in rows
+        ]
+    }), 200
+
+
+@app.route("/api/public/stats", methods=["GET"])
+@cache.cached()
+def public_stats():
+    total_public_ideas = (
+        ProjectIdea.query
+        .outerjoin(AdminVerdict)
+        .filter(
+            ProjectIdea.is_public.is_(True),
+            db.or_(
+                AdminVerdict.verdict.is_(None),
+                AdminVerdict.verdict != "rejected"
+            )
+        )
+        .count()
+    )
+
+    return jsonify({
+        "total_public_ideas": total_public_ideas,
+        "total_domains": Domain.query.count(),
+        "total_users": db.session.query(func.count()).select_from(User).scalar(),
     }), 200
 
 

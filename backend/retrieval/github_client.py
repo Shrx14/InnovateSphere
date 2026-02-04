@@ -8,6 +8,9 @@ import datetime
 
 logger = logging.getLogger(__name__)
 
+def map_domain_to_external_category(domain):
+    return domain
+
 def search_github(query, domain, max_results=5):
     """
     Search GitHub for repositories matching the query and domain.
@@ -59,9 +62,11 @@ def search_github(query, domain, max_results=5):
                 "source_type": "github",
                 "title": full_name,
                 "url": html_url,
-                "description": description,
-                "stars": stargazers_count,
-                "last_updated": last_updated
+                "summary": description,
+                "metadata": {
+                    "stars": stargazers_count,
+                    "last_updated": last_updated
+                }
             })
 
         logging.info("[GitHub] results returned | count=%d", len(results[:max_results]))

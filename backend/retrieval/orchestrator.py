@@ -72,6 +72,10 @@ def retrieve_sources(
     # Return at most limit results
     final_sources = ranked_sources[:limit]
 
+    # Tag as tier_1 before semantic filter
+    for src in final_sources:
+        src["retrieval_tier"] = "tier_1"
+
     # Optional semantic filtering stage
     if semantic_filter:
         try:
@@ -87,6 +91,18 @@ def retrieve_sources(
 
         except Exception:
             pass
+
+    for src in final_sources:
+        src["retrieval_tier"] = "tier_2"
+
+    # Add confidence scores
+    for src in final_sources:
+        confidence = (
+            0.6 * src.get("similarity_score", 0) +
+            0.2 * src.get("admin_validated_count", 0) -
+            0.2 * src.get("admin_rejected_count", 0)
+        )
+        src["confidence"] = max(0, min(1, confidence))  # Clamp to [0,1]
 
     logging.info(
         "Retrieval result | total_sources=%d | source_types=%s",

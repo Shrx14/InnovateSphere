@@ -88,6 +88,7 @@ class ProjectIdea(db.Model):
     is_validated = db.Column(db.Boolean, default=False, nullable=False)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    view_count = db.Column(db.Integer, default=0, nullable=False)
 
     # Relationships
     domain = db.relationship("Domain", back_populates="project_ideas")

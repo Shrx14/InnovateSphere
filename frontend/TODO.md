@@ -1,10 +1,7 @@
-# Admin Review Queue Implementation
+✅ Improvement 1: Debounce search input (optional)
 
-## Tasks
-- [x] Implement ReviewQueue.jsx with table layout
-- [x] Add data fetching from GET /api/admin/ideas/quality-review
-- [x] Render table rows with idea details
-- [x] Implement action buttons (Validate, Downgrade, Reject)
-- [x] Add optimistic updates and loading states
-- [x] Handle empty and loading states
-- [x] Ensure admin-like UI: serious, trustworthy, boring
+Right now, every keystroke triggers a request.
+
+📝 Track as non-blocking:
+
+Debounce keyword search to reduce API calls.

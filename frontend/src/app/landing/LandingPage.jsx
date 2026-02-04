@@ -1,7 +1,24 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 const LandingPage = () => {
+  const [topIdeas, setTopIdeas] = useState([]);
+  const [topDomains, setTopDomains] = useState([]);
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/public/top-ideas").then(r => r.json()),
+      fetch("/api/public/top-domains").then(r => r.json()),
+      fetch("/api/public/stats").then(r => r.json()),
+    ]).then(([ideas, domains, stats]) => {
+      setTopIdeas(ideas.ideas || []);
+      setTopDomains(domains.domains || []);
+      setStats(stats);
+    }).catch(() => {
+      // silent fail — landing page must never crash
+    });
+  }, []);
   return (
     <div className="relative overflow-hidden">
       
@@ -98,25 +115,33 @@ const LandingPage = () => {
           <div>
             <h3 className="text-xl font-medium mb-4">Top domains</h3>
             <ul className="space-y-2 text-neutral-400 text-sm">
-              <li>Artificial Intelligence</li>
-              <li>Healthcare & Biotech</li>
-              <li>Climate & Energy</li>
-              <li>Fintech & Systems</li>
-              <li>Human-Computer Interaction</li>
+              {topDomains.map((d, i) => (
+                <li key={i}>
+                  {d.domain} <span className="text-neutral-500">({d.idea_count})</span>
+                </li>
+              ))}
             </ul>
           </div>
 
           <div>
-            <h3 className="text-xl font-medium mb-4">Example ideas</h3>
+            <h3 className="text-xl font-medium mb-4">Top ideas</h3>
             <ul className="space-y-2 text-neutral-400 text-sm">
-              <li>Bias-aware clinical triage models</li>
-              <li>Carbon-aware scheduling systems</li>
-              <li>Explainable fraud detection pipelines</li>
-              <li>AI-assisted curriculum generation</li>
-              <li>Energy-efficient edge inference</li>
+              {topIdeas.map((idea) => (
+                <li key={idea.id}>
+                  {idea.title}
+                  <span className="ml-2 text-neutral-500">
+                    ({idea.domain})
+                  </span>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
+        {stats && (
+          <div className="mt-6 text-xs text-neutral-500">
+            {stats.total_public_ideas}+ ideas · {stats.total_domains} domains · {stats.total_users} users
+          </div>
+        )}
       </section>
     </div>
   );

@@ -18,3 +18,4 @@ transformers==4.38.2
 torch==2.2.1
 accelerate==0.27.2 # Helps load and run models efficiently
 PyJWT==2.8.0
+Flask-Caching>=2.1.0
