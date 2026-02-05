@@ -1,64 +1,83 @@
-// src/app/dashboard/UserDashboard.jsx
-import React, { useEffect, useState } from 'react';
-import api from '../../shared/api';
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import api from "../../shared/api";
 
-const UserDashboard = () => {
+export default function UserDashboard() {
   const [ideas, setIdeas] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/ideas/mine')
-      .then(res => setIdeas(res.data.ideas || []))
+    api.get("/ideas/mine")
+      .then(res => setIdeas(res.data.ideas))
       .finally(() => setLoading(false));
   }, []);
 
-  return (
-    <div className="max-w-7xl mx-auto px-6 py-16">
-      <h1 className="text-3xl font-light">
-        Your ideas
-      </h1>
+  if (loading) {
+    return <p className="text-sm text-gray-400">Loading ideas…</p>;
+  }
 
-      <p className="mt-2 text-sm text-neutral-400">
-        Generated ideas and their review status.
-      </p>
+  if (ideas.length === 0) {
+    return <p className="text-sm text-gray-400">No ideas generated yet.</p>;
+  }
 
-      {loading ? (
-        <p className="mt-12 text-neutral-500 text-sm">
-          Loading ideas…
-        </p>
-      ) : ideas.length === 0 ? (
-        <p className="mt-12 text-neutral-500 text-sm">
-          No ideas generated yet.
-        </p>
-      ) : (
-        <div className="mt-12 space-y-6">
-          {ideas.map((idea) => (
-            <div
-              key={idea.id}
-              className="border border-neutral-800 rounded-xl p-6 bg-neutral-900"
-            >
-              <div className="flex justify-between items-start">
-                <h2 className="text-lg font-medium text-neutral-100">
-                  {idea.title}
-                </h2>
-                <span className="text-xs text-neutral-500">
-                  {idea.admin_verdict || 'pending'}
-                </span>
-              </div>
+  const grouped = {
+    validated: ideas.filter(i => i.status === "validated"),
+    pending: ideas.filter(i => i.status === "pending"),
+    rejected: ideas.filter(i => i.status === "rejected" || i.status === "downgraded"),
+  };
 
-              <p className="mt-3 text-sm text-neutral-400">
-                Novelty score: {idea.novelty_score}%
-              </p>
-
-              <p className="mt-2 text-xs text-neutral-500">
-                Domain: {idea.domain}
-              </p>
+  const renderSection = (title, ideasList) => (
+    <div className="space-y-4">
+      <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wide">
+        {title}
+      </h3>
+      <div className="space-y-4">
+        {ideasList.map(idea => (
+          <motion.div
+            key={idea.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className={`border rounded-lg p-6 bg-gray-900 ${
+              idea.status === "validated"
+                ? "border-emerald-700/40 bg-emerald-950/20"
+                : "border-gray-800"
+            }`}
+          >
+            <div className="flex justify-between">
+              <h2 className="text-lg text-white font-medium">
+                {idea.title}
+              </h2>
+              <span className={`text-xs ${
+                idea.status === "validated"
+                  ? "text-emerald-400"
+                  : idea.status === "pending"
+                  ? "text-yellow-400"
+                  : "text-red-400"
+              }`}>
+                {idea.status}
+              </span>
             </div>
-          ))}
-        </div>
-      )}
+
+            <div className="mt-2 text-sm text-gray-400">
+              Domain: {idea.domain}
+            </div>
+
+            <div className="mt-3 flex gap-6 text-sm">
+              <span>Novelty: {idea.novelty_score}</span>
+              <span>Quality: {idea.quality_score}</span>
+            </div>
+          </motion.div>
+        ))}
+      </div>
     </div>
   );
-};
 
-export default UserDashboard;
+  return (
+    <div className="space-y-8">
+      {grouped.validated.length > 0 && renderSection("Validated", grouped.validated)}
+      {grouped.pending.length > 0 && renderSection("Pending", grouped.pending)}
+      {grouped.rejected.length > 0 && renderSection("Rejected", grouped.rejected)}
+    </div>
+  );
+}
