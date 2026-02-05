@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import { motion as motionTokens } from "../../shared/motionTokens";
 
 const LandingPage = () => {
   const [topIdeas, setTopIdeas] = useState([]);
@@ -24,7 +26,15 @@ const LandingPage = () => {
   }, []);
 
   const HeroStatBlock = () => (
-    <section className="animate-fade-in-up max-w-7xl mx-auto px-6 pt-32 pb-20">
+    <motion.section
+      initial={{ opacity: 0, y: motionTokens.translate.section }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: motionTokens.duration.normal / 1000,
+        ease: motionTokens.easing.standard,
+      }}
+      className="max-w-7xl mx-auto px-6 pt-32 pb-20"
+    >
       <div className="text-center">
         <h1 className="text-5xl font-light tracking-tight text-white mb-6">
           Project ideas from research evidence.
@@ -47,11 +57,11 @@ const LandingPage = () => {
           </Link>
         </div>
       </div>
-    </section>
+    </motion.section>
   );
 
   const DomainOverview = () => (
-    <section className="animate-fade-in-up max-w-7xl mx-auto px-6 mb-20">
+    <section className="max-w-7xl mx-auto px-6 mb-20">
       <div className="text-xs uppercase tracking-widest text-neutral-400 mb-8">Top domains</div>
       {loading ? (
         <div className="text-neutral-400">Loading domains...</div>
@@ -71,7 +81,15 @@ const LandingPage = () => {
   );
 
   const TopIdeasPreview = () => (
-    <section className="animate-fade-in-up max-w-7xl mx-auto px-6 pb-32">
+    <motion.section
+      initial={{ opacity: 0, y: motionTokens.translate.subtle }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: motionTokens.duration.normal / 1000,
+        ease: motionTokens.easing.standard,
+      }}
+      className="max-w-7xl mx-auto px-6 pb-32"
+    >
       <div className="text-xs uppercase tracking-widest text-neutral-400 mb-8">Top ideas</div>
       {loading ? (
         <div className="text-neutral-400">Loading ideas...</div>
@@ -99,7 +117,7 @@ const LandingPage = () => {
           {stats.total_public_ideas} ideas · {stats.total_domains} domains · {stats.total_users} users
         </div>
       )}
-    </section>
+    </motion.section>
   );
 
   return (

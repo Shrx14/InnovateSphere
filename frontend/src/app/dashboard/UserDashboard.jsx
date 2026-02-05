@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import api from "../../shared/api";
+import { motion as motionTokens } from "../../shared/motionTokens";
 
 export default function UserDashboard() {
   const [ideas, setIdeas] = useState([]);
@@ -31,13 +32,15 @@ export default function UserDashboard() {
       <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wide">
         {title}
       </h3>
-      <div className="space-y-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: motionTokens.duration.fast / 1000 }}
+        className="space-y-4"
+      >
         {ideasList.map(idea => (
-          <motion.div
+          <div
             key={idea.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
             className={`border rounded-lg p-6 bg-gray-900 ${
               idea.status === "validated"
                 ? "border-emerald-700/40 bg-emerald-950/20"
@@ -67,9 +70,9 @@ export default function UserDashboard() {
               <span>Novelty: {idea.novelty_score}</span>
               <span>Quality: {idea.quality_score}</span>
             </div>
-          </motion.div>
+          </div>
         ))}
-      </div>
+      </motion.div>
     </div>
   );
 

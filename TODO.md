@@ -1,28 +1,23 @@
-# Frontend Implementation Plan for InnovateSphere
+# Phase 6: Polish & Consistency - TODO
 
-## Phase 0 - Structural Foundations
-- [x] Verify UserShell.jsx and AdminShell.jsx exist
-- [x] Confirm routing split: /admin/* → AdminShell, /* → UserShell
-- [x] Update UserShell to use neutral color system (bg-neutral-950, etc.) per frontend_design_user.md
-- [x] Update LandingPage to remove forbidden gradient and update buttons to indigo accent per user design
-- [x] Add missing routes to App.jsx: /login, /register, /idea/:id, /generate, /admin/idea/:id
-- [x] Create GeneratePage.jsx for /generate route
-- [x] Create AdminIdeaDetail.jsx for /admin/idea/:id route
+## Motion Audit Refinement
+- [ ] Remove demo leftovers: Delete App-logo-spin @keyframes from App.css
+- [ ] Refine LandingPage.jsx: Keep hero entrance, primary sections entrance; remove minor text animations
+- [ ] Refine ExplorePage.jsx: Keep subtle list entrance; remove filters/pagination animations
+- [ ] Refine IdeaDetail.jsx: Keep page entrance; remove section-by-section animations
+- [ ] Refine UserDashboard.jsx: Remove per-card Framer Motion; keep single container entrance
+- [ ] Remove framer-motion dependency if no longer needed after refinements
 
-## Phase 1 - API Alignment
-- [ ] Verify/assume backend endpoints exist as listed in plan
-- [ ] Update components to use correct API calls (e.g., /api/public/*, /api/ideas/*, /api/admin/*)
-- [ ] Define frontend data contracts as per plan examples
+## Information Density Audit
+- [ ] Audit LandingPage: Ensure sections answer user questions; remove fluff if any
+- [ ] Audit ExplorePage: Ensure answers "what ideas/how different/which matter"; add ranking if missing
+- [ ] Audit IdeaDetail: Confirm answers required questions
+- [ ] Audit UserDashboard: Keep novelty/quality where they explain status; remove non-actionable metrics
+- [ ] Audit Admin ReviewQueue: Confirm zero brand motion, answers admin questions
+- [ ] Purge placeholders: Remove any "coming soon", fake metrics, static charts
 
-## Phase 3 - User Brand Surface (Public + Auth)
-- [ ] Landing Page: Remove gradient, novelty preview, prompt box; add subtle entrance animation; structure with HeroStatBlock, DomainOverview, TopIdeasPreview; consume /api/public/stats, /api/public/top-domains, /api/public/top-ideas
-- [ ] Explore Page: Remove novelty/quality scores; implement card skeleton with vertical rhythm; titles dominate, problem statement preview; domain filter, keyword search, real pagination; consume /api/public/ideas
-- [ ] Idea Detail Page: Logged-out view (title, problem statement, tech stack, sources, view count); logged-in view (add novelty explanation, quality score, evidence strength, hallucination risk, feedback actions); enforce section priority order; consume /api/public/ideas/:id or /api/ideas/:id
-- [ ] Brand Compliance: Apply neutral color system, typography hierarchy, spacing rhythm, allowed motion (single entrance animation on mount)
-
-## Phase 2+ - Full UI Implementation
-- [ ] Ensure all user pages follow frontend_design_user.md (neutral colors, typography, etc.)
-- [ ] Ensure all admin pages follow frontend_design_admin.md (gray colors, etc.)
-- [ ] Implement auth handling for logged-in vs logged-out states
-- [ ] Add motion and interactions per user design (restrained)
-- [ ] Test and refine UX for Formless/Deepgram-style experience
+## Final Checks
+- [ ] Verify total UI code decreased
+- [ ] Confirm motion doesn't hide content/repeat without action/exist without data change
+- [ ] Confirm every number affects a decision, zero decorative content
+- [ ] Ensure site feels quieter, more serious, product-grade

@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import api from "../../shared/api";
 import useDebounce from "../../hooks/useDebounce";
+import { motion as motionTokens } from "../../shared/motionTokens";
 
 const ExplorePage = () => {
   const [ideas, setIdeas] = useState([]);
@@ -35,9 +37,17 @@ const ExplorePage = () => {
   }, [filters.domain, filters.page, debouncedSearchQuery]);
 
   return (
-    <div className="bg-neutral-950 min-h-screen">
+    <motion.main
+      initial={{ opacity: 0, y: motionTokens.translate.section }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: motionTokens.duration.normal / 1000,
+        ease: motionTokens.easing.standard,
+      }}
+      className="bg-neutral-950 min-h-screen"
+    >
       <div className="max-w-7xl mx-auto px-6 py-12">
-        <div className="animate-fade-in-up">
+        <div>
           <h1 className="text-3xl font-normal text-white mb-2">Explore ideas</h1>
           <p className="text-neutral-400 mb-8">
             Publicly available project ideas.
@@ -45,7 +55,7 @@ const ExplorePage = () => {
         </div>
 
         {/* Filters */}
-        <div className="animate-fade-in-up grid md:grid-cols-3 gap-4 mb-8">
+        <div className="grid md:grid-cols-3 gap-4 mb-8">
           <select
             value={filters.domain}
             onChange={(e) => setFilters({ ...filters, domain: e.target.value, page: 1 })}
@@ -66,33 +76,36 @@ const ExplorePage = () => {
         </div>
 
         {/* Results */}
-        <div className="animate-fade-in-up">
-          {loading ? (
-            <p className="text-neutral-400">Loading ideas…</p>
-          ) : ideas.length === 0 ? (
-            <p className="text-neutral-400">No ideas found.</p>
-          ) : (
-            <div className="grid md:grid-cols-3 gap-6">
-              {ideas.map(i => (
-                <Link
-                  key={i.id}
-                  to={`/idea/${i.id}`}
-                  className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 hover:bg-neutral-800/80 transition-colors"
-                >
-                  <h3 className="text-lg text-neutral-100 mb-3">{i.title}</h3>
-                  <p className="text-sm text-neutral-400 line-clamp-3 mb-4">
-                    {i.problem_statement}
-                  </p>
-                  <span className="text-xs text-neutral-500">{i.domain}</span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+        {loading ? (
+          <p className="text-neutral-400">Loading ideas…</p>
+        ) : ideas.length === 0 ? (
+          <p className="text-neutral-400">No ideas found.</p>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: motionTokens.duration.fast / 1000 }}
+            className="grid md:grid-cols-3 gap-6"
+          >
+            {ideas.map(i => (
+              <Link
+                key={i.id}
+                to={`/idea/${i.id}`}
+                className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 hover:bg-neutral-800/80 transition-colors"
+              >
+                <h3 className="text-lg text-neutral-100 mb-3">{i.title}</h3>
+                <p className="text-sm text-neutral-400 line-clamp-3 mb-4">
+                  {i.problem_statement}
+                </p>
+                <span className="text-xs text-neutral-500">{i.domain}</span>
+              </Link>
+            ))}
+          </motion.div>
+        )}
 
         {/* Pagination */}
         {meta && meta.pages > 1 && (
-          <div className="animate-fade-in-up mt-10 flex gap-2">
+          <div className="mt-10 flex gap-2">
             {Array.from({ length: meta.pages }).map((_, i) => (
               <button
                 key={i}
@@ -108,7 +121,7 @@ const ExplorePage = () => {
           </div>
         )}
       </div>
-    </div>
+    </motion.main>
   );
 };
 

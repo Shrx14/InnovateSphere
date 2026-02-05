@@ -56,9 +56,17 @@ const IdeaDetail = () => {
   }
 
   return (
-    <div className="bg-neutral-950 min-h-screen">
+    <motion.main
+      initial={{ opacity: 0, y: motionTokens.translate.section }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: motionTokens.duration.normal / 1000,
+        ease: motionTokens.easing.standard,
+      }}
+      className="bg-neutral-950 min-h-screen"
+    >
       <div className="max-w-7xl mx-auto px-6 py-12">
-        <div className="animate-fade-in-up">
+        <div>
           <h1 className="text-3xl font-normal text-white mb-2">{idea.title}</h1>
           <div className="flex items-center gap-4 mb-8">
             <span className="px-2 py-1 text-xs bg-neutral-800 text-neutral-300 rounded">{idea.domain}</span>
@@ -67,19 +75,19 @@ const IdeaDetail = () => {
         </div>
 
         {/* Problem statement */}
-        <section className="animate-fade-in-up mb-20">
+        <section className="mb-20">
           <div className="text-xs uppercase tracking-widest text-neutral-400 mb-6">Problem statement</div>
           <p className="text-base text-neutral-300 leading-relaxed">{idea.problem_statement}</p>
         </section>
 
         {/* Tech stack */}
-        <section className="animate-fade-in-up mb-20">
+        <section className="mb-20">
           <div className="text-xs uppercase tracking-widest text-neutral-400 mb-6">Tech stack</div>
           <p className="text-sm text-neutral-400">{idea.tech_stack}</p>
         </section>
 
         {/* Evidence sources */}
-        <section className="animate-fade-in-up mb-20">
+        <section className="mb-20">
           <div className="text-xs uppercase tracking-widest text-neutral-400 mb-6">Evidence sources</div>
           <div className="flex flex-wrap gap-2">
             {idea.sources?.map((source, i) => (
@@ -95,7 +103,7 @@ const IdeaDetail = () => {
           <>
             {/* Novelty explanation */}
             {idea.novelty_explanation && (
-              <section className="animate-fade-in-up mb-20">
+              <section className="mb-20">
                 <div className="text-xs uppercase tracking-widest text-neutral-400 mb-6">Novelty explanation</div>
                 <p className="text-sm text-neutral-400">{idea.novelty_explanation}</p>
               </section>
@@ -103,7 +111,7 @@ const IdeaDetail = () => {
 
             {/* Quality score */}
             {idea.quality_score !== undefined && (
-              <section className="animate-fade-in-up mb-20">
+              <section className="mb-20">
                 <div className="text-xs uppercase tracking-widest text-neutral-400 mb-6">Trust signals</div>
                 <span className="text-xs text-neutral-400">Quality score: {idea.quality_score}</span>
               </section>
@@ -111,20 +119,20 @@ const IdeaDetail = () => {
 
             {/* Evidence strength */}
             {idea.evidence_strength && (
-              <section className="animate-fade-in-up mb-20">
+              <section className="mb-20">
                 <span className="text-xs text-neutral-400">Evidence strength: {idea.evidence_strength}</span>
               </section>
             )}
 
             {/* Hallucination risk */}
             {idea.hallucination_risk_level && (
-              <section className="animate-fade-in-up mb-20">
+              <section className="mb-20">
                 <span className="text-xs text-neutral-400">Hallucination risk: {idea.hallucination_risk_level}</span>
               </section>
             )}
 
             {/* Feedback actions */}
-            <section className="animate-fade-in-up mb-20">
+            <section className="mb-20">
               <div className="text-xs uppercase tracking-widest text-neutral-400 mb-6">Feedback</div>
               <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-8 max-w-2xl">
                 <p className="text-sm text-neutral-400 mb-6">
@@ -169,7 +177,7 @@ const IdeaDetail = () => {
           </>
         )}
       </div>
-    </div>
+    </motion.main>
   );
 };
 

@@ -1,4 +1,6 @@
 import React from "react";
+import { motion } from "framer-motion";
+import { motion as motionTokens } from "../../shared/motionTokens";
 
 const GenerateResult = ({ result, error }) => {
   if (error) {
@@ -12,7 +14,12 @@ const GenerateResult = ({ result, error }) => {
   const { idea, novelty_score } = result;
 
   return (
-    <section className="space-y-10 max-w-3xl">
+    <motion.section
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: motionTokens.duration.normal / 1000 }}
+      className="space-y-10 max-w-3xl"
+    >
       <header>
         <h1 className="text-2xl text-white font-medium">{idea.title}</h1>
         <p className="text-sm text-gray-400 mt-2">Novelty score: {novelty_score}</p>
@@ -57,7 +64,7 @@ const GenerateResult = ({ result, error }) => {
           ))}
         </ul>
       </section>
-    </section>
+    </motion.section>
   );
 };
 
