@@ -227,6 +227,8 @@ def serialize_full_idea(idea):
             "quality_score": idea.quality_score_cached,
             "novelty_confidence": idea.novelty_confidence,
             "evidence_strength": idea.evidence_strength,
+            "hallucination_risk_level": idea.hallucination_risk_level,
+            "novelty_explanation": idea.novelty_context.get('explanation', 'Novelty evaluated based on multi-source analysis across research papers, code repositories, and prior work.') if idea.novelty_context else 'Novelty evaluated based on multi-source analysis across research papers, code repositories, and prior work.',
             "admin_verdict": idea.admin_verdict.verdict if idea.admin_verdict else None,
             "warning": "This idea is experimental and under review." if idea.admin_verdict and idea.admin_verdict.verdict == "rejected" else None,
         }
@@ -477,6 +479,42 @@ def public_idea_detail(idea_id):
                 for s in idea.sources
             ],
         }
+    }), 200
+
+
+@app.route("/api/ideas/<int:idea_id>", methods=["GET"])
+@jwt_required()
+def authenticated_idea_detail(idea_id):
+    """
+    Authenticated endpoint to view individual idea details with trust signals.
+    """
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    idea = ProjectIdea.query.get(idea_id)
+    if not idea:
+        return jsonify({"error": "Idea not found"}), 404
+
+    # Check if user has access (either public or their own generated idea)
+    if not idea.is_public and not any(req.user_id == user_id for req in idea.requests):
+        return jsonify({"error": "Access denied"}), 403
+
+    # Increment view count for authenticated user
+    already_viewed = IdeaView.query.filter(
+        IdeaView.idea_id == idea.id,
+        IdeaView.user_id == user_id
+    ).first()
+
+    if not already_viewed:
+        idea.view_count += 1
+        db.session.add(
+            IdeaView(idea_id=idea.id, user_id=user_id)
+        )
+        db.session.commit()
+
+    return jsonify({
+        "idea": serialize_full_idea(idea)
     }), 200
 
 
@@ -747,16 +785,78 @@ def admin_quality_review():
             feedback_breakdown[fb.feedback_type] = feedback_breakdown.get(fb.feedback_type, 0) + 1
 
         result.append({
-            "idea_id": idea.id,
+            "id": idea.id,
             "title": idea.title,
-            "novelty_score": None,  # Would need to compute or store
+            "domain": idea.domain.name if idea.domain else None,
+            "novelty_score": idea.novelty_score_cached or 0,
+            "quality_score": idea.quality_score,
+            "hallucination_risk_level": idea.hallucination_risk_level,
             "evidence_strength": idea.evidence_strength,
-            "feedback_breakdown": feedback_breakdown,
+            "feedback_summary": feedback_breakdown,
             "source_count": len(idea.sources),
-            "sources": [{"type": s.source_type, "title": s.title, "url": s.url} for s in idea.sources[:5]]
         })
 
-    return jsonify({"review_queue": result}), 200
+    return jsonify(result), 200
+
+
+@app.route("/api/admin/ideas/<int:idea_id>", methods=["GET"])
+@jwt_required()
+def admin_idea_detail(idea_id):
+    if not require_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    idea = ProjectIdea.query.get(idea_id)
+    if not idea:
+        return jsonify({"error": "Idea not found"}), 404
+
+    feedback_history = [
+        {
+            "id": fb.id,
+            "feedback_type": fb.feedback_type,
+            "comment": fb.comment,
+            "created_at": fb.created_at.isoformat(),
+            "user_id": fb.user_id,
+        }
+        for fb in idea.feedbacks
+    ]
+
+    return jsonify({
+        "id": idea.id,
+        "title": idea.title,
+        "problem_statement": idea.problem_statement,
+        "tech_stack": idea.tech_stack,
+        "domain": idea.domain.name if idea.domain else None,
+        "ai_pipeline_version": idea.ai_pipeline_version,
+        "is_ai_generated": idea.is_ai_generated,
+        "is_public": idea.is_public,
+        "created_at": idea.created_at.isoformat(),
+        "sources": [
+            {
+                "source_type": s.source_type,
+                "title": s.title,
+                "url": s.url,
+                "published_date": s.published_date.isoformat() if s.published_date else None,
+                "summary": s.summary,
+            }
+            for s in idea.sources
+        ],
+        "reviews": [
+            {
+                "rating": r.rating,
+                "comment": r.comment,
+                "created_at": r.created_at.isoformat(),
+            }
+            for r in idea.reviews
+        ],
+        "average_rating": round(sum(r.rating for r in idea.reviews) / len(idea.reviews), 1) if idea.reviews else None,
+        "requested_count": len(idea.requests),
+        "quality_score": idea.quality_score,
+        "novelty_confidence": idea.novelty_confidence,
+        "evidence_strength": idea.evidence_strength,
+        "hallucination_risk_level": idea.hallucination_risk_level,
+        "admin_verdict": idea.admin_verdict.verdict if idea.admin_verdict else None,
+        "feedback_history": feedback_history,
+    }), 200
 
 
 @app.route("/api/admin/ideas/<int:idea_id>/verdict", methods=["POST"])
@@ -772,8 +872,8 @@ def admin_verdict(idea_id):
     if verdict not in ("validated", "downgraded", "rejected"):
         return jsonify({"error": "Invalid verdict"}), 400
 
-    if not reason:
-        return jsonify({"error": "Reason required"}), 400
+    if verdict == "rejected" and not reason:
+        return jsonify({"error": "Reason required for rejection"}), 400
 
     idea = ProjectIdea.query.get(idea_id)
     if not idea:

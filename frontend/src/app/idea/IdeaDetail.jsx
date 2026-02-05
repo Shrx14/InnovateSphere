@@ -1,108 +1,174 @@
-import React from 'react';
+import React, { useEffect, useState, useContext } from 'react';
+import { useParams } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
+import api from '../../shared/api';
 
 const IdeaDetail = () => {
-  return (
-    <div className="max-w-7xl mx-auto px-6 py-12">
-      {/* Page title */}
-      <h1 className="text-4xl font-light">Bias-aware clinical triage system</h1>
+  const { id } = useParams();
+  const { user } = useContext(AuthContext);
+  const [idea, setIdea] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [feedbackType, setFeedbackType] = useState('');
+  const [feedbackComment, setFeedbackComment] = useState('');
 
-      {/* Domain tag and novelty score */}
-      <div className="mt-6 rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 flex items-center gap-4 max-w-xl">
-        <span className="px-2 py-1 text-xs bg-neutral-800 text-neutral-300 rounded">Healthcare</span>
-        <div className="flex-1 max-w-xs">
-          <div className="text-sm text-neutral-400">Novelty score</div>
-          <div className="mt-1 w-full bg-neutral-700 rounded-full h-1">
-            <div className="bg-neutral-400 h-1 rounded-full" style={{width: '82%'}}></div>
-          </div>
-        </div>
+  useEffect(() => {
+    const endpoint = user ? `/ideas/${id}` : `/public/ideas/${id}`;
+    api.get(endpoint)
+      .then(res => {
+        setIdea(res.data.idea || res.data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+  }, [id, user]);
+
+  const handleFeedbackSubmit = () => {
+    if (!feedbackType) return;
+    api.post(`/ideas/${id}/feedback`, {
+      feedback_type: feedbackType,
+      comment: feedbackComment || null
+    })
+      .then(() => {
+        setFeedbackType('');
+        setFeedbackComment('');
+        alert('Feedback submitted');
+      })
+      .catch(err => {
+        alert('Feedback submission failed: ' + (err.response?.data?.error || 'Unknown error'));
+      });
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-neutral-950 min-h-screen flex items-center justify-center">
+        <p className="text-neutral-400">Loading idea...</p>
       </div>
+    );
+  }
 
-      <div className="mt-12 h-px bg-neutral-800" />
+  if (!idea) {
+    return (
+      <div className="bg-neutral-950 min-h-screen flex items-center justify-center">
+        <p className="text-neutral-400">Idea not found.</p>
+      </div>
+    );
+  }
 
-      {/* Summary section */}
-      <section className="mt-12">
-        <h2 className="text-lg font-medium text-neutral-200">Summary</h2>
-        <p className="mt-4 text-neutral-400">
-          A machine learning system for clinical triage that incorporates bias detection and mitigation techniques to ensure equitable patient outcomes across diverse demographics. The system analyzes patient data, historical outcomes, and fairness metrics to prioritize cases while minimizing algorithmic bias.
-        </p>
-      </section>
-
-      {/* Evidence sources section */}
-      <section className="mt-12">
-        <h2 className="text-lg font-medium text-neutral-200">Evidence sources</h2>
-        <div className="mt-4 flex gap-2">
-          <span className="px-2 py-1 text-xs bg-neutral-800 text-neutral-300 rounded">arXiv</span>
-          <span className="px-2 py-1 text-xs bg-neutral-800 text-neutral-300 rounded">GitHub</span>
-          <span className="px-2 py-1 text-xs bg-neutral-800 text-neutral-300 rounded">Prior ideas</span>
-        </div>
-      </section>
-
-      {/* Evidence & confidence section */}
-      <section className="mt-12">
-        <h2 className="text-lg font-medium text-neutral-200">Evidence & confidence</h2>
-        <div className="mt-4 rounded-xl border border-neutral-800 bg-neutral-900/60 p-6 max-w-xl">
-          <p className="text-sm text-neutral-400">
-            This idea was synthesized from multiple research signals and prior work. <span className="text-neutral-300">Novelty reflects relative differentiation within the system, not absolute originality.</span> All outputs are reviewed to surface uncertainty and reduce overconfidence.
-          </p>
-        </div>
-      </section>
-
-      {/* Feedback section */}
-      <section className="mt-12">
-        <h2 className="text-lg font-medium text-neutral-200">Feedback</h2>
-        <div className="mt-4 rounded-xl border border-neutral-800 bg-neutral-900/60 p-6">
-          <p className="text-sm text-neutral-400">
-            Feedback is used to audit model behavior and improve future outputs. It does not immediately modify this result.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button className="rounded-md border border-neutral-800 bg-neutral-900/60 text-neutral-300 px-3 py-1 text-sm">
-              Accurate
-            </button>
-            <button className="rounded-md border border-neutral-800 bg-neutral-900/60 text-neutral-300 px-3 py-1 text-sm">
-              Hallucinated
-            </button>
-            <button className="rounded-md border border-neutral-800 bg-neutral-900/60 text-neutral-300 px-3 py-1 text-sm">
-              Weak novelty
-            </button>
-            <button className="rounded-md border border-neutral-800 bg-neutral-900/60 text-neutral-300 px-3 py-1 text-sm">
-              Poor justification
-            </button>
-          </div>
-          <textarea
-            className="mt-4 w-full rounded-md border border-neutral-800 bg-neutral-900/60 text-neutral-300 p-3 text-sm placeholder-neutral-500"
-            placeholder="Optional — add context or references…"
-            rows="3"
-          ></textarea>
-          <button className="mt-4 rounded-md border border-neutral-800 bg-neutral-900/60 text-neutral-300 px-4 py-2 text-sm">
-            Submit feedback
-          </button>
-        </div>
-      </section>
-
-      {/* Conceptual breakdown section */}
-      <section className="mt-12">
-        <h2 className="text-lg font-medium text-neutral-200">Conceptual breakdown</h2>
-        <div className="mt-4 space-y-4">
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
-            <h3 className="text-sm font-medium text-neutral-200">Bias detection</h3>
-            <p className="mt-2 text-sm text-neutral-400">
-              Identification of systematic patterns in data that may lead to unfair treatment across different demographic groups. This involves analyzing input features and model outputs for disproportionate impacts.
-            </p>
-          </div>
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
-            <h3 className="text-sm font-medium text-neutral-200">Triage prioritization</h3>
-            <p className="mt-2 text-sm text-neutral-400">
-              Ordering of patient cases based on urgency and resource availability. This component evaluates clinical indicators alongside fairness constraints to determine processing sequence.
-            </p>
-          </div>
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
-            <h3 className="text-sm font-medium text-neutral-200">Fairness metrics</h3>
-            <p className="mt-2 text-sm text-neutral-400">
-              Quantitative measures of equity in decision-making processes. These metrics assess balance across protected attributes while maintaining clinical accuracy standards.
-            </p>
+  return (
+    <div className="bg-neutral-950 min-h-screen">
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        <div className="animate-fade-in-up">
+          <h1 className="text-3xl font-normal text-white mb-2">{idea.title}</h1>
+          <div className="flex items-center gap-4 mb-8">
+            <span className="px-2 py-1 text-xs bg-neutral-800 text-neutral-300 rounded">{idea.domain}</span>
+            <span className="text-xs text-neutral-500">{idea.view_count} views</span>
           </div>
         </div>
-      </section>
+
+        {/* Problem statement */}
+        <section className="animate-fade-in-up mb-20">
+          <div className="text-xs uppercase tracking-widest text-neutral-400 mb-6">Problem statement</div>
+          <p className="text-base text-neutral-300 leading-relaxed">{idea.problem_statement}</p>
+        </section>
+
+        {/* Tech stack */}
+        <section className="animate-fade-in-up mb-20">
+          <div className="text-xs uppercase tracking-widest text-neutral-400 mb-6">Tech stack</div>
+          <p className="text-sm text-neutral-400">{idea.tech_stack}</p>
+        </section>
+
+        {/* Evidence sources */}
+        <section className="animate-fade-in-up mb-20">
+          <div className="text-xs uppercase tracking-widest text-neutral-400 mb-6">Evidence sources</div>
+          <div className="flex flex-wrap gap-2">
+            {idea.sources?.map((source, i) => (
+              <span key={i} className="px-2 py-1 text-xs bg-neutral-800 text-neutral-300 rounded">
+                {source.source_type}
+              </span>
+            )) || <span className="text-neutral-400">No sources available</span>}
+          </div>
+        </section>
+
+        {/* Logged-in only sections */}
+        {user && (
+          <>
+            {/* Novelty explanation */}
+            {idea.novelty_explanation && (
+              <section className="animate-fade-in-up mb-20">
+                <div className="text-xs uppercase tracking-widest text-neutral-400 mb-6">Novelty explanation</div>
+                <p className="text-sm text-neutral-400">{idea.novelty_explanation}</p>
+              </section>
+            )}
+
+            {/* Quality score */}
+            {idea.quality_score !== undefined && (
+              <section className="animate-fade-in-up mb-20">
+                <div className="text-xs uppercase tracking-widest text-neutral-400 mb-6">Trust signals</div>
+                <span className="text-xs text-neutral-400">Quality score: {idea.quality_score}</span>
+              </section>
+            )}
+
+            {/* Evidence strength */}
+            {idea.evidence_strength && (
+              <section className="animate-fade-in-up mb-20">
+                <span className="text-xs text-neutral-400">Evidence strength: {idea.evidence_strength}</span>
+              </section>
+            )}
+
+            {/* Hallucination risk */}
+            {idea.hallucination_risk_level && (
+              <section className="animate-fade-in-up mb-20">
+                <span className="text-xs text-neutral-400">Hallucination risk: {idea.hallucination_risk_level}</span>
+              </section>
+            )}
+
+            {/* Feedback actions */}
+            <section className="animate-fade-in-up mb-20">
+              <div className="text-xs uppercase tracking-widest text-neutral-400 mb-6">Feedback</div>
+              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-8 max-w-2xl">
+                <p className="text-sm text-neutral-400 mb-6">
+                  Help improve the system by providing feedback on this idea.
+                </p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-neutral-300 mb-2">Feedback type</label>
+                    <select
+                      value={feedbackType}
+                      onChange={(e) => setFeedbackType(e.target.value)}
+                      className="w-full bg-neutral-800 border border-neutral-700 text-neutral-300 rounded-lg px-4 py-2"
+                    >
+                      <option value="">Select feedback type</option>
+                      <option value="factual_error">Report factual error</option>
+                      <option value="hallucinated_source">Report hallucinated source</option>
+                      <option value="weak_novelty">Weak novelty</option>
+                      <option value="poor_justification">Poor justification</option>
+                      <option value="unclear_scope">Unclear scope</option>
+                      <option value="high_quality">High quality</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-neutral-300 mb-2">Comment (optional)</label>
+                    <textarea
+                      value={feedbackComment}
+                      onChange={(e) => setFeedbackComment(e.target.value)}
+                      className="w-full bg-neutral-800 border border-neutral-700 text-neutral-300 rounded-lg px-4 py-2 h-24"
+                      placeholder="Add context or references..."
+                    />
+                  </div>
+                  <button
+                    onClick={handleFeedbackSubmit}
+                    disabled={!feedbackType}
+                    className="bg-indigo-600/90 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-6 py-2 font-medium transition-colors"
+                  >
+                    Submit feedback
+                  </button>
+                </div>
+              </div>
+            </section>
+          </>
+        )}
+      </div>
     </div>
   );
 };

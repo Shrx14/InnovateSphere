@@ -8,7 +8,7 @@ const UserDashboard = () => {
 
   useEffect(() => {
     api.get('/ideas/mine')
-      .then(res => setIdeas(res.data))
+      .then(res => setIdeas(res.data.ideas || []))
       .finally(() => setLoading(false));
   }, []);
 

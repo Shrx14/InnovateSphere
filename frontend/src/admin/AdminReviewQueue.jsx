@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../shared/api';
 
 const AdminReviewQueue = () => {
@@ -124,6 +125,14 @@ const AdminReviewQueue = () => {
                   <td className="px-6 py-4 text-sm text-neutral-300">{idea.quality_score}</td>
                   <td className={`px-6 py-4 text-sm ${getRiskColor(idea.hallucination_risk_level)}`}>{idea.hallucination_risk_level}</td>
                   <td className="px-6 py-4 text-sm text-neutral-300">{formatFeedbackFlags(idea.feedback_summary)}</td>
+                  <td className="px-6 py-4">
+                    <Link
+                      to={`/admin/idea/${idea.id}`}
+                      className="text-blue-400 hover:text-blue-300 text-sm font-medium"
+                    >
+                      View Details →
+                    </Link>
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex space-x-2">
                       <button

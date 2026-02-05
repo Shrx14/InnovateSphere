@@ -2,7 +2,7 @@ import UserNav from "../user/UserNav";
 
 const UserShell = ({ children }) => {
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-200">
+    <div className="min-h-screen bg-neutral-950 text-white">
       <UserNav />
 
       <main>
