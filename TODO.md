@@ -1,3 +1,0 @@
-- [x] Add import for generate_explanation in backend/novelty/analyzer.py
-- [x] Call generate_explanation in the analyze method with required parameters
-- [x] Include "explanations" key in the return dictionary

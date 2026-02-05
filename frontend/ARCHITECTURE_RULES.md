@@ -3,20 +3,9 @@
 These rules are NON-NEGOTIABLE.
 
 ## UI Separation
-- Admin UI = core UI only (dense, functional, zero brand)
-- User UI = core UI + brand surface
+- Admin UI = core UI only (dense, functional, zero brand) refer to /docs/frontend_design_admin.md
+- User UI = core UI + brand surface refer to /docs/frontend_design_user.md
 
-## Import Boundaries
-Admin UI MUST NOT import:
-- Brand styles
-- Animated components
-- Marketing UI
-- User-only components
-
-User UI MUST NOT import:
-- Admin moderation components
-- Governance widgets
-- Admin-only layouts
 
 ## Layout Enforcement
 - All admin routes MUST render inside AdminShell

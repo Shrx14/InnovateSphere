@@ -1,7 +1,7 @@
 # Frontend Design Rules - InnovateSphere
 
 ## Overview
-These design rules establish visual constraints for InnovateSphere's frontend. The design system prioritizes accessibility, consistency, and maintainability with a dark-first approach and neutral color palette.
+These design rules establish visual constraints for InnovateSphere's frontend for admin. The design system prioritizes accessibility, consistency, and maintainability with a dark-first approach and neutral color palette.
 
 ## Color Palette
 
