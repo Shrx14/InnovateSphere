@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext();
@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
   // Decode JWT payload
-  const decodeJWT = (token) => {
+  const decodeJWT = useCallback((token) => {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       return payload;
@@ -27,10 +27,10 @@ export const AuthProvider = ({ children }) => {
       console.error('Failed to decode JWT:', e);
       return null;
     }
-  };
+  }, []);
 
   // Hydrate user from token
-  const hydrateUserFromToken = (token) => {
+  const hydrateUserFromToken = useCallback((token) => {
     const payload = decodeJWT(token);
     if (!payload || !payload.exp || payload.exp < Date.now() / 1000) {
       console.log('Auth hydration failed: invalid or expired token');
@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }) => {
       role: payload.role,
       preferred_domain_id: payload.preferred_domain_id
     };
-  };
+  }, [decodeJWT]);
 
   // Hydrate auth state on app load
   useEffect(() => {
@@ -69,7 +69,7 @@ export const AuthProvider = ({ children }) => {
         setIsAdmin(false);
       }
     }
-  }, []);
+  }, [hydrateUserFromToken]);
 
   // Login function
   const login = (newToken) => {
@@ -84,7 +84,7 @@ export const AuthProvider = ({ children }) => {
       if (userData.role === 'admin') {
         navigate('/admin/review');
       } else {
-        navigate('/explore');
+        navigate('/user/dashboard');
       }
     } else {
       console.error('Login failed: invalid token received');

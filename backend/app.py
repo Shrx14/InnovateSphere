@@ -299,8 +299,48 @@ def retrieval():
 # Admin Analytics (Fixed)
 # ------------------------------------------------------------------
 
+@app.route("/api/analytics/admin/kpis", methods=["GET"])
+@jwt_required()
+@cache.cached(timeout=300)
+def admin_kpis():
+    if not require_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    # Total ideas
+    total_ideas = ProjectIdea.query.count()
+
+    # Average novelty score
+    avg_novelty = (
+        db.session.query(func.avg(ProjectIdea.novelty_score_cached))
+        .filter(ProjectIdea.novelty_score_cached.isnot(None))
+        .scalar()
+    )
+    avg_novelty = round(float(avg_novelty), 2) if avg_novelty else 0
+
+    # Average quality score
+    avg_quality = (
+        db.session.query(func.avg(ProjectIdea.quality_score_cached))
+        .filter(ProjectIdea.quality_score_cached.isnot(None))
+        .scalar()
+    )
+    avg_quality = round(float(avg_quality), 2) if avg_quality else 0
+
+    # Rejection rate
+    total_verdicts = AdminVerdict.query.count()
+    rejected_count = AdminVerdict.query.filter(AdminVerdict.verdict == "rejected").count()
+    rejection_rate = round((rejected_count / total_verdicts * 100), 1) if total_verdicts > 0 else 0
+
+    return jsonify({
+        "total_ideas": total_ideas,
+        "avg_novelty": avg_novelty,
+        "avg_quality": avg_quality,
+        "rejection_rate": rejection_rate
+    }), 200
+
+
 @app.route("/api/analytics/admin/domains", methods=["GET"])
 @jwt_required()
+@cache.cached(timeout=300)
 def admin_domains():
     if not require_admin():
         return jsonify({"error": "Admin access required"}), 403
@@ -332,6 +372,72 @@ def admin_domains():
             ]
         }
     )
+
+
+@app.route("/api/analytics/admin/trends", methods=["GET"])
+@jwt_required()
+@cache.cached(timeout=300)
+def admin_trends():
+    if not require_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    rows = (
+        db.session.query(
+            func.date(ProjectIdea.created_at).label("date"),
+            func.count(ProjectIdea.id)
+        )
+        .group_by(func.date(ProjectIdea.created_at))
+        .order_by(func.date(ProjectIdea.created_at))
+        .all()
+    )
+
+    return jsonify({
+        "trends": [
+            {"date": str(r[0]), "count": r[1]}
+            for r in rows
+        ]
+    }), 200
+
+
+@app.route("/api/analytics/admin/distributions", methods=["GET"])
+@jwt_required()
+@cache.cached(timeout=300)
+def admin_distributions():
+    if not require_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    ideas = ProjectIdea.query.all()
+
+    return jsonify({
+        "novelty": [i.novelty_score_cached for i in ideas if i.novelty_score_cached is not None],
+        "quality": [i.quality_score_cached for i in ideas if i.quality_score_cached is not None]
+    }), 200
+
+
+@app.route("/api/analytics/admin/user-domains", methods=["GET"])
+@jwt_required()
+@cache.cached(timeout=300)
+def admin_user_domains():
+    if not require_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    rows = (
+        db.session.query(
+            Domain.name,
+            func.count(IdeaRequest.id)
+        )
+        .join(ProjectIdea, ProjectIdea.domain_id == Domain.id)
+        .join(IdeaRequest, IdeaRequest.idea_id == ProjectIdea.id)
+        .group_by(Domain.name)
+        .all()
+    )
+
+    return jsonify({
+        "domains": [
+            {"domain": r[0], "requests": r[1]}
+            for r in rows
+        ]
+    }), 200
 
 
 # ------------------------------------------------------------------

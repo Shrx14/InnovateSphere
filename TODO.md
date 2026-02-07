@@ -1,23 +1,15 @@
-# Phase 6: Polish & Consistency - TODO
+# Remove Framer Motion from User UI
 
-## Motion Audit Refinement
-- [ ] Remove demo leftovers: Delete App-logo-spin @keyframes from App.css
-- [ ] Refine LandingPage.jsx: Keep hero entrance, primary sections entrance; remove minor text animations
-- [ ] Refine ExplorePage.jsx: Keep subtle list entrance; remove filters/pagination animations
-- [ ] Refine IdeaDetail.jsx: Keep page entrance; remove section-by-section animations
-- [ ] Refine UserDashboard.jsx: Remove per-card Framer Motion; keep single container entrance
-- [ ] Remove framer-motion dependency if no longer needed after refinements
+## Step 1: Remove Framer Motion usage
+- [ ] Edit frontend/src/app/landing/LandingPage.jsx: Remove motion import, replace motion.section with section in HeroStatBlock and TopIdeasPreview
+- [ ] Edit frontend/src/app/generate/GenerateResult.jsx: Remove motion import, replace motion.section with section
+- [ ] Edit frontend/src/app/dashboard/UserDashboard.jsx: Remove motion import, replace motion.div with div
+- [ ] Edit frontend/src/app/explore/ExplorePage.jsx: Remove motion import, replace motion.main with main and motion.div with div
 
-## Information Density Audit
-- [ ] Audit LandingPage: Ensure sections answer user questions; remove fluff if any
-- [ ] Audit ExplorePage: Ensure answers "what ideas/how different/which matter"; add ranking if missing
-- [ ] Audit IdeaDetail: Confirm answers required questions
-- [ ] Audit UserDashboard: Keep novelty/quality where they explain status; remove non-actionable metrics
-- [ ] Audit Admin ReviewQueue: Confirm zero brand motion, answers admin questions
-- [ ] Purge placeholders: Remove any "coming soon", fake metrics, static charts
+## Step 2: Uninstall Framer Motion
+- [ ] Run npm uninstall framer-motion in frontend directory
 
-## Final Checks
-- [ ] Verify total UI code decreased
-- [ ] Confirm motion doesn't hide content/repeat without action/exist without data change
-- [ ] Confirm every number affects a decision, zero decorative content
-- [ ] Ensure site feels quieter, more serious, product-grade
+## Step 3: Restart clean
+- [ ] rm -rf node_modules package-lock.json
+- [ ] npm install
+- [ ] npm start

@@ -1,25 +1,33 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-import AdminShell from "./layouts/AdminShell";
-import UserShell from "./layouts/UserShell";
+import AdminShell from "./features/admin/components/AdminShell";
+import UserShell from "./features/user/components/UserShell";
+import PublicShell from "./features/shared/components/PublicShell";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { AuthProvider } from "./context/AuthContext";
+
 
 /* Admin Pages */
-import AdminReviewQueue from "./admin/AdminReviewQueue";
-import AdminIdeaDetail from "./admin/AdminIdeaDetail";
+import AdminReviewQueue from "./features/admin/pages/AdminReviewQueue";
+import AdminIdeaDetail from "./features/admin/pages/AdminIdeaDetail";
+import AdminAnalytics from "./features/admin/pages/AdminAnalytics";
 
 /* User Pages */
-import LandingPage from "./app/landing/LandingPage";
-import ExplorePage from "./app/explore/ExplorePage";
-import UserDashboard from "./app/dashboard/UserDashboard";
-import LoginPage from "./app/auth/LoginPage";
-import RegisterPage from "./app/auth/RegisterPage";
-import IdeaDetail from "./app/idea/IdeaDetail";
-import GeneratePage from "./app/generate/GeneratePage";
+import LandingPage from "./features/landing/pages/LandingPage";
+import ExplorePage from "./features/explore/pages/ExplorePage";
+import UserDashboard from "./features/dashboard/pages/UserDashboard";
+import LoginPage from "./features/auth/pages/LoginPage";
+import RegisterPage from "./features/auth/pages/RegisterPage";
+import IdeaDetail from "./features/idea/pages/IdeaDetail";
+import GeneratePage from "./features/generate/pages/GeneratePage";
+
 
 const App = () => {
   return (
     <BrowserRouter>
-      <Routes>
+      <AuthProvider>
+        <Routes>
+
 
         {/* ================= ADMIN ROUTES ================= */}
         <Route
@@ -29,33 +37,47 @@ const App = () => {
               <Routes>
                 <Route path="/" element={<AdminReviewQueue />} />
                 <Route path="review" element={<AdminReviewQueue />} />
+                <Route path="analytics" element={<AdminAnalytics />} />
                 <Route path="idea/:id" element={<AdminIdeaDetail />} />
               </Routes>
             </AdminShell>
           }
         />
 
-        {/* ================= USER ROUTES ================= */}
+        {/* ================= PUBLIC ROUTES ================= */}
         <Route
           path="/*"
           element={
-            <UserShell>
+            <PublicShell>
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="explore" element={<ExplorePage />} />
                 <Route path="idea/:id" element={<IdeaDetail />} />
                 <Route path="login" element={<LoginPage />} />
                 <Route path="register" element={<RegisterPage />} />
-                <Route path="dashboard" element={<UserDashboard />} />
-                <Route path="generate" element={<GeneratePage />} />
+              </Routes>
+            </PublicShell>
+          }
+        />
+
+        {/* ================= USER ROUTES ================= */}
+        <Route
+          path="/user/*"
+          element={
+            <UserShell>
+              <Routes>
+                <Route path="dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
+                <Route path="generate" element={<ProtectedRoute><GeneratePage /></ProtectedRoute>} />
               </Routes>
             </UserShell>
           }
         />
 
-      </Routes>
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 };
+
 
 export default App;
