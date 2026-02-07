@@ -3,19 +3,23 @@ import json
 import logging
 from datetime import datetime, timedelta
 
-from backend.config import Config
-from backend.db import db
-from backend.models import (
+from backend.core.config import Config
+from backend.core.db import db
+from backend.core.models import (
     ProjectIdea,
     IdeaRequest,
     IdeaSource,
     Domain,
 )
+
 from backend.retrieval.orchestrator import retrieve_sources
-from backend.semantic.filter import filter_sources
+from backend.semantic.filter import filter_by_semantic_similarity
+
 from backend.semantic.ranker import rank_sources
-from backend.services.novelty_service import analyze_novelty
-from backend.ai_registry import get_active_ai_pipeline_version
+from backend.novelty.service import analyze_novelty
+
+from backend.ai.registry import get_active_ai_pipeline_version
+
 from backend.ai.llm_client import generate_json
 from backend.ai.prompts import (
     PASS1_SYSTEM,
@@ -122,37 +126,49 @@ def multi_pass_llm_generate(
         pass1_system += "\n- Avoid over-reliance on sources that have been previously rejected by reviewers."
 
     # PASS 1 — idea space analysis
-    analysis = generate_json(
-        pass1_system
-        + PASS1_PROMPT_TEMPLATE.format(
-            domain=domain,
-            sources="\n".join(
-                f"[{i}] {s['title']} ({s['source_type']})"
-                for i, s in enumerate(sources)
-            ),
+    try:
+        analysis = generate_json(
+            pass1_system
+            + PASS1_PROMPT_TEMPLATE.format(
+                domain=domain,
+                sources="\n".join(
+                    f"[{i}] {s['title']} ({s['source_type']})"
+                    for i, s in enumerate(sources)
+                ),
+            )
         )
-    )
+    except (RuntimeError, ValueError) as e:
+        logger.error(f"PASS 1 LLM generation failed: {e}")
+        raise RuntimeError("Idea generation failed (PASS 1): LLM error") from e
 
     # PASS 2 — problem framing
-    idea = generate_json(
-        PASS2_SYSTEM
-        + PASS2_PROMPT_TEMPLATE.format(
-            analysis=json.dumps(analysis),
-            context=query,
+    try:
+        idea = generate_json(
+            PASS2_SYSTEM
+            + PASS2_PROMPT_TEMPLATE.format(
+                analysis=json.dumps(analysis),
+                context=query,
+            )
         )
-    )
+    except (RuntimeError, ValueError) as e:
+        logger.error(f"PASS 2 LLM generation failed: {e}")
+        raise RuntimeError("Idea generation failed (PASS 2): LLM error") from e
 
     # PASS 3 — evidence validation
-    evidence = generate_json(
-        PASS3_SYSTEM
-        + PASS3_PROMPT_TEMPLATE.format(
-            idea=json.dumps(idea),
-            sources="\n".join(
-                f"[{i}] {s['title']} — {s['url']}"
-                for i, s in enumerate(sources)
-            ),
+    try:
+        evidence = generate_json(
+            PASS3_SYSTEM
+            + PASS3_PROMPT_TEMPLATE.format(
+                idea=json.dumps(idea),
+                sources="\n".join(
+                    f"[{i}] {s['title']} — {s['url']}"
+                    for i, s in enumerate(sources)
+                ),
+            )
         )
-    )
+    except (RuntimeError, ValueError) as e:
+        logger.error(f"PASS 3 LLM generation failed: {e}")
+        raise RuntimeError("Idea generation failed (PASS 3): LLM error") from e
 
     if len(evidence.get("validated_sources", [])) < Config.MIN_EVIDENCE_REQUIRED:
         raise ValueError("Insufficient validated evidence")
@@ -172,14 +188,18 @@ def multi_pass_llm_generate(
     # Preserve HITL weighting order — do not re-sort
 
     # PASS 4 — grounded assembly
-    final = generate_json(
-        PASS4_SYSTEM
-        + PASS4_PROMPT_TEMPLATE.format(
-            analysis=json.dumps(analysis),
-            evidence=json.dumps(evidence),
-            novelty=json.dumps(novelty),
+    try:
+        final = generate_json(
+            PASS4_SYSTEM
+            + PASS4_PROMPT_TEMPLATE.format(
+                analysis=json.dumps(analysis),
+                evidence=json.dumps(evidence),
+                novelty=json.dumps(novelty),
+            )
         )
-    )
+    except (RuntimeError, ValueError) as e:
+        logger.error(f"PASS 4 LLM generation failed: {e}")
+        raise RuntimeError("Idea generation failed (PASS 4): LLM error") from e
 
     for src in final["evidence_sources"]:
         if str(src["source_id"]) not in validated_ids:
@@ -200,8 +220,10 @@ def generate_idea(query: str, domain_id: int, user_id: int) -> Dict[str, Any]:
         return guardrail
 
     retrieved = retrieve_sources(query=query, domain=domain.name)
-    filtered = filter_sources(retrieved.get("sources", []), query)
-    ranked = rank_sources(filtered, query)
+    filtered = filter_by_semantic_similarity(query, retrieved.get("sources", []), 0.6)
+
+    ranked = rank_sources(filtered)
+
 
     novelty_input = "\n".join(
         f"[{s['source_type']}] {s['title']}" for s in ranked
@@ -215,47 +237,62 @@ def generate_idea(query: str, domain_id: int, user_id: int) -> Dict[str, Any]:
     # Build HITL constraints
     constraints = build_hitl_constraints(domain.name, ranked)
 
-    final = multi_pass_llm_generate(query, domain.name, ranked, novelty, constraints)
+    # Wrap LLM generation in try-except
+    try:
+        final = multi_pass_llm_generate(query, domain.name, ranked, novelty, constraints)
+    except RuntimeError as e:
+        logger.error(f"LLM generation failed: {e}")
+        return {"error": str(e)}
+    except ValueError as e:
+        logger.error(f"LLM validation failed: {e}")
+        return {"error": f"Validation error: {str(e)}"}
+
     parsed = validate_generated_idea(final).dict()
 
     pattern_check = is_rejected_pattern(parsed, constraints)
     if pattern_check:
         return pattern_check
 
-    # Persist idea + sources
-    idea = ProjectIdea(
-        title=parsed["title"],
-        problem_statement=parsed["problem_formulation"]["context"],
-        problem_statement_json=parsed["problem_formulation"],
-        tech_stack=", ".join(t["technology"] for t in parsed["technology_choices"]),
-        tech_stack_json=parsed["technology_choices"],
-        domain_id=domain_id,
-        ai_pipeline_version=get_active_ai_pipeline_version(),
-        is_ai_generated=True,
-        is_public=True,
-        is_validated=False,
-    )
-
-    db.session.add(idea)
-    db.session.flush()
-
-    idea.quality_score_cached = idea.quality_score
-    idea.novelty_score_cached = parsed["novelty_positioning"]["novelty_score"]
-    idea.novelty_context = novelty
-
-    for src in parsed["evidence_sources"]:
-        db.session.add(
-            IdeaSource(
-                idea_id=idea.id,
-                source_type=src["source_type"],
-                title=src["title"],
-                url=src["url"],
-                summary=src["used_for"],
-            )
+    # Persist idea + sources (with transaction protection)
+    try:
+        idea = ProjectIdea(
+            title=parsed["title"],
+            problem_statement=parsed["problem_formulation"]["context"],
+            problem_statement_json=parsed["problem_formulation"],
+            tech_stack=", ".join(t["technology"] for t in parsed["technology_choices"]),
+            tech_stack_json=parsed["technology_choices"],
+            domain_id=domain_id,
+            ai_pipeline_version=get_active_ai_pipeline_version(),
+            is_ai_generated=True,
+            is_public=True,
+            is_validated=False,
         )
 
-    db.session.add(IdeaRequest(user_id=user_id, idea_id=idea.id))
-    db.session.commit()
+        db.session.add(idea)
+        db.session.flush()
+
+        idea.quality_score_cached = idea.quality_score
+        idea.novelty_score_cached = parsed["novelty_positioning"]["novelty_score"]
+        idea.novelty_context = novelty
+
+        for src in parsed["evidence_sources"]:
+            db.session.add(
+                IdeaSource(
+                    idea_id=idea.id,
+                    source_type=src["source_type"],
+                    title=src["title"],
+                    url=src["url"],
+                    summary=src["used_for"],
+                )
+            )
+
+        db.session.add(IdeaRequest(user_id=user_id, idea_id=idea.id))
+        db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Database error persisting idea: {e}")
+        return {"error": "Failed to save idea. Please try again."}
 
     # Compute metadata
     penalized_sources_count = len([url for url, mult in constraints["source_penalties"].items() if mult < 1.0])
