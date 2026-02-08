@@ -4,6 +4,43 @@ from backend.retrieval.arxiv_client import search_arxiv
 from backend.retrieval.github_client import search_github
 from backend.retrieval.source_reputation import get_source_reputation
 
+logger = logging.getLogger(__name__)
+
+
+def _summarize_query_with_llm(original_query: str, max_chars: int = 120) -> str:
+    """Attempt to produce a concise query using the LLM.
+
+    Returns the summarized string on success or the original query on failure.
+    This is called only as a fallback when initial retrieval returns no useful
+    GitHub results or returns errors.
+    """
+    if not original_query or len(original_query) <= max_chars:
+        return original_query
+
+    try:
+        # Import lazily to avoid LLM client setup cost unless needed
+        from backend.ai.llm_client import generate_json
+
+        prompt = (
+            "You will receive a user's search query. Produce a concise, focused "
+            "search phrase suitable for GitHub repository search (no qualifiers). "
+            "Output ONLY valid JSON with a single key 'summary'. The summary should "
+            f"be {max_chars} characters or less and preserve the main intent.\n\n"
+            f"Query: {original_query}\n"
+        )
+
+        resp = generate_json(prompt, max_tokens=200, temperature=0.0)
+        if isinstance(resp, dict):
+            summary = resp.get("summary") or resp.get("query") or resp.get("q")
+            if summary and isinstance(summary, str):
+                s = summary.strip()
+                return s[:max_chars]
+    except Exception as e:
+        logger.info("LLM summarization failed or unavailable: %s", e)
+
+    # Fallback to truncated original
+    return original_query[:max_chars]
+
 def retrieve_sources(
     query,
     domain,
@@ -25,6 +62,15 @@ def retrieve_sources(
     # Search both sources
     arxiv_results = search_arxiv(query, domain, max_per_source)
     github_results = search_github(query, domain, max_per_source)
+
+    # If GitHub returned no results (or only returned due to errors), try a
+    # short LLM-generated query and retry once. This avoids calling LLM for
+    # every request while improving recall when initial search fails.
+    if not github_results:
+        logger.info("[Retrieval] GitHub returned no results; attempting LLM summarization and retry")
+        short_q = _summarize_query_with_llm(query, max_chars=120)
+        if short_q and short_q != query:
+            github_results = search_github(short_q, domain, max_per_source)
 
     # Merge results
     all_sources = arxiv_results + github_results
@@ -70,7 +116,31 @@ def retrieve_sources(
     ranked_sources = sorted(unique_sources, key=sort_key, reverse=True)
 
     # Return at most limit results
-    final_sources = ranked_sources[:limit]
+    # Ensure we return a diverse set of source types when possible by
+    # selecting in a round-robin manner across available source types.
+    if ranked_sources:
+        available_types = list(dict.fromkeys([s.get('source_type') for s in ranked_sources]))
+        if len(available_types) > 1:
+            final_sources = []
+            # Round-robin pick one per type until we reach limit
+            while len(final_sources) < limit:
+                added = False
+                for t in available_types:
+                    for s in ranked_sources:
+                        if s.get('source_type') == t and s not in final_sources:
+                            final_sources.append(s)
+                            added = True
+                            break
+                    if len(final_sources) >= limit:
+                        break
+                if not added:
+                    # no more unique items to add
+                    break
+            final_sources = final_sources[:limit]
+        else:
+            final_sources = ranked_sources[:limit]
+    else:
+        final_sources = []
 
     # Tag as tier_1 before semantic filter
     for src in final_sources:

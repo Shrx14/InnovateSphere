@@ -1,6 +1,7 @@
 from typing import Dict, List, Any, Optional
-from backend.db import db
-from backend.models import ProjectIdea, AdminVerdict, IdeaFeedback, Domain
+from backend.core.db import db
+from backend.core.models import ProjectIdea, AdminVerdict, IdeaFeedback, Domain
+
 from backend.retrieval.source_reputation import get_source_reputation
 from datetime import datetime, timedelta
 

@@ -1,17 +1,19 @@
 """
 Public/unauthenticated endpoints
 """
+import logging
 from flask import Blueprint, request, jsonify, session
 from flask_jwt_extended import get_jwt_identity
 from sqlalchemy import func
 from backend.core.db import db
 from backend.core.app import cache
-from backend.core.models import ProjectIdea, Domain, AdminVerdict, IdeaView
+from backend.core.models import ProjectIdea, Domain, AdminVerdict, IdeaView, SearchQuery
 from backend.core.app import User
 
 
 from backend.utils.serializers import serialize_public_idea
 
+logger = logging.getLogger(__name__)
 public_bp = Blueprint("public", __name__)
 
 
@@ -69,6 +71,34 @@ def public_ideas():
         .all()
     )
 
+    # Log search query for analytics
+    try:
+        user_id = None
+        try:
+            user_id = get_jwt_identity()
+        except:
+            pass
+        
+        domain_id = None
+        if domain:
+            domain_obj = Domain.query.filter_by(name=domain).first()
+            if domain_obj:
+                domain_id = domain_obj.id
+        
+        if q:  # Only log actual search queries, not just browsing
+            search_log = SearchQuery(
+                user_id=user_id,
+                query_text=q,
+                domain_id=domain_id,
+                result_count=total,
+                user_action="search" if q else "browse"
+            )
+            db.session.add(search_log)
+            db.session.commit()
+    except Exception as e:
+        logger.warning(f"Failed to log search query: {e}")
+        db.session.rollback()
+
     return jsonify({
         "ideas": [
             {
@@ -125,6 +155,19 @@ def public_idea_detail(idea_id):
             db.session.add(
                 IdeaView(idea_id=idea.id, user_id=user_id)
             )
+            
+            # Log view event for analytics
+            try:
+                view_event = ViewEvent(
+                    idea_id=idea.id,
+                    user_id=user_id,
+                    event_type="view",
+                    referrer="authenticated_public_detail"
+                )
+                db.session.add(view_event)
+            except Exception as e:
+                logger.warning(f"Failed to log ViewEvent: {e}")
+            
             db.session.commit()
     else:
         viewed = session.get("viewed_idea_ids", set())
@@ -134,6 +177,21 @@ def public_idea_detail(idea_id):
             idea.view_count += 1
             viewed.add(idea.id)
             session["viewed_idea_ids"] = list(viewed)
+            
+            # Log anon view event
+            try:
+                view_event = ViewEvent(
+                    idea_id=idea.id,
+                    user_id=None,
+                    event_type="view",
+                    referrer="anonymous_public_detail"
+                )
+                db.session.add(view_event)
+                db.session.commit()
+            except Exception as e:
+                logger.warning(f"Failed to log anonymous ViewEvent: {e}")
+                db.session.rollback()
+            
             db.session.commit()
 
     return jsonify({

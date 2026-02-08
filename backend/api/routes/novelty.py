@@ -2,7 +2,7 @@
 Novelty analysis endpoints
 """
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
+# novelty endpoints are public-facing (no auth required)
 
 from backend.novelty.router import route_engine
 from backend.novelty.normalization import normalize_score
@@ -13,15 +13,14 @@ novelty_bp = Blueprint("novelty", __name__)
 
 
 @novelty_bp.route("/api/novelty/analyze", methods=["POST"])
-@jwt_required()
 def analyze_novelty():
     payload = request.get_json() or {}
 
     description = payload.get("description", "").strip()
     domain = payload.get("domain", "generic")
 
-    if not description or len(description) < 10:
-        return jsonify({"error": "Description too short (minimum 10 characters)"}), 400
+    if not description:
+        return jsonify({"error": "Description required"}), 400
 
     if len(description) > 5000:
         return jsonify({"error": "Description too long (maximum 5000 characters)"}), 400
@@ -44,6 +43,8 @@ def analyze_novelty():
         "speculative": result["speculative"],
         "evidence_score": result["evidence_score"],
 
+        "similar_projects": result.get("similar_projects", []),
+
         "engine": result["engine"],
         "domain_intent": intent,
         "intent_confidence": intent_confidence,
@@ -52,3 +53,10 @@ def analyze_novelty():
         "insights": {},
         "debug": result.get("debug"),
     }), 200
+
+
+# Backwards-compatible alias used by older clients/tests
+@novelty_bp.route("/api/check_novelty", methods=["POST"])
+def check_novelty_alias():
+    # Reuse the analyze_novelty implementation
+    return analyze_novelty()

@@ -1,19 +1,16 @@
 from backend.novelty.config import DOMAIN_NOVELTY_WEIGHT
-from backend.novelty.observability.stability import stabilize_score
-from backend.novelty.observability.trace import log_trace
-from backend.novelty.observability.telemetry import record
+from backend.novelty.utils.observability import check_stability, trace_analysis, record_telemetry
 
 from backend.novelty.scoring.base import compute_base_score
 from backend.novelty.scoring.bonuses import compute_bonuses
 from backend.novelty.scoring.blending import blend
 from backend.novelty.scoring.penalties import compute_saturation_penalty, compute_admin_penalty
 
-from backend.db import db
-from backend.models import ProjectIdea, Domain
+from backend.core.db import db
+from backend.core.models import ProjectIdea, Domain
 
-from backend.novelty.signals.similarity import compute_similarity_stats
-from backend.novelty.signals.specificity import compute_specificity
-from backend.novelty.signals.temporal import compute_temporal_signals
+
+from backend.novelty.utils.signals import compute_similarity_stats, compute_specificity_signal, compute_temporal_signal
 from backend.novelty.normalization import determine_level
 from backend.novelty.explain import generate_explanation
 
@@ -59,7 +56,8 @@ class NoveltyAnalyzer:
             return 0.0
 
         # Find ideas that have any of these URLs as sources
-        from backend.models import IdeaSource
+        from backend.core.models import IdeaSource
+
         similar_idea_ids = [
             s.idea_id
             for s in IdeaSource.query
@@ -108,8 +106,8 @@ class NoveltyAnalyzer:
         ).get("sources", [])
 
         sim_stats = compute_similarity_stats(description, sources, self.embedder)
-        specificity = compute_specificity(description)
-        temporal = compute_temporal_signals(sources)
+        specificity = compute_specificity_signal(description)
+        temporal = compute_temporal_signal(sources)
         saturation = compute_saturation_penalty(len(sources))
 
         signals = {
@@ -125,7 +123,7 @@ class NoveltyAnalyzer:
         score = blend(base * 0.9, base + bonus + hitl_penalty)
 
         weighted = score * DOMAIN_NOVELTY_WEIGHT.get(domain.lower(), 1.0)
-        stabilized = stabilize_score(description + domain, weighted, "Medium")
+        stabilized = check_stability(description + domain, weighted, "Medium")
 
         explanations = generate_explanation(
             novelty_score=stabilized,
@@ -135,8 +133,8 @@ class NoveltyAnalyzer:
             sources=sources,
         )
 
-        record("novelty.software.score", stabilized)
-        trace_id = log_trace({"score": stabilized, "sources": len(sources)})
+        record_telemetry("novelty.software.score", stabilized)
+        trace_id = trace_analysis({"score": stabilized, "sources": len(sources)})
 
         return {
             "novelty_score": round(stabilized, 1),

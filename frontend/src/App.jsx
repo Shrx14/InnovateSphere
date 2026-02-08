@@ -4,6 +4,7 @@ import AdminShell from "./features/admin/components/AdminShell";
 import UserShell from "./features/user/components/UserShell";
 import PublicShell from "./features/shared/components/PublicShell";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminProtectedRoute from "./components/AdminProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 
 
@@ -20,6 +21,7 @@ import LoginPage from "./features/auth/pages/LoginPage";
 import RegisterPage from "./features/auth/pages/RegisterPage";
 import IdeaDetail from "./features/idea/pages/IdeaDetail";
 import GeneratePage from "./features/generate/pages/GeneratePage";
+import NoveltyPage from "./features/novelty/pages/NoveltyPage";
 
 
 const App = () => {
@@ -33,14 +35,16 @@ const App = () => {
         <Route
           path="/admin/*"
           element={
-            <AdminShell>
-              <Routes>
-                <Route path="/" element={<AdminReviewQueue />} />
-                <Route path="review" element={<AdminReviewQueue />} />
-                <Route path="analytics" element={<AdminAnalytics />} />
-                <Route path="idea/:id" element={<AdminIdeaDetail />} />
-              </Routes>
-            </AdminShell>
+            <AdminProtectedRoute>
+              <AdminShell>
+                <Routes>
+                  <Route path="/" element={<AdminReviewQueue />} />
+                  <Route path="review" element={<AdminReviewQueue />} />
+                  <Route path="analytics" element={<AdminAnalytics />} />
+                  <Route path="idea/:id" element={<AdminIdeaDetail />} />
+                </Routes>
+              </AdminShell>
+            </AdminProtectedRoute>
           }
         />
 
@@ -68,6 +72,7 @@ const App = () => {
               <Routes>
                 <Route path="dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
                 <Route path="generate" element={<ProtectedRoute><GeneratePage /></ProtectedRoute>} />
+                <Route path="novelty" element={<ProtectedRoute><NoveltyPage /></ProtectedRoute>} />
               </Routes>
             </UserShell>
           }

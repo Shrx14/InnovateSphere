@@ -5,7 +5,8 @@ Research-grade, citation-consistent, hallucination-resistant.
 """
 
 from typing import List, Dict, Any
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
 
 
 # ----------------------------
@@ -17,11 +18,12 @@ class ProblemFormulation(BaseModel):
     why_this_problem_matters: str
     evidence_basis: List[str]
 
-    @validator("evidence_basis")
+    @field_validator("evidence_basis")
     def must_have_evidence(cls, v):
         if not v:
             raise ValueError("problem_formulation requires evidence")
         return v
+
 
 
 class RelatedWorkSynthesis(BaseModel):
@@ -29,11 +31,12 @@ class RelatedWorkSynthesis(BaseModel):
     observed_limitations: str
     evidence_basis: List[str]
 
-    @validator("evidence_basis")
+    @field_validator("evidence_basis")
     def must_have_evidence(cls, v):
         if not v:
             raise ValueError("related_work_synthesis requires evidence")
         return v
+
 
 
 class ProposedContribution(BaseModel):
@@ -42,11 +45,12 @@ class ProposedContribution(BaseModel):
     why_it_is_plausible: str
     evidence_basis: List[str]
 
-    @validator("evidence_basis")
+    @field_validator("evidence_basis")
     def must_have_evidence(cls, v):
         if not v:
             raise ValueError("proposed_contribution requires evidence")
         return v
+
 
 
 # ----------------------------
@@ -86,12 +90,13 @@ class EvidenceSource(BaseModel):
     source_type: str
     used_for: str
 
-    @validator("source_type")
+    @field_validator("source_type")
     def validate_source_type(cls, v):
         allowed = {"arxiv", "github", "web"}
         if v not in allowed:
             raise ValueError(f"Invalid source_type: {v}")
         return v
+
 
 
 # ----------------------------
@@ -109,7 +114,7 @@ class GeneratedIdea(BaseModel):
     limitations_and_risks: List[str]
     evidence_sources: List[EvidenceSource]
 
-    @validator("evidence_sources")
+    @field_validator("evidence_sources")
     def validate_sources(cls, v):
         if len(v) < 4:
             raise ValueError("At least 4 evidence sources required")
@@ -117,9 +122,9 @@ class GeneratedIdea(BaseModel):
             raise ValueError("At least 2 distinct source types required")
         return v
 
-    @root_validator
-    def check_evidence_references(cls, values):
-        sources = values.get("evidence_sources", [])
+    @model_validator(mode='after')
+    def check_evidence_references(self):
+        sources = self.evidence_sources or []
         source_ids = {s.source_id for s in sources}
 
         for section_name in (
@@ -127,7 +132,7 @@ class GeneratedIdea(BaseModel):
             "related_work_synthesis",
             "proposed_contribution",
         ):
-            section = values.get(section_name)
+            section = getattr(self, section_name, None)
             if not section:
                 continue
             for sid in section.evidence_basis:
@@ -135,7 +140,8 @@ class GeneratedIdea(BaseModel):
                     raise ValueError(
                         f"Invalid evidence reference '{sid}' in {section_name}"
                     )
-        return values
+        return self
+
 
 
 def validate_generated_idea(data: Dict[str, Any]) -> GeneratedIdea:

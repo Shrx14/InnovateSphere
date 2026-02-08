@@ -1,6 +1,7 @@
 # backend/ai/prompts.py
 
-from backend.ai_registry import get_active_prompt_version
+from backend.ai.registry import get_active_prompt_version
+
 
 # ==============================
 # DEFAULT PROMPTS

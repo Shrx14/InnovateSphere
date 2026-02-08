@@ -15,3 +15,7 @@ class Embedder:
 
     def embed_texts(self, texts: List[str]):
         return self._embedder.encode(texts, normalize_embeddings=True)
+
+    # Backwards-compatible alias used by other modules
+    def encode(self, texts: List[str], normalize_embeddings: bool = True):
+        return self._embedder.encode(texts, normalize_embeddings=normalize_embeddings)

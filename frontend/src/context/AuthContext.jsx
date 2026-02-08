@@ -16,6 +16,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   // Decode JWT payload
@@ -69,6 +70,8 @@ export const AuthProvider = ({ children }) => {
         setIsAdmin(false);
       }
     }
+    // Always finish loading, even if no token found
+    setIsLoading(false);
   }, [hydrateUserFromToken]);
 
   // Login function
@@ -109,6 +112,7 @@ export const AuthProvider = ({ children }) => {
     token,
     isAuthenticated,
     isAdmin,
+    isLoading,
     login,
     logout
   };

@@ -17,10 +17,13 @@ const UserNav = () => {
           </Link>
           {isAuthenticated ? (
             <>
-              <Link to="/generate" className="text-neutral-300 hover:text-white">
+              <Link to="/user/generate" className="text-neutral-300 hover:text-white">
                 Generate
               </Link>
-              <Link to="/dashboard" className="text-neutral-300 hover:text-white">
+              <Link to="/user/novelty" className="text-neutral-300 hover:text-white">
+                Novelty
+              </Link>
+              <Link to="/user/dashboard" className="text-neutral-300 hover:text-white">
                 Dashboard
               </Link>
               <button

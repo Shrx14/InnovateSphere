@@ -1,5 +1,6 @@
-from backend.db import db
-from backend.models import IdeaSource, AdminVerdict
+from backend.core.db import db
+from backend.core.models import IdeaSource, AdminVerdict
+
 
 
 def get_source_reputation():

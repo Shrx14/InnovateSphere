@@ -1,6 +1,7 @@
-"""Unit tests for backend.config module."""
+"""Unit tests for backend.core.config module."""
 import pytest
-from backend.config import Config
+from backend.core.config import Config
+
 
 
 def test_config_embedding_dim():
@@ -24,9 +25,10 @@ def test_config_embedding_model_default():
     assert Config.EMBEDDING_MODEL == "all-MiniLM-L6-v2"
 
 
-def test_config_ollama_model_default():
-    """Test that OLLAMA_MODEL defaults to phi3:mini."""
-    assert Config.OLLAMA_MODEL == "phi3:mini"
+def test_config_llm_model_default():
+    """Test that LLM_MODEL_NAME defaults to phi3:mini."""
+    assert Config.LLM_MODEL_NAME == "phi3:mini"
+
 
 
 def test_config_get_cors_origins():

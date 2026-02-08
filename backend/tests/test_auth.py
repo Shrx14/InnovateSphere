@@ -2,8 +2,10 @@
 import time
 import pytest
 from unittest.mock import patch, MagicMock
-from flask_jwt_extended import JWTManager, jwt_required, get_jwt, create_access_token
-from backend.config import Config
+from flask_jwt_extended import JWTManager
+from backend.core.auth import create_access_token, jwt_required, get_jwt
+from backend.core.config import Config
+
 
 
 def test_create_access_token():

@@ -10,15 +10,29 @@ from backend.core.models import (
     IdeaRequest,
     IdeaSource,
     Domain,
+    GenerationTrace,
 )
+
+logger = logging.getLogger(__name__)
 
 from backend.retrieval.orchestrator import retrieve_sources
 from backend.semantic.filter import filter_by_semantic_similarity
 
 from backend.semantic.ranker import rank_sources
-from backend.novelty.service import analyze_novelty
+
+# Novelty analysis - optional dependency
+try:
+    from backend.novelty.service import analyze_novelty
+    NOVELTY_AVAILABLE = True
+except Exception as e:
+    logger.warning(f"Novelty analysis unavailable: {e}. Using fallback novelty score.")
+    NOVELTY_AVAILABLE = False
+    def analyze_novelty(input_data, domain_name):
+        """Fallback novelty analyzer when transformers unavailable."""
+        return {"novelty_score": 65, "explanation": "Fallback novelty score"}
 
 from backend.ai.registry import get_active_ai_pipeline_version
+from backend.ai.registry import get_active_bias_profile
 
 from backend.ai.llm_client import generate_json
 from backend.ai.prompts import (
@@ -34,7 +48,47 @@ from backend.ai.prompts import (
 from .schemas import validate_generated_idea
 from .constraints import build_hitl_constraints, is_rejected_pattern
 
-logger = logging.getLogger(__name__)
+
+# Module-level feasibility estimator (used to populate Phase 0 bounds)
+def estimate_feasibility_module(query: str, domain: str, sources: List[Dict[str, Any]], novelty: Dict[str, Any]) -> Dict[str, Any]:
+    source_count = max(0, len(sources))
+    novelty_score = float(novelty.get("novelty_score", 65)) if novelty else 65.0
+
+    base = 50
+    source_bonus = (source_count - 3) * 5
+    novelty_penalty = (70 - novelty_score) * 0.5
+
+    feasibility_score = int(max(0, min(100, base + source_bonus + novelty_penalty)))
+
+    if feasibility_score > 75:
+        complexity = "low"
+    elif feasibility_score > 45:
+        complexity = "medium"
+    else:
+        complexity = "high"
+
+    estimated_time_weeks = round(max(1.0, (100 - feasibility_score) / 10.0 + (0.5 if complexity == "low" else 1.5 if complexity == "medium" else 3.0)), 1)
+
+    if feasibility_score > 80:
+        team_size = 1
+    elif feasibility_score > 60:
+        team_size = 2
+    elif feasibility_score > 40:
+        team_size = 3
+    else:
+        team_size = 5
+
+    uncertainty = round(max(0.05, min(0.95, 1.0 - min(1.0, source_count / 10.0) * 0.7)), 2)
+
+    return {
+        "feasibility_score": feasibility_score,
+        "complexity": complexity,
+        "estimated_time_weeks": estimated_time_weeks,
+        "recommended_team_size": team_size,
+        "uncertainty": uncertainty,
+        "source_count": source_count,
+        "novelty_score": novelty_score,
+    }
 
 
 # Evidence sufficiency gate (cheap, pre-LLM)
@@ -84,17 +138,101 @@ def check_hitl_guardrails(domain_id: int):
 
 # Grounding enforcement (critical)
 def enforce_grounding(final: Dict[str, Any]):
-    source_ids = {str(s["source_id"]) for s in final.get("evidence_sources", [])}
+    # Be defensive: ensure expected structure exists and provide clear errors
+    sources = final.get("evidence_sources")
+    if not isinstance(sources, list):
+        raise ValueError("Ungrounded: 'evidence_sources' missing or invalid in LLM output")
 
-    for section in (
-        final["problem_formulation"],
-        final["related_work_synthesis"],
-        final["proposed_contribution"],
-    ):
-        for sid in section["evidence_basis"]:
-            if sid not in source_ids:
+    source_ids = {str(s.get("source_id")) for s in sources if isinstance(s, dict) and s.get("source_id") is not None}
+
+    for key in ("problem_formulation", "related_work_synthesis", "proposed_contribution"):
+        section = final.get(key)
+        if not isinstance(section, dict):
+            raise ValueError(f"Ungrounded: LLM output missing required section '{key}'")
+
+        evidence_basis = section.get("evidence_basis")
+        if not isinstance(evidence_basis, (list, tuple)):
+            raise ValueError(f"Ungrounded: section '{key}' missing 'evidence_basis' list")
+
+        for sid in evidence_basis:
+            if str(sid) not in source_ids:
                 raise ValueError(f"Ungrounded evidence reference: {sid}")
 
+
+# Multi-pass LLM pipeline (core)
+def multi_pass_llm_generate(
+    query: str,
+    domain: str,
+    sources: List[Dict[str, Any]],
+    novelty: Dict[str, Any],
+    constraints: Dict[str, Any],
+) -> Dict[str, Any]:
+    
+    # ------------------
+    # Phase 0: Feasibility estimation (hackathon / implementation bounds)
+    # ------------------
+    def estimate_feasibility(query: str, domain: str, sources: List[Dict[str, Any]], novelty: Dict[str, Any]) -> Dict[str, Any]:
+        source_count = max(0, len(sources))
+        novelty_score = float(novelty.get("novelty_score", 65)) if novelty else 65.0
+
+        # Heuristic scoring: more sources and moderate novelty increase feasibility
+        base = 50
+        source_bonus = (source_count - 3) * 5
+        novelty_penalty = (70 - novelty_score) * 0.5  # low novelty -> easier to implement
+
+        feasibility_score = int(max(0, min(100, base + source_bonus + novelty_penalty)))
+
+        if feasibility_score > 75:
+            complexity = "low"
+        elif feasibility_score > 45:
+            complexity = "medium"
+        else:
+            complexity = "high"
+
+        # Rough time estimate in weeks (heuristic)
+        estimated_time_weeks = round(max(1.0, (100 - feasibility_score) / 10.0 + (0.5 if complexity == "low" else 1.5 if complexity == "medium" else 3.0)), 1)
+
+        # Suggested team size
+        if feasibility_score > 80:
+            team_size = 1
+        elif feasibility_score > 60:
+            team_size = 2
+        elif feasibility_score > 40:
+            team_size = 3
+        else:
+            team_size = 5
+
+        uncertainty = round(max(0.05, min(0.95, 1.0 - min(1.0, source_count / 10.0) * 0.7)), 2)
+
+        return {
+            "feasibility_score": feasibility_score,
+            "complexity": complexity,
+            "estimated_time_weeks": estimated_time_weeks,
+            "recommended_team_size": team_size,
+            "uncertainty": uncertainty,
+            "source_count": source_count,
+            "novelty_score": novelty_score,
+        }
+
+    # Apply HITL source penalties (deterministic weighting)
+    for src in sources:
+        url = src.get("url")
+        penalty = constraints["source_penalties"].get(url, 1.0)
+        src["_hitl_weight"] = penalty
+
+    # Sort sources by HITL weight descending (higher weight first)
+    sources = sorted(sources, key=lambda s: s["_hitl_weight"], reverse=True)
+
+    sources = sources[: Config.MAX_SOURCES_FOR_LLM]
+
+    # Inject HITL constraints into prompts
+    pass1_system = PASS1_SYSTEM
+    if constraints["domain_strictness"] > 1.0:
+        pass1_system += "\n\nADDITIONAL CONSTRAINTS:\n- Use conservative analysis and avoid speculative gaps.\n- Require stronger evidence for any identified limitations."
+
+    penalized_urls = [url for url, mult in constraints["source_penalties"].items() if mult < 1.0]
+    if penalized_urls:
+        pass1_system += "\n- Avoid over-reliance on sources that have been previously rejected by reviewers."
 
 # Multi-pass LLM pipeline (core)
 def multi_pass_llm_generate(
@@ -125,129 +263,198 @@ def multi_pass_llm_generate(
     if penalized_urls:
         pass1_system += "\n- Avoid over-reliance on sources that have been previously rejected by reviewers."
 
-    # PASS 1 — idea space analysis
+    # ========================================================
+    # PHASE 2: IDEA SPACE ANALYSIS (Explicit Landscape Study)
+    # ========================================================
+    # Pass 1 — landscape analysis (identifies patterns, gaps, saturated zones)
     try:
-        analysis = generate_json(
-            pass1_system
-            + PASS1_PROMPT_TEMPLATE.format(
-                domain=domain,
-                sources="\n".join(
-                    f"[{i}] {s['title']} ({s['source_type']})"
-                    for i, s in enumerate(sources)
-                ),
-            )
+        pass1_body = PASS1_PROMPT_TEMPLATE
+        pass1_body = pass1_body.replace("{domain}", domain)
+        pass1_body = pass1_body.replace(
+            "{sources}",
+            "\n".join(f"[{i}] {s['title']} ({s['source_type']})" for i, s in enumerate(sources)),
         )
+
+        analysis = generate_json(pass1_system + pass1_body)
     except (RuntimeError, ValueError) as e:
         logger.error(f"PASS 1 LLM generation failed: {e}")
-        raise RuntimeError("Idea generation failed (PASS 1): LLM error") from e
+        raise RuntimeError("Idea generation failed (PHASE 2 - Landscape Analysis): LLM error") from e
 
-    # PASS 2 — problem framing
+    # ========================================================
+    # PHASE 3: CONSTRAINT-GUIDED SYNTHESIS
+    # ========================================================
+    # PASS 2 — problem framing (informed by landscape analysis)
     try:
-        idea = generate_json(
-            PASS2_SYSTEM
-            + PASS2_PROMPT_TEMPLATE.format(
-                analysis=json.dumps(analysis),
-                context=query,
-            )
-        )
+        pass2_body = PASS2_PROMPT_TEMPLATE
+        pass2_body = pass2_body.replace("{analysis}", json.dumps(analysis))
+        pass2_body = pass2_body.replace("{context}", query)
+        idea = generate_json(PASS2_SYSTEM + pass2_body)
     except (RuntimeError, ValueError) as e:
         logger.error(f"PASS 2 LLM generation failed: {e}")
-        raise RuntimeError("Idea generation failed (PASS 2): LLM error") from e
+        raise RuntimeError("Idea generation failed (PHASE 3 - Problem Framing): LLM error") from e
+    # Defensive: ensure idea is a dict
+    if not isinstance(idea, dict):
+        logger.warning("PASS2 returned unexpected type; coercing to empty dict")
+        idea = {}
 
     # PASS 3 — evidence validation
     try:
-        evidence = generate_json(
-            PASS3_SYSTEM
-            + PASS3_PROMPT_TEMPLATE.format(
-                idea=json.dumps(idea),
-                sources="\n".join(
-                    f"[{i}] {s['title']} — {s['url']}"
-                    for i, s in enumerate(sources)
-                ),
-            )
+        pass3_body = PASS3_PROMPT_TEMPLATE
+        pass3_body = pass3_body.replace("{idea}", json.dumps(idea))
+        pass3_body = pass3_body.replace(
+            "{sources}",
+            "\n".join(f"[{i}] {s['title']} — {s['url']}" for i, s in enumerate(sources)),
         )
+        evidence = generate_json(PASS3_SYSTEM + pass3_body)
     except (RuntimeError, ValueError) as e:
         logger.error(f"PASS 3 LLM generation failed: {e}")
-        raise RuntimeError("Idea generation failed (PASS 3): LLM error") from e
+        raise RuntimeError("Idea generation failed (PHASE 3 - Evidence Validation): LLM error") from e
+    # Defensive: ensure evidence is a dict and has validated_sources list
+    if not isinstance(evidence, dict):
+        logger.warning("PASS3 returned unexpected type; coercing to empty evidence dict")
+        evidence = {}
 
-    if len(evidence.get("validated_sources", [])) < Config.MIN_EVIDENCE_REQUIRED:
+    validated_list = [s for s in evidence.get("validated_sources", []) if isinstance(s, dict)]
+    if len(validated_list) < Config.MIN_EVIDENCE_REQUIRED:
         raise ValueError("Insufficient validated evidence")
 
-    validated_ids = {
-        str(s["id"]): s for s in evidence["validated_sources"]
-    }
+    validated_ids = {str(s.get("id")): s for s in validated_list if s.get("id") is not None}
 
     # Enforce admin-validated evidence preference
-    validated_urls = {
-        s["url"] for s in evidence["validated_sources"]
-    }
+    validated_urls = {s.get("url") for s in validated_list if s.get("url")}
     sources = [
         s for s in sources
         if s["url"] in validated_urls
     ]
     # Preserve HITL weighting order — do not re-sort
 
+    # ========================================================
+    # PHASE 4: EVIDENCE-ANCHORED OUTPUT
+    # ========================================================
     # PASS 4 — grounded assembly
     try:
-        final = generate_json(
-            PASS4_SYSTEM
-            + PASS4_PROMPT_TEMPLATE.format(
-                analysis=json.dumps(analysis),
-                evidence=json.dumps(evidence),
-                novelty=json.dumps(novelty),
-            )
-        )
+        pass4_body = PASS4_PROMPT_TEMPLATE
+        pass4_body = pass4_body.replace("{analysis}", json.dumps(analysis))
+        pass4_body = pass4_body.replace("{evidence}", json.dumps(evidence))
+        pass4_body = pass4_body.replace("{novelty}", json.dumps(novelty))
+        final = generate_json(PASS4_SYSTEM + pass4_body)
     except (RuntimeError, ValueError) as e:
         logger.error(f"PASS 4 LLM generation failed: {e}")
-        raise RuntimeError("Idea generation failed (PASS 4): LLM error") from e
+        raise RuntimeError("Idea generation failed (PHASE 4 - Output Synthesis): LLM error") from e
+    # Defensive: ensure final is a dict
+    if not isinstance(final, dict):
+        logger.error("PASS4 returned invalid type; expected JSON object")
+        raise ValueError("LLM returned invalid final structure")
 
-    for src in final["evidence_sources"]:
-        if str(src["source_id"]) not in validated_ids:
+    final_sources = [s for s in final.get("evidence_sources", []) if isinstance(s, dict)]
+    for src in final_sources:
+        if str(src.get("source_id")) not in validated_ids:
             raise ValueError("PASS4 used non-validated source")
 
+    # Enforce grounding (will raise if structure incomplete)
     enforce_grounding(final)
-    return final
+    
+    # Return phases for tracing
+    return {
+        "final": final,
+        "phase_0": {"query": query, "domain": domain},
+        "phase_1": analysis,  # Landscape analysis
+        "phase_2": idea,      # Problem framing
+        "phase_3": evidence,  # Evidence validation
+    }
 
 
 # Main entry: generate_idea
 def generate_idea(query: str, domain_id: int, user_id: int) -> Dict[str, Any]:
-    domain = Domain.query.get(domain_id)
-    if not domain:
-        return {"error": "Invalid domain_id"}
+    # Basic abuse check: ensure user is not exceeding generation attempts
+    try:
+        from backend.core.abuse import check_generation_rate, record_abuse_event
+        if check_generation_rate(user_id):
+            # Record the blocked attempt for auditing
+            try:
+                record_abuse_event(user_id, "generation_blocked", {"query": query[:200]})
+            except Exception:
+                pass
+            return {"error": "rate_limited"}
+        else:
+            # Record this attempt
+            try:
+                record_abuse_event(user_id, "generation_attempt", {"query": query[:200]})
+            except Exception:
+                pass
 
-    guardrail = check_hitl_guardrails(domain_id)
-    if guardrail:
-        return guardrail
+    except Exception:
+        # If abuse subsystem fails, allow generation but log
+        logger.exception("Abuse subsystem error; continuing generation")
 
-    retrieved = retrieve_sources(query=query, domain=domain.name)
-    filtered = filter_by_semantic_similarity(query, retrieved.get("sources", []), 0.6)
+    try:
+        domain = Domain.query.get(domain_id)
+        if not domain:
+            return {"error": "Invalid domain_id"}
 
-    ranked = rank_sources(filtered)
+        guardrail = check_hitl_guardrails(domain_id)
+        if guardrail:
+            return guardrail
 
+        retrieved = retrieve_sources(query=query, domain=domain.name)
+        if not retrieved or 'sources' not in retrieved:
+            return {"error": "No sources found for topic. Please try a different topic."}
+        
+        filtered = filter_by_semantic_similarity(query, retrieved.get("sources", []), 0.6)
+        if not filtered:
+            return {"error": "No relevant sources found. Please try a different topic."}
 
-    novelty_input = "\n".join(
-        f"[{s['source_type']}] {s['title']}" for s in ranked
-    )
-    novelty = analyze_novelty(novelty_input, domain.name)
+        ranked = rank_sources(filtered)
+        if not ranked:
+            return {"error": "Could not rank sources. Please try again."}
 
-    gate_error = check_evidence_sufficiency(ranked, novelty.get("novelty_score", 0))
-    if gate_error:
-        return {"error": gate_error}
+        novelty_input = "\n".join(
+            f"[{s['source_type']}] {s['title']}" for s in ranked
+        )
+        novelty = analyze_novelty(novelty_input, domain.name)
+
+        gate_error = check_evidence_sufficiency(ranked, novelty.get("novelty_score", 0))
+        if gate_error:
+            return {"error": gate_error}
+    except Exception as e:
+        logger.error(f"Error in generate_idea retrieval phase: {e}")
+        return {"error": f"Retrieval error: {str(e)}"}
 
     # Build HITL constraints
-    constraints = build_hitl_constraints(domain.name, ranked)
+    try:
+        constraints = build_hitl_constraints(domain.name, ranked)
+    except Exception as e:
+        logger.warning(f"HITL constraint building failed: {e}. Using empty constraints.")
+        constraints = {"source_penalties": {}, "domain_constraints": {}, "domain_strictness": 1.0}
 
     # Wrap LLM generation in try-except
     try:
-        final = multi_pass_llm_generate(query, domain.name, ranked, novelty, constraints)
+        generation_output = multi_pass_llm_generate(query, domain.name, ranked, novelty, constraints)
+        final = generation_output["final"]
+        phase_0 = generation_output["phase_0"]
+        # Augment phase_0 with feasibility bounds
+        try:
+            phase_0["feasibility"] = estimate_feasibility_module(query, domain.name, ranked, novelty)
+        except Exception:
+            phase_0["feasibility"] = None
+        phase_1 = generation_output["phase_1"]
+        phase_2 = generation_output["phase_2"]
+        phase_3 = generation_output["phase_3"]
     except RuntimeError as e:
         logger.error(f"LLM generation failed: {e}")
-        return {"error": str(e)}
+        return {"error": str(e) if str(e) else "LLM generation failed. Please try again."}
     except ValueError as e:
         logger.error(f"LLM validation failed: {e}")
-        return {"error": f"Validation error: {str(e)}"}
+        return {"error": f"Validation error: {str(e)}" if str(e) else "Validation failed. Please try again."}
+    except Exception as e:
+        logger.exception("Unexpected error in LLM generation")
+        return {"error": f"Generation failed unexpectedly: {str(e)}"}
 
-    parsed = validate_generated_idea(final).dict()
+    try:
+        parsed = validate_generated_idea(final).dict()
+    except Exception as e:
+        logger.exception("Schema validation failed")
+        return {"error": f"Response validation failed: {str(e)}"}
 
     pattern_check = is_rejected_pattern(parsed, constraints)
     if pattern_check:
@@ -255,12 +462,23 @@ def generate_idea(query: str, domain_id: int, user_id: int) -> Dict[str, Any]:
 
     # Persist idea + sources (with transaction protection)
     try:
+        # Build title safely
+        title = parsed.get("title", "Untitled Idea")[:255]
+        
+        # Build problem statement safely
+        problem_form = parsed.get("problem_formulation", {})
+        problem_statement = problem_form.get("context", "No problem statement provided")
+        
+        # Build tech stack safely
+        tech_choices = parsed.get("technology_choices", [])
+        tech_stack = ", ".join(t.get("technology", "Unknown") for t in tech_choices if isinstance(t, dict)) if tech_choices else "Not specified"
+        
         idea = ProjectIdea(
-            title=parsed["title"],
-            problem_statement=parsed["problem_formulation"]["context"],
-            problem_statement_json=parsed["problem_formulation"],
-            tech_stack=", ".join(t["technology"] for t in parsed["technology_choices"]),
-            tech_stack_json=parsed["technology_choices"],
+            title=title,
+            problem_statement=problem_statement,
+            problem_statement_json=problem_form,
+            tech_stack=tech_stack,
+            tech_stack_json=tech_choices,
             domain_id=domain_id,
             ai_pipeline_version=get_active_ai_pipeline_version(),
             is_ai_generated=True,
@@ -272,21 +490,51 @@ def generate_idea(query: str, domain_id: int, user_id: int) -> Dict[str, Any]:
         db.session.flush()
 
         idea.quality_score_cached = idea.quality_score
-        idea.novelty_score_cached = parsed["novelty_positioning"]["novelty_score"]
+        
+        # Safely get novelty score
+        novelty_pos = parsed.get("novelty_positioning", {})
+        idea.novelty_score_cached = novelty_pos.get("novelty_score", 65) if isinstance(novelty_pos, dict) else 65
         idea.novelty_context = novelty
 
-        for src in parsed["evidence_sources"]:
-            db.session.add(
-                IdeaSource(
-                    idea_id=idea.id,
-                    source_type=src["source_type"],
-                    title=src["title"],
-                    url=src["url"],
-                    summary=src["used_for"],
+        # Add sources
+        evidence_sources = parsed.get("evidence_sources", [])
+        for src in evidence_sources:
+            if isinstance(src, dict):
+                db.session.add(
+                    IdeaSource(
+                        idea_id=idea.id,
+                        source_type=src.get("source_type", "unknown"),
+                        title=src.get("title", "Untitled"),
+                        url=src.get("url", ""),
+                        summary=src.get("used_for", ""),
+                    )
                 )
-            )
 
         db.session.add(IdeaRequest(user_id=user_id, idea_id=idea.id))
+        
+        # ================================================================
+        # CREATE AUDIT TRACE (Phase 0-4 reasoning documented)
+        # ================================================================
+        active_bias = get_active_bias_profile()
+
+        trace = GenerationTrace(
+            idea_id=idea.id,
+            user_id=user_id,
+            query=query,
+            domain_name=domain.name,
+            ai_pipeline_version=get_active_ai_pipeline_version(),
+            bias_profile_version=active_bias.get("version", "default"),
+            prompt_version="v1",
+            phase_0_output=phase_0,
+            phase_1_output=phase_1,  # Landscape analysis (ideas space)
+            phase_2_output=phase_2,  # Problem framing
+            phase_3_output=phase_3,  # Evidence validation
+            phase_4_output=final,    # Final synthesis
+            constraints_active=constraints,
+            bias_penalties_applied={"source_penalties": constraints.get("source_penalties", {})}
+        )
+        db.session.add(trace)
+        
         db.session.commit()
 
     except Exception as e:
@@ -295,17 +543,18 @@ def generate_idea(query: str, domain_id: int, user_id: int) -> Dict[str, Any]:
         return {"error": "Failed to save idea. Please try again."}
 
     # Compute metadata
-    penalized_sources_count = len([url for url, mult in constraints["source_penalties"].items() if mult < 1.0])
-    validated_sources = [s for s in parsed["evidence_sources"] if s["url"] in constraints["source_penalties"]]
-    validated_source_ratio = len(validated_sources) / len(parsed["evidence_sources"]) if parsed["evidence_sources"] else 0.0
+    penalized_sources_count = len([url for url, mult in constraints.get("source_penalties", {}).items() if mult < 1.0])
+    parsed_evidence = parsed.get("evidence_sources", []) if isinstance(parsed, dict) else []
+    validated_sources = [s for s in parsed_evidence if s.get("url") in constraints.get("source_penalties", {})]
+    validated_source_ratio = len(validated_sources) / len(parsed_evidence) if parsed_evidence else 0.0
 
     return {
         "idea": parsed,
-        "novelty_score": parsed["novelty_positioning"]["novelty_score"],
+        "novelty_score": parsed.get("novelty_positioning", {}).get("novelty_score", novelty.get("novelty_score", 65)),
         "generation_metadata": {
             "hitl_influenced": True,
             "penalized_sources_count": penalized_sources_count,
-            "domain_strictness": constraints["domain_strictness"],
+            "domain_strictness": constraints.get("domain_strictness", 1.0),
             "validated_source_ratio": validated_source_ratio
         }
     }

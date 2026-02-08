@@ -9,6 +9,8 @@ def compute_similarity_distribution(
             "mean_similarity": 0.0,
             "variance": 0.0,
             "count_above": 0,
+            # backward-compatible key expected by other modules
+            "count_above_threshold": 0,
         }
 
     mean = sum(similarities) / len(similarities)
@@ -19,4 +21,6 @@ def compute_similarity_distribution(
         "mean_similarity": round(mean, 3),
         "variance": round(variance, 3),
         "count_above": count_above,
+        # provide both keys for compatibility
+        "count_above_threshold": count_above,
     }

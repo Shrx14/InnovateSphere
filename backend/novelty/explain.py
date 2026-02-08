@@ -75,3 +75,88 @@ def generate_explanation(
         explanations.append("This concept has significant overlap with existing sources.")
 
     return explanations
+
+
+def generate_detailed_explanation(
+    novelty_score: float,
+    confidence_tier: str,
+    signal_breakdown: dict = None,
+    penalties: dict = None,
+    source_count: int = 0,
+    admin_validated_count: int = 0
+):
+    """
+    Generate comprehensive explanation with signal breakdown and penalty information.
+    This provides transparency into HOW a novelty score was calculated.
+    """
+    
+    if signal_breakdown is None:
+        signal_breakdown = {}
+    if penalties is None:
+        penalties = {}
+    
+    explanation_parts = []
+    
+    # Main score explanation
+    if novelty_score >= 70:
+        base_claim = "This idea shows high novelty"
+    elif novelty_score >= 40:
+        base_claim = "This idea shows moderate novelty"
+    else:
+        base_claim = "This idea has low novelty"
+    
+    explanation_parts.append(f"{base_claim} (Score: {novelty_score:.0f}/100)")
+    
+    # Signal breakdown
+    if signal_breakdown:
+        explanation_parts.append("\n**Signal Contributions:**")
+        total_signals = sum(abs(v) for v in signal_breakdown.values())
+        for signal_name, weight in sorted(signal_breakdown.items(), key=lambda x: x[1], reverse=True):
+            if total_signals > 0:
+                pct = (weight / total_signals * 100) if weight > 0 else -(weight / total_signals * 100)
+                if weight > 0:
+                    explanation_parts.append(f"  • {signal_name}: +{weight:.1f} (↑{pct:.0f}%)")
+                else:
+                    explanation_parts.append(f"  • {signal_name}: {weight:.1f} (↓{abs(pct):.0f}%)")
+    
+    # Confidence explanation
+    if confidence_tier == "High":
+        reason = f"Based on {source_count} diverse sources"
+        if admin_validated_count > 0:
+            reason += f" ({admin_validated_count} admin-validated)"
+    elif confidence_tier == "Medium":
+        reason = f"Based on {source_count} sources"
+        if admin_validated_count == 0:
+            reason += " (no admin validation yet)"
+    else:
+        reason = f"Limited data: {source_count} sources found"
+    
+    if confidence_tier:
+        explanation_parts.append(f"\n**Confidence: {confidence_tier}**")
+        explanation_parts.append(f"  {reason}")
+    
+    # Penalty breakdown
+    if penalties and any(v != 1.0 for v in penalties.values()):
+        explanation_parts.append("\n**Adjustments Applied:**")
+        
+        for penalty_name, multiplier in sorted(penalties.items()):
+            if multiplier < 1.0:
+                pct_change = int((1 - multiplier) * 100)
+                explanation_parts.append(f"  • {penalty_name}: -{pct_change}%")
+            elif multiplier > 1.0:
+                pct_change = int((multiplier - 1) * 100)
+                explanation_parts.append(f"  • {penalty_name}: +{pct_change}%")
+    
+    # Saturation warning
+    if source_count > 15:
+        explanation_parts.append("\n⚠️ Note: High saturation detected - many sources cover similar ground")
+    
+    return {
+        "summary": explanation_parts[0],
+        "confidence_tier": confidence_tier,
+        "confidence_reason": reason if confidence_tier else "",
+        "full_narrative": "\n".join(explanation_parts),
+        "signals": signal_breakdown,
+        "penalties": penalties,
+        "source_count": source_count
+    }

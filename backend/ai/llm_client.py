@@ -3,7 +3,8 @@ import logging
 import requests
 from typing import Dict, Any, Optional
 
-from backend.config import Config
+from backend.core.config import Config
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +25,42 @@ def generate_json(
     """
     provider = Config.LLM_PROVIDER.lower()
 
-    if provider == "ollama":
-        return _generate_ollama(prompt, max_tokens, temperature)
-    elif provider == "openai":
-        return _generate_openai(prompt, max_tokens, temperature)
-    else:
-        raise ValueError(f"Unsupported LLM provider: {provider}")
+    try:
+        if provider == "ollama":
+            return _generate_ollama(prompt, max_tokens, temperature)
+        elif provider == "openai":
+            return _generate_openai(prompt, max_tokens, temperature)
+        else:
+            raise ValueError(f"Unsupported LLM provider: {provider}")
+    except Exception as e:
+        # If running in a local/dev environment and the real LLM is unreachable,
+        # allow a controllable mock response to enable end-to-end smoke tests.
+        import os
+        if os.getenv("DEV_MOCK_LLM", "0") == "1":
+            logger.warning("LLM backend failed (%s). Returning mock JSON (DEV_MOCK_LLM=1).", e)
+            # Minimal valid structure used by the multi-pass generator
+            return {
+                "summary": "mock analysis",
+                "common_patterns": [],
+                "validated_sources": [
+                    {"id": 1, "url": "https://example.org/paper1", "title": "Mock Source 1", "source_id": 1, "source_type": "arxiv"},
+                    {"id": 2, "url": "https://example.org/paper2", "title": "Mock Source 2", "source_id": 2, "source_type": "github"},
+                    {"id": 3, "url": "https://example.org/paper3", "title": "Mock Source 3", "source_id": 3, "source_type": "arxiv"},
+                ],
+                "evidence_sources": [
+                    {"source_id": 1, "url": "https://example.org/paper1", "title": "Mock Source 1", "used_for": "background"},
+                    {"source_id": 2, "url": "https://example.org/paper2", "title": "Mock Source 2", "used_for": "related_work"},
+                    {"source_id": 3, "url": "https://example.org/paper3", "title": "Mock Source 3", "used_for": "contribution"},
+                ],
+                "problem_formulation": {"evidence_basis": [1], "context": "Mock problem"},
+                "related_work_synthesis": {"evidence_basis": [1], "summary": "Mock related work"},
+                "proposed_contribution": {"evidence_basis": [1], "summary": "Mock contribution"},
+                "novelty_positioning": {"novelty_score": 65},
+                "title": "Mock Idea",
+                "technology_choices": [],
+            }
+        # Otherwise re-raise to allow normal error handling
+        raise
 
 
 # ==============================
