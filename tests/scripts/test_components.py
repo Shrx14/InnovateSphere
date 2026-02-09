@@ -6,7 +6,7 @@ import sys
 import os
 
 # Add backend to path
-sys.path.insert(0, 'D:\\Work\\InnovateSphere')
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 import json
 from datetime import datetime, timedelta

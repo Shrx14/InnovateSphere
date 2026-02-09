@@ -1,5 +1,7 @@
 import json
 import logging
+import time
+import uuid
 import requests
 from typing import Dict, Any, Optional
 
@@ -7,6 +9,16 @@ from backend.core.config import Config
 
 
 logger = logging.getLogger(__name__)
+
+
+class TransientLLMError(RuntimeError):
+    """Indicates a transient LLM/provider failure (e.g., timeout or service down).
+
+    Callers may choose to treat these as retryable (503) rather than client errors.
+    """
+    def __init__(self, message: str, trace_id: Optional[str] = None):
+        super().__init__(message)
+        self.trace_id = trace_id
 
 
 # ==============================
@@ -32,46 +44,64 @@ def generate_json(
             return _generate_openai(prompt, max_tokens, temperature)
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")
-    except Exception as e:
-        # If running in a local/dev environment and the real LLM is unreachable,
-        # allow a controllable mock response to enable end-to-end smoke tests.
-        import os
-        if os.getenv("DEV_MOCK_LLM", "0") == "1":
-            logger.warning("LLM backend failed (%s). Returning mock JSON (DEV_MOCK_LLM=1).", e)
-            # Minimal valid structure used by the multi-pass generator
-            return {
-                "summary": "mock analysis",
-                "common_patterns": [],
-                "validated_sources": [
-                    {"id": 1, "url": "https://example.org/paper1", "title": "Mock Source 1", "source_id": 1, "source_type": "arxiv"},
-                    {"id": 2, "url": "https://example.org/paper2", "title": "Mock Source 2", "source_id": 2, "source_type": "github"},
-                    {"id": 3, "url": "https://example.org/paper3", "title": "Mock Source 3", "source_id": 3, "source_type": "arxiv"},
-                ],
-                "evidence_sources": [
-                    {"source_id": 1, "url": "https://example.org/paper1", "title": "Mock Source 1", "used_for": "background"},
-                    {"source_id": 2, "url": "https://example.org/paper2", "title": "Mock Source 2", "used_for": "related_work"},
-                    {"source_id": 3, "url": "https://example.org/paper3", "title": "Mock Source 3", "used_for": "contribution"},
-                ],
-                "problem_formulation": {"evidence_basis": [1], "context": "Mock problem"},
-                "related_work_synthesis": {"evidence_basis": [1], "summary": "Mock related work"},
-                "proposed_contribution": {"evidence_basis": [1], "summary": "Mock contribution"},
-                "novelty_positioning": {"novelty_score": 65},
-                "title": "Mock Idea",
-                "technology_choices": [],
-            }
-        # Otherwise re-raise to allow normal error handling
+    except TransientLLMError:
+        # If configured, attempt a fallback provider (e.g., OpenAI) for transient failures
+        if getattr(Config, "LLM_FALLBACK_ENABLED", False) and getattr(Config, "LLM_FALLBACK_PROVIDER", None):
+            fb = Config.LLM_FALLBACK_PROVIDER.lower()
+            logger.info(f"Transient LLM failure from {provider}; attempting fallback to {fb}")
+            try:
+                if fb == "openai":
+                    out = _generate_openai(prompt, max_tokens, temperature)
+                    # mark output as coming from fallback for observability
+                    if isinstance(out, dict):
+                        out["from_fallback"] = True
+                    return out
+                else:
+                    logger.warning(f"Configured fallback provider '{fb}' is not supported")
+            except Exception as fe:
+                logger.warning(f"Fallback provider {fb} failed: {fe}")
+        # Re-raise the original transient error if fallback not available or failed
         raise
+    except Exception as e:
+        # Re-raise to allow normal error handling
+        raise
+
 
 
 # ==============================
 # Ollama Backend
 # ==============================
 
+def _check_ollama_health() -> bool:
+    """
+    Quick health check: attempt lightweight model listing.
+    Returns True if Ollama is reachable.
+    """
+    try:
+        resp = requests.get(
+            f"{Config.OLLAMA_BASE_URL}/api/tags",
+            timeout=getattr(Config, "OLLAMA_HEALTH_TIMEOUT", 2),
+        )
+        return resp.status_code == 200
+    except Exception:
+        return False
+
+
 def _generate_ollama(
     prompt: str,
     max_tokens: int,
     temperature: float,
 ) -> Dict[str, Any]:
+    # Trace id for correlating provider requests/logs
+    trace_id = str(uuid.uuid4())
+
+    # Health check: fail fast if Ollama is not reachable
+    if not _check_ollama_health():
+        raise TransientLLMError(
+            f"Ollama service unreachable at {Config.OLLAMA_BASE_URL}. Ensure Ollama is running (ollama serve). (trace={trace_id})",
+            trace_id=trace_id,
+        )
+    
     payload = {
         "model": Config.LLM_MODEL_NAME,
         "prompt": _wrap_json_prompt(prompt),
@@ -82,6 +112,7 @@ def _generate_ollama(
         },
     }
 
+    raw = None
     for attempt in range(Config.LLM_MAX_RETRIES + 1):
         try:
             resp = requests.post(
@@ -91,7 +122,20 @@ def _generate_ollama(
             )
             resp.raise_for_status()
 
-            raw = resp.json().get("response", "")
+            # Capture raw text for diagnostics before attempting JSON parsing
+            resp_text = getattr(resp, "text", "")
+            try:
+                json_body = resp.json()
+            except Exception:
+                # If the provider returned non-JSON, surface the raw text for diagnostics
+                logger.warning(f"[Ollama][trace={trace_id}] Non-JSON response received (attempt {attempt + 1}): {resp_text}")
+                # Treat invalid JSON from provider as transient so we can retry/fallback
+                raise TransientLLMError(
+                    f"Ollama returned non-JSON response (trace={trace_id})",
+                    trace_id=trace_id,
+                )
+
+            raw = json_body.get("response", "")
             parsed = _extract_json(raw)
 
             if not isinstance(parsed, dict):
@@ -99,15 +143,60 @@ def _generate_ollama(
 
             return parsed
 
-        except Exception as e:
-            logger.warning(
-                f"[Ollama] attempt {attempt + 1} failed: {e}"
-            )
+        except requests.exceptions.HTTPError as he:
+            # Log the full error response for diagnostics
+            try:
+                error_body = he.response.text if hasattr(he.response, 'text') else str(he)
+                logger.error(f"[Ollama][trace={trace_id}] HTTP {he.response.status_code}: {error_body}")
+            except Exception:
+                logger.error(f"[Ollama][trace={trace_id}] HTTP error: {he}")
+            
             if attempt >= Config.LLM_MAX_RETRIES:
-                logger.error(
-                    f"[Ollama] final raw output:\n{raw if 'raw' in locals() else 'N/A'}"
-                )
-                raise RuntimeError("Ollama JSON generation failed") from e
+                # Treat permanent HTTP errors as non-transient
+                raise RuntimeError(f"Ollama JSON generation failed (trace={trace_id})") from he
+
+            logger.warning(f"[Ollama][trace={trace_id}] attempt {attempt + 1} failed, retrying...")
+
+        except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError) as e:
+            logger.warning(f"[Ollama][trace={trace_id}] attempt {attempt + 1} transient failure: {e}")
+            if attempt >= Config.LLM_MAX_RETRIES:
+                logger.error(f"[Ollama][trace={trace_id}] final raw output:\n{raw if raw else 'N/A'}")
+                raise TransientLLMError(
+                    f"Ollama JSON generation timed out or connection failed (trace={trace_id})",
+                    trace_id=trace_id,
+                ) from e
+            # otherwise continue to retry
+            # exponential backoff before next retry, but cap at configured max
+            try:
+                base = float(getattr(Config, "LLM_BACKOFF_BASE_SECONDS", 0.5))
+                cap = float(getattr(Config, "LLM_BACKOFF_MAX_SECONDS", 30.0))
+                backoff = min(base * (2 ** attempt), cap)
+                logger.info(f"[Ollama] sleeping for {backoff:.2f}s before retry")
+                time.sleep(backoff)
+            except Exception:
+                pass
+
+        except TransientLLMError:
+            # Re-raise transient errors so higher-level logic may fallback or return 503
+            logger.warning(f"[Ollama][trace={trace_id}] attempt {attempt + 1} transient (parse/connect) failure")
+            if attempt >= Config.LLM_MAX_RETRIES:
+                logger.error(f"[Ollama][trace={trace_id}] final raw output:\n{raw if raw else 'N/A'}")
+                raise
+            # apply backoff then continue
+            try:
+                base = float(getattr(Config, "LLM_BACKOFF_BASE_SECONDS", 0.5))
+                cap = float(getattr(Config, "LLM_BACKOFF_MAX_SECONDS", 30.0))
+                backoff = min(base * (2 ** attempt), cap)
+                logger.info(f"[Ollama][trace={trace_id}] sleeping for {backoff:.2f}s before retry")
+                time.sleep(backoff)
+            except Exception:
+                pass
+
+        except Exception as e:
+            logger.warning(f"[Ollama][trace={trace_id}] attempt {attempt + 1} failed: {e}")
+            if attempt >= Config.LLM_MAX_RETRIES:
+                logger.error(f"[Ollama][trace={trace_id}] final raw output:\n{raw if raw else 'N/A'}")
+                raise RuntimeError(f"Ollama JSON generation failed (trace={trace_id})") from e
 
 
 # ==============================
@@ -132,6 +221,9 @@ def _generate_openai(
 
     client = openai.OpenAI(api_key=Config.OPENAI_API_KEY)
 
+    # Use the same strict JSON wrapping as local models to increase parity
+    wrapped_prompt = _wrap_json_prompt(prompt)
+
     for attempt in range(Config.LLM_MAX_RETRIES + 1):
         try:
             resp = client.chat.completions.create(
@@ -140,19 +232,26 @@ def _generate_openai(
                     {
                         "role": "system",
                         "content": (
-                            "You are a strict JSON generator. "
-                            "Return ONLY valid JSON. No explanations."
+                            "You are a strict JSON generator. Return ONLY valid JSON. No explanations."
                         ),
                     },
-                    {"role": "user", "content": prompt},
+                    {"role": "user", "content": wrapped_prompt},
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
-                response_format={"type": "json_object"},
             )
 
-            content = resp.choices[0].message.content
-            parsed = json.loads(content)
+            # Extract content safely and defensively parse JSON
+            try:
+                content = resp.choices[0].message.content
+            except Exception:
+                content = str(resp)
+
+            try:
+                parsed = _extract_json(content)
+            except Exception:
+                # Fallback: try a raw json.loads if content is pure JSON
+                parsed = json.loads(content)
 
             if not isinstance(parsed, dict):
                 raise ValueError("Parsed output is not a JSON object")
@@ -160,9 +259,22 @@ def _generate_openai(
             return parsed
 
         except Exception as e:
-            logger.warning(
-                f"[OpenAI] attempt {attempt + 1} failed: {e}"
-            )
+            logger.warning(f"[OpenAI] attempt {attempt + 1} failed: {e}")
+            # If the exception looks like a connection/timeout issue, treat as transient
+            msg = str(e).lower()
+            is_network = any(tok in msg for tok in ("timeout", "timed out", "connection", "connect", "503", "502", "api connection"))
+            if is_network:
+                if attempt >= Config.LLM_MAX_RETRIES:
+                    raise TransientLLMError("OpenAI connection timed out or failed") from e
+                # backoff and retry
+                try:
+                    backoff = float(getattr(Config, "LLM_BACKOFF_BASE_SECONDS", 0.5)) * (2 ** attempt)
+                    logger.info(f"[OpenAI] sleeping for {backoff:.2f}s before retry")
+                    time.sleep(backoff)
+                except Exception:
+                    pass
+                continue
+
             if attempt >= Config.LLM_MAX_RETRIES:
                 raise RuntimeError("OpenAI JSON generation failed") from e
 

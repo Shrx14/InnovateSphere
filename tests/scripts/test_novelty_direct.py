@@ -1,11 +1,14 @@
 """
 Novelty Analyzer Direct Test - No Backend Required
 Simple validation of novelty scoring architecture
-Usage: python scripts/test_novelty_direct.py
+Usage: python tests/scripts/test_novelty_direct.py
 """
 import sys
+import os
 import json
 from datetime import datetime
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 class Colors:
     GREEN = '\033[92m'

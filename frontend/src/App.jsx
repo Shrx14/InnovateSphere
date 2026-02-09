@@ -22,6 +22,7 @@ import RegisterPage from "./features/auth/pages/RegisterPage";
 import IdeaDetail from "./features/idea/pages/IdeaDetail";
 import GeneratePage from "./features/generate/pages/GeneratePage";
 import NoveltyPage from "./features/novelty/pages/NoveltyPage";
+import MyIdeasPage from "./features/novelty/pages/MyIdeasPage";
 
 
 const App = () => {
@@ -73,6 +74,7 @@ const App = () => {
                 <Route path="dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
                 <Route path="generate" element={<ProtectedRoute><GeneratePage /></ProtectedRoute>} />
                 <Route path="novelty" element={<ProtectedRoute><NoveltyPage /></ProtectedRoute>} />
+                <Route path="my-ideas" element={<ProtectedRoute><MyIdeasPage /></ProtectedRoute>} />
               </Routes>
             </UserShell>
           }

@@ -9,6 +9,16 @@ TTL_SECONDS = 6 * 60 * 60  # 6 hours
 
 
 def _make_key(**kwargs) -> str:
+    """
+    Generate cache key from all keyword arguments.
+    This ensures that different parameter combinations (e.g., different 'limit' values,
+    or different GitHub selection parameters like fetch_limit/final_top_n if added)
+    produce different cache entries.
+    
+    NOTE: GitHub client parameters (fetch_limit, final_top_n) are internal to search_github
+    and not directly passed to retrieve_sources. If these are ever configurable at the
+    orchestrator level, they should be included in kwargs to ensure proper cache isolation.
+    """
     raw = "|".join(f"{k}:{v}" for k, v in sorted(kwargs.items()))
     return hashlib.sha256(raw.encode()).hexdigest()
 

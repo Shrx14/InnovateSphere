@@ -61,7 +61,10 @@ def retrieve_sources(
 
     # Search both sources
     arxiv_results = search_arxiv(query, domain, max_per_source)
-    github_results = search_github(query, domain, max_per_source)
+    # Ensure we pass fetch_limit explicitly so the GitHub client knows how many
+    # raw results to request per-variation. Also ask for up to `limit` final
+    # candidates from GitHub so the orchestrator can merge and round-robin.
+    github_results = search_github(query, domain, fetch_limit=max_per_source, final_top_n=limit)
 
     # If GitHub returned no results (or only returned due to errors), try a
     # short LLM-generated query and retry once. This avoids calling LLM for
@@ -71,6 +74,14 @@ def retrieve_sources(
         short_q = _summarize_query_with_llm(query, max_chars=120)
         if short_q and short_q != query:
             github_results = search_github(short_q, domain, max_per_source)
+    
+    # If both sources returned no results, retry arXiv with simplified query
+    # (in case it was timing out or had transient issues)
+    if not arxiv_results and len(github_results) == 0:
+        logger.info("[Retrieval] Both sources empty; retrying arXiv with simplified query")
+        short_q = _summarize_query_with_llm(query, max_chars=100)
+        if short_q and short_q != query:
+            arxiv_results = search_arxiv(short_q, domain, max_per_source)
 
     # Merge results
     all_sources = arxiv_results + github_results

@@ -8,9 +8,10 @@ import sys
 import json
 import inspect
 from pathlib import Path
+import os
 
-# Add backend to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add repo root to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 print("=" * 60)
 print("TEST 4: ENDPOINT CONTRACT VALIDATION")

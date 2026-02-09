@@ -15,10 +15,14 @@ COMMODITY_PATTERNS = GENERIC_IDEAS + [
 ]
 
 SIMILARITY_THRESHOLDS = {
-    "web development": 0.30,
-    "ai tools": 0.45,
-    "blockchain": 0.50,
-    "research": 0.55,
+    "web development": 0.35,     # Lower: diverse web ideas
+    "ai tools": 0.45,            # Medium: AI is more focused  
+    "blockchain": 0.48,          # Medium-high: specific domain
+    "research": 0.52,            # Higher: research is specialized
+    "data science": 0.45,        # Medium: diverse data applications
+    "cybersecurity": 0.50,       # Medium-high: domain specific
+    "iot": 0.40,                 # Lower: diverse IoT applications
+    "business": 0.50,            # Medium: business ideas have patterns
 }
 
 DOMAIN_NOVELTY_WEIGHT = {

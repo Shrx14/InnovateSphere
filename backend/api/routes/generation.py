@@ -37,44 +37,10 @@ def admin_bypass_limit(limit_str):
 
 
 @generation_bp.route("/api/ideas/generate", methods=["POST"])
-@generation_bp.route("/api/ideas/generate_test", methods=["POST"])
+@jwt_required()
+@admin_bypass_limit("20/hour")
 def generate_idea():
-    """Test endpoint with NO decorators"""
-    return jsonify({"unique_id": "TEST_ENDPOINT_12345", "endpoint": "reached"}), 200
-
-
-@generation_bp.route("/api/ideas/generate_only_jwt", methods=["POST"])
-@jwt_required()
-def generate_only_jwt():
-    logger = logging.getLogger(__name__)
-    try:
-        raw = request.get_data(as_text=True)
-    except Exception:
-        raw = "<unreadable>"
-    headers = dict(list(request.headers)[:20])
-    logger.debug("ENTER generate_only_jwt headers=%s body=%s", headers, raw[:1000])
-    return jsonify({"ok": "only_jwt"}), 200
-
-
-@generation_bp.route("/api/ideas/generate_only_limiter", methods=["POST"])
-@admin_bypass_limit("20/hour")
-def generate_only_limiter():
-    logger = logging.getLogger(__name__)
-    try:
-        raw = request.get_data(as_text=True)
-    except Exception:
-        raw = "<unreadable>"
-    headers = dict(list(request.headers)[:20])
-    logger.debug("ENTER generate_only_limiter headers=%s body=%s", headers, raw[:1000])
-    return jsonify({"ok": "only_limiter"}), 200
-
-
-@generation_bp.route("/api/ideas/generate_real", methods=["POST"])
-@jwt_required()
-@admin_bypass_limit("20/hour")
-def generate_idea_real():
-
-    """Real generation route with detailed logging for debugging 422 failures."""
+    """Generate ideas with real implementation."""
     logger = logging.getLogger(__name__)
     try:
         raw = request.get_data(as_text=True)
@@ -100,7 +66,7 @@ def generate_idea_real():
     # Validate manually to capture detailed log if invalid
     if not isinstance(subject, str) or not subject.strip():
         logger.error("Subject validation failed. raw=%r parsed=%r", raw, data)
-        return jsonify({"msg": "Subject must be a string"}), 422
+        return jsonify({"msg": "Subject must be a string - received: " + str(type(subject))}), 422
 
     domain_id = data.get('domain_id') if isinstance(data, dict) else None
     user_id = get_current_user_id()
@@ -110,6 +76,12 @@ def generate_idea_real():
         from backend.generation.generator import generate_idea as do_generate
         result = do_generate(subject, domain_id, user_id)
         logger.debug("Generation result (truncated): %s", str(result)[:2000])
+        # Distinguish transient service errors (e.g., LLM timeouts) from
+        # client/validation errors. Transient errors should be surfaced as
+        # 503 Service Unavailable so callers can retry; validation/gate
+        # errors remain 400.
+        if isinstance(result, dict) and result.get("transient"):
+            return jsonify(result), 503
         if 'error' in result:
             return jsonify(result), 400
         return jsonify(result), 201

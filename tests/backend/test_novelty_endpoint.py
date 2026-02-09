@@ -2,9 +2,9 @@ import sys
 import os
 import types
 import pytest
-# Ensure backend root is on sys.path so `import app` works when pytest runs from tests/
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from app import app
+# Ensure repo root is on sys.path so `import app` works when pytest runs from repo root
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+from backend.app import app
 
 class DummyModel:
     def encode(self, text):

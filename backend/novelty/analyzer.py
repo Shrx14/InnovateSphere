@@ -1,3 +1,5 @@
+import logging
+
 from backend.novelty.config import DOMAIN_NOVELTY_WEIGHT
 from backend.novelty.utils.observability import check_stability, trace_analysis, record_telemetry
 
@@ -11,11 +13,13 @@ from backend.core.models import ProjectIdea, Domain
 
 
 from backend.novelty.utils.signals import compute_similarity_stats, compute_specificity_signal, compute_temporal_signal
-from backend.novelty.normalization import determine_level
+from backend.novelty.normalization import determine_level, normalize_score
 from backend.novelty.explain import generate_explanation
 
 from backend.retrieval.cached_retrieval import cached_retrieve_sources
 from backend.semantic.cached_embedder import CachedEmbedder
+
+logger = logging.getLogger(__name__)
 
 
 class NoveltyAnalyzer:
@@ -105,6 +109,34 @@ class NoveltyAnalyzer:
             semantic_filter=False,
         ).get("sources", [])
 
+        # Validate we have sources for novelty comparison baseline
+        if not sources:
+            logger.warning(
+                "[Novelty] No sources found for domain=%s | Unable to assess novelty without reference data",
+                domain
+            )
+            # Return baseline score with low confidence when no sources available
+            return {
+                "novelty_score": 50.0,  # Neutral score when no baseline exists
+                "novelty_level": determine_level(50.0),
+                "confidence": "Low",
+                "explanations": [
+                    "Unable to assess novelty: no reference sources found in this domain.",
+                    "Try refining your query or check if this is an emerging domain with limited public repositories.",
+                ],
+                "insights": {
+                    "summary": "Insufficient domain data for novelty assessment",
+                    "details": [],
+                },
+                "sources": [],
+                "engine": "software",
+                "trace_id": None,
+                "debug": {
+                    "retrieved_sources": 0,
+                    "similarity_variance": 0.0,
+                },
+            }
+
         sim_stats = compute_similarity_stats(description, sources, self.embedder)
         specificity = compute_specificity_signal(description)
         temporal = compute_temporal_signal(sources)
@@ -118,33 +150,79 @@ class NoveltyAnalyzer:
         }
 
         base = compute_base_score(signals)
-        bonus = compute_bonuses(description, domain)
+
+        # Helper to truncate long texts for summaries
+        def _truncate(text: str, n: int = 400) -> str:
+            if not text:
+                return ""
+            return text if len(text) <= n else text[: n - 1] + "…"
+
+        # Sanitize sources for public API consumption (use for bonuses count)
+        sanitized_sources = []
+        for s in sources[:20]:
+            sanitized_sources.append({
+                "title": s.get("title") or s.get("name") or (s.get("url") or ""),
+                "url": s.get("url"),
+                "source_type": s.get("source_type"),
+                "summary": _truncate(s.get("summary") or s.get("snippet") or s.get("description") or ""),
+                "confidence": s.get("confidence"),
+            })
+
+        # Compute bonuses based on the final sanitized source count
+        bonus = compute_bonuses(description, domain, source_count=len(sanitized_sources))
         hitl_penalty = self._compute_hitl_penalty(sources)
         score = blend(base * 0.9, base + bonus + hitl_penalty)
 
         weighted = score * DOMAIN_NOVELTY_WEIGHT.get(domain.lower(), 1.0)
         stabilized = check_stability(description + domain, weighted, "Medium")
 
+        # Normalize score to engine caps before mapping to level
+        normalized = normalize_score(stabilized, "software")
+
         explanations = generate_explanation(
             novelty_score=stabilized,
             similarity_stats=sim_stats,
-            source_count=len(sources),
+            source_count=len(sanitized_sources),
             avg_popularity_penalty=saturation,
             sources=sources,
         )
 
         record_telemetry("novelty.software.score", stabilized)
-        trace_id = trace_analysis({"score": stabilized, "sources": len(sources)})
+
+        # Expanded trace payload for debugging
+        trace_payload = {
+            "score_raw": round(stabilized, 1),
+            "score_normalized": normalized,
+            "base": round(base, 2),
+            "bonus": round(bonus, 2),
+            "hitl_penalty": round(hitl_penalty, 2),
+            "weighted": round(weighted, 2),
+            "signals": signals,
+            "sources_count": len(sanitized_sources),
+            "confidence_hint": "High" if len(sanitized_sources) >= 8 else "Medium",
+        }
+        trace_id = trace_analysis(trace_payload)
+
+        # Build a structured insights object from explanations
+        insights = {
+            "summary": _truncate(explanations[0]) if explanations else "",
+            "details": [
+                _truncate(e) for e in explanations[1:5]
+            ],
+        }
 
         return {
-            "novelty_score": round(stabilized, 1),
-            "novelty_level": determine_level(stabilized),
-            "confidence": "High" if len(sources) >= 8 else "Medium",
+            "novelty_score": normalized,
+            "novelty_level": determine_level(normalized),
+            "confidence": "High" if len(sanitized_sources) >= 8 else "Medium",
             "explanations": explanations,
+            "insights": insights,
+            "sources": sanitized_sources,
             "engine": "software",
             "trace_id": trace_id,
             "debug": {
                 "retrieved_sources": len(sources),
+                "sanitized_sources": len(sanitized_sources),
                 "similarity_variance": sim_stats.get("variance", 0.5),
             },
         }

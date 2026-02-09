@@ -20,21 +20,14 @@ from backend.semantic.filter import filter_by_semantic_similarity
 
 from backend.semantic.ranker import rank_sources
 
-# Novelty analysis - optional dependency
-try:
-    from backend.novelty.service import analyze_novelty
-    NOVELTY_AVAILABLE = True
-except Exception as e:
-    logger.warning(f"Novelty analysis unavailable: {e}. Using fallback novelty score.")
-    NOVELTY_AVAILABLE = False
-    def analyze_novelty(input_data, domain_name):
-        """Fallback novelty analyzer when transformers unavailable."""
-        return {"novelty_score": 65, "explanation": "Fallback novelty score"}
+# Novelty analysis - required dependency
+from backend.novelty.service import analyze_novelty
+
 
 from backend.ai.registry import get_active_ai_pipeline_version
 from backend.ai.registry import get_active_bias_profile
 
-from backend.ai.llm_client import generate_json
+from backend.ai.llm_client import generate_json, TransientLLMError
 from backend.ai.prompts import (
     PASS1_SYSTEM,
     PASS1_PROMPT_TEMPLATE,
@@ -52,7 +45,7 @@ from .constraints import build_hitl_constraints, is_rejected_pattern
 # Module-level feasibility estimator (used to populate Phase 0 bounds)
 def estimate_feasibility_module(query: str, domain: str, sources: List[Dict[str, Any]], novelty: Dict[str, Any]) -> Dict[str, Any]:
     source_count = max(0, len(sources))
-    novelty_score = float(novelty.get("novelty_score", 65)) if novelty else 65.0
+    novelty_score = float(novelty.get("novelty_score", 0)) if novelty else 0.0
 
     base = 50
     source_bonus = (source_count - 3) * 5
@@ -173,7 +166,7 @@ def multi_pass_llm_generate(
     # ------------------
     def estimate_feasibility(query: str, domain: str, sources: List[Dict[str, Any]], novelty: Dict[str, Any]) -> Dict[str, Any]:
         source_count = max(0, len(sources))
-        novelty_score = float(novelty.get("novelty_score", 65)) if novelty else 65.0
+        novelty_score = float(novelty.get("novelty_score", 0)) if novelty else 0.0
 
         # Heuristic scoring: more sources and moderate novelty increase feasibility
         base = 50
@@ -213,35 +206,6 @@ def multi_pass_llm_generate(
             "source_count": source_count,
             "novelty_score": novelty_score,
         }
-
-    # Apply HITL source penalties (deterministic weighting)
-    for src in sources:
-        url = src.get("url")
-        penalty = constraints["source_penalties"].get(url, 1.0)
-        src["_hitl_weight"] = penalty
-
-    # Sort sources by HITL weight descending (higher weight first)
-    sources = sorted(sources, key=lambda s: s["_hitl_weight"], reverse=True)
-
-    sources = sources[: Config.MAX_SOURCES_FOR_LLM]
-
-    # Inject HITL constraints into prompts
-    pass1_system = PASS1_SYSTEM
-    if constraints["domain_strictness"] > 1.0:
-        pass1_system += "\n\nADDITIONAL CONSTRAINTS:\n- Use conservative analysis and avoid speculative gaps.\n- Require stronger evidence for any identified limitations."
-
-    penalized_urls = [url for url, mult in constraints["source_penalties"].items() if mult < 1.0]
-    if penalized_urls:
-        pass1_system += "\n- Avoid over-reliance on sources that have been previously rejected by reviewers."
-
-# Multi-pass LLM pipeline (core)
-def multi_pass_llm_generate(
-    query: str,
-    domain: str,
-    sources: List[Dict[str, Any]],
-    novelty: Dict[str, Any],
-    constraints: Dict[str, Any],
-) -> Dict[str, Any]:
 
     # Apply HITL source penalties (deterministic weighting)
     for src in sources:
@@ -397,16 +361,64 @@ def generate_idea(query: str, domain_id: int, user_id: int) -> Dict[str, Any]:
             return guardrail
 
         retrieved = retrieve_sources(query=query, domain=domain.name)
-        if not retrieved or 'sources' not in retrieved:
+        
+        # Log retrieval results for debugging
+        source_count = len(retrieved.get("sources", [])) if retrieved else 0
+        logger.info(f"Retrieval complete: {source_count} sources for domain={domain.name}, query='{query[:50]}...'")
+        
+        # Check for empty sources - must check both missing key and empty list
+        if not retrieved or 'sources' not in retrieved or not retrieved.get("sources"):
+            logger.warning(f"No sources retrieved for query='{query[:50]}...' domain={domain.name}")
             return {"error": "No sources found for topic. Please try a different topic."}
         
-        filtered = filter_by_semantic_similarity(query, retrieved.get("sources", []), 0.6)
+        # Use domain-specific similarity threshold, or fall back to unfiltered sources
+        from backend.novelty.config import SIMILARITY_THRESHOLDS
+        threshold = SIMILARITY_THRESHOLDS.get(domain.name.lower(), 0.6)
+        
+        raw_sources = retrieved.get("sources", [])
+        filtered = filter_by_semantic_similarity(query, raw_sources, threshold)
+        
+        # Log initial filter attempt
+        if filtered:
+            scores = [s.get("similarity_score", 0) for s in filtered]
+            logger.info(f"Semantic filter (attempt 1): {len(filtered)}/{len(raw_sources)} sources passed threshold={threshold}, scores={scores[:5]}...")
+        else:
+            logger.warning(f"Semantic filter (attempt 1) removed ALL {len(raw_sources)} sources at threshold={threshold}")
+        
+        # Progressive fallback: retry with lower thresholds if we don't have enough sources
+        # This gracefully degrades quality rather than failing hard
+        if len(filtered) < Config.MIN_EVIDENCE_REQUIRED and len(raw_sources) >= Config.MIN_EVIDENCE_REQUIRED:
+            logger.info(f"Progressive fallback: filtered sources {len(filtered)} < {Config.MIN_EVIDENCE_REQUIRED} required, retrying with lower threshold")
+            # Try threshold - 0.1
+            fallback_threshold_1 = max(0.2, threshold - 0.1)
+            filtered = filter_by_semantic_similarity(query, raw_sources, fallback_threshold_1)
+            if filtered:
+                scores = [s.get("similarity_score", 0) for s in filtered]
+                logger.info(f"Semantic filter (attempt 2): {len(filtered)}/{len(raw_sources)} sources passed threshold={fallback_threshold_1}, scores={scores[:5]}...")
+        
+        # Second fallback if still insufficient
+        if len(filtered) < Config.MIN_EVIDENCE_REQUIRED and len(raw_sources) >= Config.MIN_EVIDENCE_REQUIRED:
+            logger.info(f"Progressive fallback 2: filtered sources {len(filtered)} < {Config.MIN_EVIDENCE_REQUIRED} required, retrying with even lower threshold")
+            # Try threshold - 0.15
+            fallback_threshold_2 = max(0.15, threshold - 0.15)
+            filtered = filter_by_semantic_similarity(query, raw_sources, fallback_threshold_2)
+            if filtered:
+                scores = [s.get("similarity_score", 0) for s in filtered]
+                logger.info(f"Semantic filter (attempt 3): {len(filtered)}/{len(raw_sources)} sources passed threshold={fallback_threshold_2}, scores={scores[:5]}...")
+        
+        # Final fallback: if still no sources, use all retrieved sources
+        # (better to work with less-similar sources than to fail completely)
         if not filtered:
-            return {"error": "No relevant sources found. Please try a different topic."}
+            logger.warning(f"Semantic filter exhausted all fallback thresholds. Using all {len(raw_sources)} retrieved sources.")
+            filtered = raw_sources
 
         ranked = rank_sources(filtered)
+        logger.info(f"Ranking complete: {len(ranked)} sources ranked")
+        
         if not ranked:
+            logger.error(f"Ranking returned empty for {len(filtered)} filtered sources")
             return {"error": "Could not rank sources. Please try again."}
+
 
         novelty_input = "\n".join(
             f"[{s['source_type']}] {s['title']}" for s in ranked
@@ -440,6 +452,13 @@ def generate_idea(query: str, domain_id: int, user_id: int) -> Dict[str, Any]:
         phase_1 = generation_output["phase_1"]
         phase_2 = generation_output["phase_2"]
         phase_3 = generation_output["phase_3"]
+    except TransientLLMError as e:
+        logger.error(f"Transient LLM error: {e}")
+        trace_id = getattr(e, "trace_id", None)
+        out = {"error": str(e) if str(e) else "LLM transient failure", "transient": True}
+        if trace_id:
+            out["trace_id"] = trace_id
+        return out
     except RuntimeError as e:
         logger.error(f"LLM generation failed: {e}")
         return {"error": str(e) if str(e) else "LLM generation failed. Please try again."}
@@ -493,7 +512,8 @@ def generate_idea(query: str, domain_id: int, user_id: int) -> Dict[str, Any]:
         
         # Safely get novelty score
         novelty_pos = parsed.get("novelty_positioning", {})
-        idea.novelty_score_cached = novelty_pos.get("novelty_score", 65) if isinstance(novelty_pos, dict) else 65
+        idea.novelty_score_cached = novelty_pos.get("novelty_score", 0) if isinstance(novelty_pos, dict) else 0
+
         idea.novelty_context = novelty
 
         # Add sources
@@ -550,7 +570,7 @@ def generate_idea(query: str, domain_id: int, user_id: int) -> Dict[str, Any]:
 
     return {
         "idea": parsed,
-        "novelty_score": parsed.get("novelty_positioning", {}).get("novelty_score", novelty.get("novelty_score", 65)),
+        "novelty_score": parsed.get("novelty_positioning", {}).get("novelty_score", novelty.get("novelty_score", 0)),
         "generation_metadata": {
             "hitl_influenced": True,
             "penalized_sources_count": penalized_sources_count,

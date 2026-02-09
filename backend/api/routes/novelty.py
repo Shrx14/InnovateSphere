@@ -40,8 +40,8 @@ def analyze_novelty():
         "novelty_score": normalized_score,
         "novelty_level": result["novelty_level"],
         "confidence": result["confidence"],
-        "speculative": result["speculative"],
-        "evidence_score": result["evidence_score"],
+        "speculative": result.get("speculative"),
+        "evidence_score": result.get("evidence_score"),
 
         "similar_projects": result.get("similar_projects", []),
 
@@ -50,7 +50,8 @@ def analyze_novelty():
         "intent_confidence": intent_confidence,
 
         "trace_id": result.get("trace_id"),
-        "insights": {},
+        "insights": result.get("insights", {}),
+        "sources": result.get("sources", []),
         "debug": result.get("debug"),
     }), 200
 

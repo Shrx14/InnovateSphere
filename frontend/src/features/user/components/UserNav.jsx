@@ -5,7 +5,7 @@ const UserNav = () => {
   const { isAuthenticated, logout } = useAuth();
 
   return (
-    <header className="border-b border-neutral-800">
+    <header className="sticky top-0 z-50 bg-neutral-950/70 backdrop-blur border-b border-neutral-800">
       <div className="px-6 py-4 max-w-7xl mx-auto flex justify-between items-center">
         <Link to="/" className="text-lg font-medium text-white">
           InnovateSphere
@@ -22,6 +22,9 @@ const UserNav = () => {
               </Link>
               <Link to="/user/novelty" className="text-neutral-300 hover:text-white">
                 Novelty
+              </Link>
+              <Link to="/user/my-ideas" className="text-neutral-300 hover:text-white">
+                My Ideas
               </Link>
               <Link to="/user/dashboard" className="text-neutral-300 hover:text-white">
                 Dashboard

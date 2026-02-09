@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../../../context/AuthContext";
 import api from "../../../lib/api";
 import useDebounce from "../../../hooks/useDebounce";
 
+
 const ExplorePage = () => {
+  const { isAuthenticated, user } = useAuth();
   const [ideas, setIdeas] = useState([]);
   const [domains, setDomains] = useState([]);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const [filters, setFilters] = useState({
     domain: "",
@@ -17,11 +19,8 @@ const ExplorePage = () => {
     page: 1,
   });
 
-  // Check authentication status
-  useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    setIsAuthenticated(!!token);
-  }, []);
+
+
 
   const debouncedSearchQuery = useDebounce(filters.q, 300);
 
@@ -53,13 +52,24 @@ const ExplorePage = () => {
       <div className="max-w-7xl mx-auto px-6 py-12 md:py-20">
         {/* Header */}
         <div className="mb-12 md:mb-16">
-          <h1 className="text-5xl md:text-6xl font-light text-white mb-4">
-            Explore Ideas
-          </h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-5xl md:text-6xl font-light text-white">
+              Explore Ideas
+            </h1>
+            {isAuthenticated && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-indigo-500/20 rounded-full border border-indigo-500/30">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-sm text-indigo-300">
+                  Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}
+                </span>
+              </div>
+            )}
+          </div>
           <p className="text-xl text-neutral-300">
             Discover project ideas evaluated with research evidence and novelty scoring.
           </p>
         </div>
+
 
         {/* Search and Filter Section */}
         <div className="mb-12 space-y-4">

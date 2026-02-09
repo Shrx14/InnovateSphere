@@ -52,8 +52,22 @@ class Config:
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
     # LLM runtime safety
-    LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", 15))
-    LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", 2))
+    LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", 60))
+    LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", 4))
+    # Exponential backoff base seconds used between retries (multiplied by 2**attempt)
+    LLM_BACKOFF_BASE_SECONDS = float(os.getenv("LLM_BACKOFF_BASE_SECONDS", 0.5))
+    # Cap for exponential backoff to avoid excessive sleeps
+    LLM_BACKOFF_MAX_SECONDS = float(os.getenv("LLM_BACKOFF_MAX_SECONDS", 30.0))
+    # Health probe timeouts for Ollama (seconds)
+    OLLAMA_HEALTH_TIMEOUT = float(os.getenv("OLLAMA_HEALTH_TIMEOUT", 2.0))
+    OLLAMA_STARTUP_TIMEOUT = float(os.getenv("OLLAMA_STARTUP_TIMEOUT", 5.0))
+    # Controls whether startup should hard-fail when LLM health check fails.
+    # Set to 'false' for local dev if you want the app to start without Ollama.
+    LLM_STARTUP_HARD_FAIL = os.getenv("LLM_STARTUP_HARD_FAIL", "true").lower() in ("1", "true", "yes")
+    # Optional fallback provider when primary LLM is transiently unavailable
+    # Set LLM_FALLBACK_ENABLED=true and LLM_FALLBACK_PROVIDER=openai to enable
+    LLM_FALLBACK_ENABLED = os.getenv("LLM_FALLBACK_ENABLED", "false").lower() in ("1", "true", "yes")
+    LLM_FALLBACK_PROVIDER = os.getenv("LLM_FALLBACK_PROVIDER", "openai")
 
     # =========================================================
     # Idea Generation Safety Controls

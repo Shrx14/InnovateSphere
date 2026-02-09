@@ -53,8 +53,9 @@ def admin_get_bias_breakdown(idea_id):
     
     # Generate detailed explanation
     detailed_explanation = generate_detailed_explanation(
-        novelty_score=idea.novelty_score_cached or 65,
+        novelty_score=idea.novelty_score_cached or 0,
         confidence_tier=idea.novelty_confidence or "Medium",
+
         signal_breakdown=idea.novelty_context.get("signal_weights", {}) if idea.novelty_context else {},
         penalties=penalties.get("source_penalties", {}),
         source_count=len(idea.sources),
@@ -64,7 +65,8 @@ def admin_get_bias_breakdown(idea_id):
     return jsonify({
         "idea_id": idea_id,
         "title": idea.title,
-        "novelty_score": idea.novelty_score_cached or 65,
+        "novelty_score": idea.novelty_score_cached or 0,
+
         "domain_strictness": domain_strictness,
         "penalized_sources": penalized_sources,
         "detailed_explanation": detailed_explanation,

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../../lib/api";
 
 const GeneratePage = () => {
+  const navigate = useNavigate();
   const [domains, setDomains] = useState([]);
   const [selectedDomainId, setSelectedDomainId] = useState("");
   const [query, setQuery] = useState("");
@@ -279,8 +281,8 @@ const GeneratePage = () => {
               </button>
               <button
                 onClick={() => {
-                  // Could navigate to view the idea or save functionality
-                  window.location.href = `/idea/${generatedIdea.id}`;
+                  // Navigate to view the idea
+                  navigate(`/idea/${generatedIdea.id}`);
                 }}
                 className="flex-1 btn-primary rounded-lg font-medium"
               >

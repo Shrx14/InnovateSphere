@@ -101,8 +101,9 @@ def get_novelty_explanation(idea_id):
     
     # Generate detailed explanation
     explanation = generate_detailed_explanation(
-        novelty_score=idea.novelty_score_cached or 65,
+        novelty_score=idea.novelty_score_cached or 0,
         confidence_tier=idea.novelty_confidence or "Medium",
+
         signal_breakdown=signal_breakdown or (idea.novelty_context.get("signals", {}) if idea.novelty_context else {}),
         penalties=penalties,
         source_count=len(idea.sources),
@@ -111,7 +112,8 @@ def get_novelty_explanation(idea_id):
     
     return jsonify({
         "idea_id": idea_id,
-        "novelty_score": idea.novelty_score_cached or 65,
+        "novelty_score": idea.novelty_score_cached or 0,
+
         "explanation": explanation,
         "signal_breakdown": {
             "signals": signal_breakdown,
@@ -181,13 +183,18 @@ def submit_idea_feedback(idea_id):
 @ideas_bp.route("/api/ideas/mine", methods=["GET"])
 @jwt_required()
 def my_ideas():
+    logger.debug("ENTER /api/ideas/mine: user_id=%s", get_current_user_id())
     user_id = get_current_user_id()
 
     try:
         page = max(int(request.args.get("page", 1)), 1)
         limit = min(int(request.args.get("limit", 20)), 100)
+        logger.debug("Pagination params: page=%d, limit=%d", page, limit)
     except ValueError:
+        logger.error("Invalid pagination params: page=%s, limit=%s", 
+                    request.args.get("page"), request.args.get("limit"))
         return jsonify({"error": "page and limit must be valid integers"}), 400
+
 
     query = (
         db.session.query(ProjectIdea)
@@ -200,6 +207,8 @@ def my_ideas():
 
     total = query.count()
     ideas = query.offset((page - 1) * limit).limit(limit).all()
+    
+    logger.debug("Found %d total ideas, returning %d ideas for page %d", total, len(ideas), page)
 
     return jsonify({
         "ideas": [
@@ -225,6 +234,7 @@ def my_ideas():
             "pages": (total + limit - 1) // limit
         }
     }), 200
+
 
 
 @ideas_bp.route("/api/ideas/<int:idea_id>", methods=["GET"])

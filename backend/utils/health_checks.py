@@ -16,7 +16,7 @@ def check_llm():
         try:
             r = requests.get(
                 f"{Config.OLLAMA_BASE_URL}/api/tags",
-                timeout=5,
+                timeout=getattr(Config, "OLLAMA_STARTUP_TIMEOUT", 5),
             )
             r.raise_for_status()
             models = [m["name"] for m in r.json().get("models", [])]
@@ -32,9 +32,12 @@ def check_llm():
                 logger.info("LLM check: Ollama OK (%s)", Config.LLM_MODEL_NAME)
 
         except Exception as e:
-            raise RuntimeError(
-                f"LLM check failed: Ollama not reachable at {Config.OLLAMA_BASE_URL}"
-            ) from e
+            msg = f"LLM check failed: Ollama not reachable at {Config.OLLAMA_BASE_URL}: {e}"
+            # Respect startup hard-fail configuration: default True to preserve current behavior
+            if getattr(Config, "LLM_STARTUP_HARD_FAIL", True):
+                raise RuntimeError(msg) from e
+            else:
+                logger.warning(msg + " (startup will continue because LLM_STARTUP_HARD_FAIL=false)")
 
     elif Config.LLM_PROVIDER == "openai":
         if not Config.OPENAI_API_KEY:

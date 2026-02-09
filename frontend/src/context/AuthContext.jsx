@@ -33,10 +33,13 @@ export const AuthProvider = ({ children }) => {
   // Hydrate user from token
   const hydrateUserFromToken = useCallback((token) => {
     const payload = decodeJWT(token);
-    if (!payload || !payload.exp || payload.exp < Date.now() / 1000) {
+    // Use Math.floor to get integer seconds for proper comparison with JWT exp (which is in seconds)
+    const now = Math.floor(Date.now() / 1000);
+    if (!payload || !payload.exp || payload.exp < now) {
       console.log('Auth hydration failed: invalid or expired token');
       return null;
     }
+
     if (!payload.role) {
       console.log('Auth hydration failed: missing role in token');
       return null;
@@ -74,7 +77,34 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(false);
   }, [hydrateUserFromToken]);
 
+  // Logout function
+  const logout = useCallback((reason = 'User logout') => {
+    console.log('Logout triggered:', reason);
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user_email');
+    setToken(null);
+    setUser(null);
+    setIsAuthenticated(false);
+    setIsAdmin(false);
+    navigate('/');
+  }, [navigate]);
+
+  // Listen for auth:logout events from API interceptor
+  useEffect(() => {
+
+    const handleAuthLogout = (event) => {
+      console.log('Auth logout event received:', event.detail);
+      logout('API authentication error');
+    };
+
+    window.addEventListener('auth:logout', handleAuthLogout);
+    return () => {
+      window.removeEventListener('auth:logout', handleAuthLogout);
+    };
+  }, [logout]);
+
   // Login function
+
   const login = (newToken) => {
     localStorage.setItem('access_token', newToken);
     const userData = hydrateUserFromToken(newToken);
@@ -95,19 +125,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Logout function
-  const logout = (reason = 'User logout') => {
-    console.log('Logout triggered:', reason);
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user_email');
-    setToken(null);
-    setUser(null);
-    setIsAuthenticated(false);
-    setIsAdmin(false);
-    navigate('/');
-  };
-
   const value = {
+
     user,
     token,
     isAuthenticated,
