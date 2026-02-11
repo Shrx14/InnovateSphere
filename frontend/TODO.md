@@ -1,23 +1,72 @@
-# TODO: Fix Login Flow
+# Frontend Reorganization Progress
 
-## Step 1: Update Login Handler
-- Modify handleSubmit in Login component to store JWT in localStorage
-- Set user state to dummy object after successful login
-- Remove the setTimeout for message, since we redirect
+## Phase 1: Create Directory Structure ✅
+- [x] Create `features/admin/components/`
+- [x] Create `features/admin/pages/`
+- [x] Create `features/auth/pages/`
+- [x] Create `features/dashboard/pages/`
+- [x] Create `features/explore/pages/`
+- [x] Create `features/generate/pages/`
+- [x] Create `features/idea/pages/`
+- [x] Create `features/landing/pages/`
+- [x] Create `features/shared/components/`
+- [x] Create `features/shared/layout/`
+- [x] Create `features/user/components/`
+- [x] Create `lib/`
+- [x] Create `config/`
 
-## Step 2: Add Route Guard
-- Add useEffect in InnovateSphereAuth to check localStorage for token on mount
-- If token present, set user to dummy object
+## Phase 2: Move Files ✅
 
-## Step 3: Update Logout
-- Modify handleLogout to remove token from localStorage
+### Admin & Auth (Already Done) ✅
+- [x] Move admin files to `features/admin/`
+- [x] Move auth files to `features/auth/`
 
-## Step 4: Update Protected API Calls
-- Update NoveltyChecker to include Authorization header
-- Update ProjectIdeas (generate-idea) to include Authorization header
+### Dashboard ✅
+- [x] Move `app/dashboard/UserDashboard.jsx` → `features/dashboard/pages/UserDashboard.jsx`
 
-## Step 5: Test
-- Verify login stores token and shows dashboard
-- Verify refresh keeps logged in
-- Verify logout removes token
-- Verify API calls work with token
+### Explore ✅
+- [x] Move `app/explore/ExplorePage.jsx` → `features/explore/pages/ExplorePage.jsx`
+- [x] Move `app/explore/ExploreAuthenticated.jsx` → `features/explore/pages/ExploreAuthenticated.jsx`
+
+### Generate ✅
+- [x] Move `app/generate/GeneratePage.jsx` → `features/generate/pages/GeneratePage.jsx`
+- [x] Move `app/generate/GenerateIdea.jsx` → `features/generate/pages/GenerateIdea.jsx`
+- [x] Move `app/generate/GenerateResult.jsx` → `features/generate/pages/GenerateResult.jsx`
+
+### Idea ✅
+- [x] Move `app/idea/IdeaDetail.jsx` → `features/idea/pages/IdeaDetail.jsx`
+
+### Landing ✅
+- [x] Move `app/landing/LandingPage.jsx` → `features/landing/pages/LandingPage.jsx`
+
+### Shared Components ✅
+- [x] Move `layouts/PublicShell.jsx` → `features/shared/components/PublicShell.jsx`
+- [x] Move `shared/layout/Header.jsx` → `features/shared/layout/Header.jsx`
+- [x] Move `shared/layout/Footer.jsx` → `features/shared/layout/Footer.jsx`
+
+### User Components ✅
+- [x] Move `layouts/UserShell.jsx` → `features/user/components/UserShell.jsx`
+- [x] Move `user/UserNav.jsx` → `features/user/components/UserNav.jsx`
+
+### Utility Files ✅
+- [x] Move `shared/api.js` → `lib/api.js`
+- [x] Move `shared/motionTokens.js` → `lib/motionTokens.js`
+- [x] Move `config.js` → `config/config.js`
+
+## Phase 3: Update Imports ✅
+- [x] Update App.jsx with all new paths
+- [x] Update shell component imports
+- [x] Update page file imports (api, context, hooks)
+
+## Phase 4: Cleanup ✅
+- [x] Delete `admin/` directory
+- [x] Delete `app/` directory
+- [x] Delete `layouts/` directory
+- [x] Delete `shared/` directory
+- [x] Delete `user/` directory
+- [x] Delete root `config.js`
+
+## Phase 5: Verification ✅
+- [x] Verify all imports resolve
+- [x] Check for any broken paths
+- [x] Test application routes

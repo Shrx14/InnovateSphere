@@ -1,3 +1,151 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* ==================== GLASSMORPHISM ==================== */
+@layer components {
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl;
+  }
+
+  .glass-card-lg {
+    @apply bg-white/5 backdrop-blur-xl border border-white/15 rounded-3xl shadow-2xl;
+  }
+
+  .glass-input {
+    @apply bg-white/10 backdrop-blur-lg border border-white/20 rounded-lg px-4 py-3 text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all;
+  }
+
+  select {
+    @apply text-white;
+    color-scheme: dark;
+  }
+
+  select option {
+    background-color: rgb(23, 23, 23);
+    color: white;
+  }
+
+  select option:checked {
+    background: linear-gradient(rgb(99, 102, 241), rgb(99, 102, 241));
+    background-color: rgb(99, 102, 241) !important;
+    color: white;
+  }
+}
+
+/* ==================== GRADIENT ANIMATIONS ==================== */
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+.shimmer-loading {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+/* ==================== TEXT ANIMATIONS ==================== */
+.gradient-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-animated {
+  background: linear-gradient(
+    -45deg,
+    #667eea,
+    #764ba2,
+    #f093fb,
+    #667eea
+  );
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* ==================== BUTTON & INPUT EFFECTS ==================== */
+.btn-glass {
+  @apply relative px-6 py-3 rounded-lg font-medium text-white transition-all duration-300;
+  @apply bg-white/10 backdrop-blur-lg border border-white/20;
+}
+
+.btn-glass:hover {
+  @apply bg-white/20 border-white/30 shadow-lg;
+}
+
+.btn-glass:active {
+  @apply scale-95;
+}
+
+.btn-primary {
+  @apply bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500;
+  @apply text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300;
+  @apply transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-indigo-500/50;
+}
+
+.btn-primary:disabled {
+  @apply opacity-50 cursor-not-allowed hover:scale-100;
+}
+
+/* ==================== FOCUS & INTERACTIVE STATES ==================== */
+input:focus,
+textarea:focus,
+select:focus {
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+}
+
+/* ==================== SCROLLBAR STYLING ==================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ==================== BASE STYLES ==================== */
+html {
+  scroll-behavior: smooth;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
