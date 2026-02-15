@@ -1,6 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../lib/api";
+
+const PHASE_LABELS = {
+  0: "Retrieving sources...",
+  1: "Analyzing novelty...",
+  2: "Generating idea with AI...",
+  3: "Validating & saving...",
+  4: "Complete!",
+};
 
 const GeneratePage = () => {
   const navigate = useNavigate();
@@ -11,6 +19,15 @@ const GeneratePage = () => {
   const [generatedIdea, setGeneratedIdea] = useState(null);
   const [error, setError] = useState("");
   const [progress, setProgress] = useState(0);
+  const [phaseLabel, setPhaseLabel] = useState("");
+  const pollRef = useRef(null);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
 
   // Load available domains on mount
   useEffect(() => {
@@ -26,23 +43,12 @@ const GeneratePage = () => {
     loadDomains();
   }, []);
 
-  // Simulate progress bar during generation
-  useEffect(() => {
-    if (!loading) {
-      setProgress(0);
-      return;
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
     }
-
-    setProgress(10);
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 90) return 90;
-        return prev + Math.random() * 20;
-      });
-    }, 300);
-
-    return () => clearInterval(interval);
-  }, [loading]);
+  }, []);
 
   const handleGenerate = async () => {
     if (!query.trim()) {
@@ -58,26 +64,75 @@ const GeneratePage = () => {
     setLoading(true);
     setError("");
     setGeneratedIdea(null);
+    setProgress(5);
+    setPhaseLabel("Starting generation...");
 
     try {
+      // POST returns 202 with a job_id — generation runs in background
       const response = await api.post("/ideas/generate", {
         query: query.trim(),
-        domain_id: parseInt(selectedDomainId)
+        domain_id: parseInt(selectedDomainId),
       });
 
-      setProgress(100);
-      setTimeout(() => {
+      const jobId = response.data?.job_id;
+      if (!jobId) {
+        // Unexpected: backend returned data directly (shouldn't happen)
         setGeneratedIdea(response.data);
         setLoading(false);
         setProgress(0);
-      }, 500);
-      setQuery("");
-      setSelectedDomainId("");
+        return;
+      }
+
+      // Poll for job status every 2 seconds
+      pollRef.current = setInterval(async () => {
+        try {
+          const statusRes = await api.get(`/ideas/generate/${jobId}`);
+          const data = statusRes.data;
+
+          // Update progress bar with real backend data
+          setProgress(data.progress ?? 0);
+          const label = data.phase_name || PHASE_LABELS[data.phase] || "Processing...";
+          setPhaseLabel(label);
+
+          if (statusRes.status === 200 && data.status === "completed" && data.result) {
+            // Generation succeeded
+            stopPolling();
+            setProgress(100);
+            setPhaseLabel("Complete!");
+            setTimeout(() => {
+              setGeneratedIdea(data.result);
+              setLoading(false);
+              setProgress(0);
+              setPhaseLabel("");
+            }, 600);
+            setQuery("");
+            setSelectedDomainId("");
+          }
+        } catch (pollErr) {
+          // 400 = job failed, 404 = job not found
+          const status = pollErr.response?.status;
+          const errData = pollErr.response?.data;
+
+          if (status === 400 || status === 404) {
+            stopPolling();
+            setError(errData?.error || "Generation failed. Please try again.");
+            setLoading(false);
+            setProgress(0);
+            setPhaseLabel("");
+          }
+          // For network blips (5xx, timeout), keep polling — it may recover
+        }
+      }, 2000);
     } catch (err) {
-      const errorMsg = err.response?.data?.error || "Failed to generate idea. Please try again.";
+      stopPolling();
+      const errorMsg =
+        err.response?.data?.error ||
+        err.response?.data?.msg ||
+        "Failed to start generation. Please try again.";
       setError(errorMsg);
       setLoading(false);
       setProgress(0);
+      setPhaseLabel("");
     }
   };
 
@@ -187,12 +242,12 @@ const GeneratePage = () => {
                   <div className="space-y-2">
                     <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-300"
-                        style={{ width: `${progress}%` }}
+                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.max(progress, 5)}%` }}
                       />
                     </div>
                     <p className="text-xs text-neutral-400 text-center">
-                      Analyzing research and scoring novelty...
+                      {phaseLabel || "Starting generation..."}
                     </p>
                   </div>
                 )}

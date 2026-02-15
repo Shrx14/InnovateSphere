@@ -26,8 +26,8 @@ def test_config_embedding_model_default():
 
 
 def test_config_llm_model_default():
-    """Test that LLM_MODEL_NAME defaults to phi3:mini."""
-    assert Config.LLM_MODEL_NAME == "phi3:mini"
+    """Test that LLM_MODEL_NAME defaults to qwen2.5:7b."""
+    assert Config.LLM_MODEL_NAME == "qwen2.5:7b"
 
 
 

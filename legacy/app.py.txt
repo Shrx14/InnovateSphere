@@ -1,0 +1,66 @@
+
+#line 95
+# Create tables
+with app.app_context():
+    try:
+        db.create_all()
+    except Exception as e:
+        # Don't crash the app on DB init failure — print a helpful warning and continue.
+        print(f"⚠️ Warning: could not initialize database (will continue without DB): {e}")
+        print("If this persists, check DATABASE_URL and your Postgres credentials.")
+
+# API Routes
+@app.route('/api/health', methods=['GET'])
+@@ -349,5 +354,50 @@ def check_novelty():
+#line107
+
+#line 356
+@app.route('/api/generate-idea', methods=['POST'])
+def handle_generate_idea():
+    """
+    Handles a request to generate a new project idea using the RAG chain.
+    """
+    data = request.get_json()
+    user_query = data.get('query') # Get the user's raw query
+
+    if not user_query:
+        return jsonify({'error': 'A query is required.'}), 400
+
+    # --- THIS IS THE FIX ---
+    # We "wrap" the user's topic in a clear instruction for the RAG chain.
+    # You can customize this prompt to be more specific.
+    rag_query = f"Generate a creative and novel project idea for a student about: {user_query}"
+    # --- END OF FIX ---
+
+    try:
+        # Import RAG chain lazily so the server can start even if ML deps are missing
+        try:
+            from rag_chain import generate_idea
+        except Exception as import_err:
+            print(f"RAG chain unavailable: {import_err}")
+            return jsonify({'error': 'Idea generation is currently unavailable.'}), 503
+
+        # Call the RAG chain with the new, improved query
+        result = generate_idea(rag_query)
+
+        # Extract relevant info to send to frontend
+        response_data = {
+            "generated_text": result['result'],
+            "source_documents": [
+                {
+                    "title": doc.metadata.get('title', 'Unknown Title'),
+                    "summary": doc.page_content[:150] + "..." # Truncate summary
+                } for doc in result.get('source_documents', [])
+            ]
+        }
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        print(f"Error during idea generation: {e}")
+        return jsonify({'error': 'Failed to generate idea.'}), 500
+
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+
+#line 403    

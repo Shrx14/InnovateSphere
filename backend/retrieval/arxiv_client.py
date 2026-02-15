@@ -214,10 +214,17 @@ def _generate_arxiv_query_variations(query, domain, problem_class="general"):
             logger.info("[arXiv] applying category restriction for problem_class=%s: %s", 
                        problem_class, category_filter)
     
-    # Decide extraction method based on query length
+    # Decide extraction method based on query length and pipeline mode
+    from backend.core.config import Config
     word_count = len(query.split()) if query else 0
     
-    if word_count > 6:
+    if Config.HYBRID_MODE or Config.DEMO_MODE:
+        # Hybrid/demo mode: always use fast heuristic — no LLM calls in retrieval
+        all_terms = _extract_key_terms_heuristic(query, max_terms=6)
+        compound_terms = all_terms[:2]
+        simple_terms = all_terms[2:6]
+        logger.debug("[arXiv] using heuristic extraction (hybrid mode, %d words)", word_count)
+    elif word_count > 6:
         # Substantial detailed query: use LLM academic extraction
         keyword_result = _extract_academic_keywords_with_llm(query, domain, max_keywords=6)
         compound_terms = keyword_result.get("compound_terms", [])

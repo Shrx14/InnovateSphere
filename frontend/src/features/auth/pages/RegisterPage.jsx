@@ -35,7 +35,7 @@ const RegisterPage = () => {
         password: form.password,
         skill_level: form.skillLevel
       });
-      login(res.data.access_token);
+      login(res.data.access_token, res.data.refresh_token);
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed. Please try again.');
     } finally {

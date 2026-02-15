@@ -2,6 +2,30 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../lib/api';
+import SourcesList from '../../novelty/components/SourcesList';
+
+const StarRating = ({ value, onChange, disabled }) => {
+  const [hover, setHover] = useState(0);
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(star)}
+          onMouseEnter={() => setHover(star)}
+          onMouseLeave={() => setHover(0)}
+          className={`text-2xl transition ${
+            star <= (hover || value) ? 'text-yellow-400' : 'text-neutral-600'
+          } ${disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-110'}`}
+        >
+          ★
+        </button>
+      ))}
+    </div>
+  );
+};
 
 const IdeaDetail = () => {
   const { id } = useParams();
@@ -12,6 +36,11 @@ const IdeaDetail = () => {
   const [feedbackComment, setFeedbackComment] = useState('');
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [noveltyBreakdown, setNoveltyBreakdown] = useState(null);
+  const [rating, setRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewMessage, setReviewMessage] = useState('');
 
   useEffect(() => {
     const endpoint = user ? `/ideas/${id}` : `/public/ideas/${id}`;
@@ -23,6 +52,15 @@ const IdeaDetail = () => {
       .catch(() => {
         setLoading(false);
       });
+  }, [id, user]);
+
+  // Fetch novelty breakdown for authenticated users
+  useEffect(() => {
+    if (user && id) {
+      api.get(`/ideas/${id}/novelty-explanation`)
+        .then(res => setNoveltyBreakdown(res.data))
+        .catch(() => {}); // Silently fail — non-critical
+    }
   }, [id, user]);
 
   const handleFeedbackSubmit = async () => {
@@ -43,6 +81,24 @@ const IdeaDetail = () => {
       setTimeout(() => setFeedbackMessage(''), 3000);
     } finally {
       setSubmittingFeedback(false);
+    }
+  };
+
+  const handleReviewSubmit = async () => {
+    if (!rating) return;
+    setSubmittingReview(true);
+    try {
+      await api.post(`/ideas/${id}/review`, {
+        rating,
+        comment: reviewComment || null
+      });
+      setReviewMessage('✓ Review submitted!');
+      setTimeout(() => setReviewMessage(''), 3000);
+    } catch (err) {
+      setReviewMessage(`✕ Error: ${err.response?.data?.error || 'Submission failed'}`);
+      setTimeout(() => setReviewMessage(''), 3000);
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -124,25 +180,16 @@ const IdeaDetail = () => {
             </p>
           </section>
 
-          {/* Evidence Sources */}
+          {/* Evidence Sources — full SourcesList component */}
           <section className="glass-card-lg p-8 border border-white/10">
             <h2 className="text-sm font-semibold text-pink-400 uppercase tracking-widest mb-4">
               Evidence Sources
             </h2>
-            <div className="flex flex-wrap gap-3">
-              {idea.sources && idea.sources.length > 0 ? (
-                idea.sources.map((source, i) => (
-                  <span
-                    key={i}
-                    className="inline-block px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-neutral-300 hover:border-white/20 transition"
-                  >
-                    {source.source_type || 'Research'}
-                  </span>
-                ))
-              ) : (
-                <span className="text-neutral-400">No sources available</span>
-              )}
-            </div>
+            {idea.sources && idea.sources.length > 0 ? (
+              <SourcesList sources={idea.sources} evidenceBreakdown={null} />
+            ) : (
+              <span className="text-neutral-400">No sources available</span>
+            )}
           </section>
 
           {/* Metrics Cards */}
@@ -185,8 +232,83 @@ const IdeaDetail = () => {
           {/* Logged-in User Sections */}
           {user && (
             <>
+              {/* Novelty Breakdown Panel */}
+              {noveltyBreakdown && (
+                <section className="glass-card-lg p-8 border border-indigo-500/30 bg-indigo-500/5">
+                  <h2 className="text-sm font-semibold text-indigo-400 uppercase tracking-widest mb-4">
+                    Novelty Breakdown
+                  </h2>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-neutral-300 leading-relaxed mb-4">
+                        {noveltyBreakdown.explanation}
+                      </p>
+                      <div className="space-y-2">
+                        {noveltyBreakdown.signal_breakdown?.signals &&
+                          Object.entries(noveltyBreakdown.signal_breakdown.signals).map(([key, value]) => (
+                            <div key={key} className="flex justify-between items-center text-sm">
+                              <span className="text-neutral-400">{key.replace(/_/g, ' ')}</span>
+                              <span className={`font-mono font-bold ${value >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {value >= 0 ? '+' : ''}{value.toFixed(1)}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-neutral-400">Evidence Strength</span>
+                        <span className="font-semibold text-neutral-200">{noveltyBreakdown.evidence_strength}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-neutral-400">Sources Analyzed</span>
+                        <span className="font-semibold text-neutral-200">{noveltyBreakdown.sources_analyzed}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-neutral-400">Hallucination Risk</span>
+                        <span className={`font-semibold ${
+                          noveltyBreakdown.hallucination_risk === 'low' ? 'text-emerald-400' :
+                          noveltyBreakdown.hallucination_risk === 'medium' ? 'text-yellow-400' : 'text-red-400'
+                        }`}>{noveltyBreakdown.hallucination_risk}</span>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* Star Rating Widget */}
+              <section className="glass-card-lg p-8 border border-white/10">
+                <h2 className="text-sm font-semibold text-yellow-400 uppercase tracking-widest mb-4">
+                  Rate This Idea
+                </h2>
+                <div className="flex items-center gap-6">
+                  <StarRating value={rating} onChange={setRating} disabled={submittingReview} />
+                  <span className="text-neutral-400 text-sm">{rating ? `${rating}/5` : 'Select a rating'}</span>
+                </div>
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value.slice(0, 1000))}
+                  placeholder="Optional comment about this idea..."
+                  className="glass-input w-full h-20 resize-none mt-4"
+                />
+                {reviewMessage && (
+                  <div className={`mt-3 p-3 rounded-lg border ${
+                    reviewMessage.startsWith('✓')
+                      ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-200'
+                      : 'bg-red-500/20 border-red-500/50 text-red-200'
+                  }`}>{reviewMessage}</div>
+                )}
+                <button
+                  onClick={handleReviewSubmit}
+                  disabled={!rating || submittingReview}
+                  className="btn-primary mt-4"
+                >
+                  {submittingReview ? 'Submitting...' : 'Submit Rating'}
+                </button>
+              </section>
+
               {/* Novelty Explanation */}
-              {idea.novelty_explanation && (
+              {idea.novelty_explanation && !noveltyBreakdown && (
                 <section className="glass-card-lg p-8 border border-indigo-500/30 bg-indigo-500/5">
                   <h2 className="text-sm font-semibold text-indigo-400 uppercase tracking-widest mb-4">
                     Why This Is Novel

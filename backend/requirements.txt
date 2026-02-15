@@ -4,6 +4,7 @@ Flask-CORS==4.0.0
 Flask-Caching>=2.1.0
 Flask-Limiter>=4.1.0
 Flask-JWT-Extended>=4.5.0
+Flask-Migrate>=4.0.0
 psycopg2-binary==2.9.7
 python-dotenv==1.0.0
 PyJWT==2.8.0
@@ -12,7 +13,4 @@ pydantic>=2.0.0
 sentence-transformers==2.2.2
 numpy==1.26.4
 huggingface-hub==0.20.3
-pgvector==0.3.4
-transformers==4.33.3
-torch==2.2.1
 

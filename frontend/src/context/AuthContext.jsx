@@ -93,6 +93,7 @@ export const AuthProvider = ({ children }) => {
       // Ignore errors - logout should always succeed client-side
     }
     localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_email');
     setToken(null);
     setUser(null);
@@ -117,8 +118,11 @@ export const AuthProvider = ({ children }) => {
 
   // Login function
 
-  const login = (newToken) => {
+  const login = (newToken, refreshToken) => {
     localStorage.setItem('access_token', newToken);
+    if (refreshToken) {
+      localStorage.setItem('refresh_token', refreshToken);
+    }
     const userData = hydrateUserFromToken(newToken);
     if (userData) {
       setToken(newToken);

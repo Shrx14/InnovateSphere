@@ -1,6 +1,6 @@
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 from flask import Flask, request
@@ -38,9 +38,14 @@ jwt_manager = JWTManager()
 limiter = Limiter(key_func=get_remote_address)
 
 
-def create_app():
+def create_app(test_config=None):
     """
     Application factory pattern for creating Flask app instances.
+
+    Args:
+        test_config: Optional dict of config overrides (applied before
+                     extension init so that SQLALCHEMY_DATABASE_URI etc.
+                     take effect).
     """
     app = Flask(__name__)
     # Enable debug-level logging for request diagnostics
@@ -73,6 +78,10 @@ def create_app():
         SECRET_KEY=Config.SECRET_KEY,
     )
 
+    # Apply test overrides BEFORE extension init
+    if test_config:
+        app.config.update(test_config)
+
     # Caching
     cache.init_app(
         app,
@@ -84,8 +93,9 @@ def create_app():
 
     # SQLAlchemy Engine Options (Neon-safe)
     engine_opts = {}
+    final_db_uri = app.config["SQLALCHEMY_DATABASE_URI"]
     try:
-        url = make_url(DATABASE_URL)
+        url = make_url(final_db_uri)
         if url.drivername.startswith("postgresql"):
             host = url.host or ""
             is_neon_pooler = "neon.tech" in host and "pooler" in host
@@ -112,10 +122,21 @@ def create_app():
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_opts
 
     # JWT Manager
+    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(seconds=Config.JWT_EXP_SECONDS)
     jwt_manager.init_app(app)
+
+    # JWT blocklist check for real logout
+    @jwt_manager.token_in_blocklist_loader
+    def check_if_token_revoked(jwt_header, jwt_payload):
+        from backend.core.models import TokenBlocklist
+        jti = jwt_payload["jti"]
+        token = TokenBlocklist.query.filter_by(jti=jti).first()
+        return token is not None
 
     # Database
     db.init_app(app)
+    with app.app_context():
+        db.create_all()  # Ensure new tables exist (safe: only creates missing tables)
 
     # CORS
     CORS(
@@ -131,9 +152,10 @@ def create_app():
     )
     logger = logging.getLogger(__name__)
 
-    # Startup
-    Config.log_config_startup()
-    run_startup_checks()
+    # Startup (skip in test mode — avoids real network calls)
+    if not app.config.get("TESTING"):
+        Config.log_config_startup()
+        run_startup_checks()
 
     # Register blueprints
     from backend.api import register_blueprints
@@ -151,22 +173,5 @@ def create_app():
     return app
 
 
-# User Model
-class User(db.Model):
-    __tablename__ = "users"
-
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), default="user", nullable=False)  # 'user' or 'admin'
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    preferred_domains = db.Column(db.JSON, default=list)
-    skill_level = db.Column(db.String(20), default="beginner")
-    saved_ideas = db.Column(db.JSON, default=list)
-
-    preferred_domain_id = db.Column(
-        db.Integer, db.ForeignKey("domains.id"), nullable=True
-    )
+# Re-export User from models.py for backward compatibility
+from backend.core.models import User  # noqa: E402, F401

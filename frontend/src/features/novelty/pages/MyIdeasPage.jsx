@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../lib/api';
@@ -9,25 +9,7 @@ const MyIdeasPage = () => {
   const [loading, setLoading] = useState(false);
   const [sortBy, setSortBy] = useState('novelty_desc');
 
-  const handleLoadIdeas = async () => {
-    if (!user) {
-      alert('Please sign in to analyze idea novelty');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await api.get('/ideas/mine');
-      const sortedIdeas = sortIdeas(res.data.ideas || [], sortBy);
-      setIdeas(sortedIdeas);
-    } catch (err) {
-      console.error('Failed to load ideas:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const sortIdeas = (ideas, sortType) => {
+  const sortIdeas = useCallback((ideas, sortType) => {
     const sorted = [...ideas];
     switch (sortType) {
       case 'novelty_desc':
@@ -43,7 +25,28 @@ const MyIdeasPage = () => {
       default:
         return sorted;
     }
-  };
+  }, []);
+
+  const handleLoadIdeas = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const res = await api.get('/ideas/mine');
+      const sortedIdeas = sortIdeas(res.data.ideas || [], sortBy);
+      setIdeas(sortedIdeas);
+    } catch (err) {
+      console.error('Failed to load ideas:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, sortBy, sortIdeas]);
+
+  // Auto-load on mount when authenticated
+  useEffect(() => {
+    if (user) {
+      handleLoadIdeas();
+    }
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSortChange = (newSort) => {
     setSortBy(newSort);

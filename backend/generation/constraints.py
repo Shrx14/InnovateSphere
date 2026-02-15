@@ -80,12 +80,12 @@ def build_hitl_constraints(domain: str, sources: List[Dict[str, Any]]) -> Dict[s
 def is_rejected_pattern(candidate_idea: Dict[str, Any], constraints: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
     Check if candidate idea matches historically rejected patterns.
-    Structural similarity: same dominant sources, same problem framing.
+    Uses both title matching and embedding similarity (when available).
     """
     candidate_title = candidate_idea.get("title", "").lower()
     candidate_problem = candidate_idea.get("problem_formulation", {}).get("context", "").lower()
 
-    # Check title similarity (exact match for now, can expand to fuzzy)
+    # 1) Exact title match
     for rejected_title in constraints.get("pattern_penalties", []):
         if candidate_title == rejected_title:
             return {
@@ -95,6 +95,54 @@ def is_rejected_pattern(candidate_idea: Dict[str, Any], constraints: Dict[str, A
                 "confidence": "low"
             }
 
-    # TODO: Add more structural checks if needed (e.g., dominant sources)
+    # 2) Embedding-based similarity check (if embedder is available)
+    try:
+        from backend.semantic.embedder import get_embedder
+        embedder = get_embedder()
+        if embedder and candidate_title and constraints.get("pattern_penalties"):
+            candidate_emb = embedder.encode(candidate_title)
+            for rejected_title in constraints["pattern_penalties"]:
+                rejected_emb = embedder.encode(rejected_title)
+                similarity = _cosine_similarity(candidate_emb, rejected_emb)
+                if similarity > 0.85:  # High similarity threshold
+                    return {
+                        "error": "generation_aborted",
+                        "reason": "embedding_similar_to_rejected",
+                        "message": f"This idea is structurally similar to a previously rejected idea (similarity: {similarity:.2f}).",
+                        "confidence": "medium",
+                        "similar_to": rejected_title
+                    }
+    except Exception:
+        pass  # Embedder not available or failed, skip embedding check
 
     return None
+
+
+def filter_hallucinated_sources(sources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Filter out sources that have been flagged as hallucinated in the database.
+    """
+    from backend.core.models import IdeaSource
+    flagged_urls = set()
+    try:
+        flagged = IdeaSource.query.filter_by(is_hallucinated=True).with_entities(IdeaSource.url).all()
+        flagged_urls = {row.url for row in flagged}
+    except Exception:
+        pass  # If DB query fails, don't block generation
+
+    if not flagged_urls:
+        return sources
+
+    filtered = [s for s in sources if s.get("url") not in flagged_urls]
+    return filtered
+
+
+def _cosine_similarity(a, b):
+    """Compute cosine similarity between two vectors."""
+    import math
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(x * x for x in b))
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot / (norm_a * norm_b)

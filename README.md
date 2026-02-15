@@ -1,154 +1,176 @@
 # InnovateSphere
 
-InnovateSphere is a full-stack web application designed to help users generate innovative project ideas, manage their profiles, and collaborate on creative endeavors. The platform features user authentication, project idea generation, and a modern, responsive user interface.
+AI-powered research idea generation platform with evidence-grounded pipelines, human-in-the-loop governance, and novelty analysis.
+
+## Architecture
+
+**3-shell frontend** (Admin / User / Public) built with React + Tailwind CSS.  
+**3-mode backend** (Demo / Hybrid / Production) built with Flask + SQLAlchemy.  
+**Database**: Neon PostgreSQL (cloud-native serverless Postgres).  
+**LLM**: Ollama (qwen2.5:7b) or OpenAI (gpt-4o-mini) with automatic fallback.
+
+### Generation Pipeline
+
+| Mode | Passes | Evidence | Novelty | Use Case |
+|------|--------|----------|---------|----------|
+| Demo | 1-pass | Minimal | Skipped | Fast demos |
+| Hybrid | 2-pass | Live retrieval (arXiv + GitHub) | Skipped | Daily usage |
+| Production | 4-pass | Full retrieval + validation | Full analysis | Research-grade |
 
 ## Features
 
-- **User Authentication**: Secure registration and login with email/password
-- **Two-Factor Authentication (2FA)**: SMS-based 2FA for enhanced security
-- **Project Idea Generation**: AI-powered suggestions for innovative projects
-- **User Profiles**: Customizable profiles with skill levels and preferred domains
-- **Responsive Design**: Modern UI built with React and Tailwind CSS
-- **RESTful API**: Flask-based backend with comprehensive API endpoints
+- **Evidence-Grounded Generation**: Multi-pass LLM pipeline with live source retrieval from arXiv and GitHub
+- **Novelty Analysis**: Multi-engine novelty scoring (semantic, structural, temporal, cross-domain)
+- **HITL Governance**: Admin verdict system (validate/downgrade/reject), human-verified toggle, hallucination flagging
+- **Generation Traces**: Full audit trail of every pipeline phase for transparency
+- **Bias Transparency**: Configurable bias profiles with penalty breakdowns visible to admins
+- **Abuse Detection**: Application-level rate limiting with auto-block after repeated infractions
+- **JWT Auth**: Access + refresh tokens with real logout (token blocklist)
+- **3-Shell Frontend**: Separate Admin, User, and Public interfaces
 
 ## Tech Stack
 
 ### Backend
-- **Flask**: Python web framework
-- **SQLAlchemy**: ORM for database management
-- **PostgreSQL**: Primary database
-- **Twilio**: SMS services for 2FA
-- **bcrypt**: Password hashing
-- **pyotp**: TOTP for 2FA
+- **Flask 2.3** + Flask-SQLAlchemy, Flask-JWT-Extended, Flask-Caching, Flask-Limiter
+- **Pydantic v2** schema validation for LLM outputs
+- **Sentence-Transformers** (all-MiniLM-L6-v2) for semantic embeddings
+- **PostgreSQL** on Neon (pooler-safe connection handling)
 
 ### Frontend
-- **React**: JavaScript library for building user interfaces
-- **Tailwind CSS**: Utility-first CSS framework
-- **Axios**: HTTP client for API requests
-
-### Infrastructure
-- **Docker**: Containerization
-- **Docker Compose**: Multi-container orchestration
+- **React** (Create React App) + React Router v6
+- **Tailwind CSS** (dark theme, neutral palette)
+- **Recharts** for admin analytics charts
+- **Axios** with automatic token refresh interceptor
 
 ## Project Structure
 
 ```
-innovatesphere/
-├── backend/                 # Flask API backend
-│   ├── app.py              # Main application file
-│   ├── migrations.py       # Database migrations
-│   ├── requirements.txt    # Python dependencies
-│   └── test_twilio.py      # Twilio testing utilities
-├── frontend/               # React frontend application
-│   ├── public/            # Static assets
-│   ├── src/               # Source code
-│   │   ├── components/    # React components
-│   │   ├── config.js      # Configuration
-│   │   └── App.js         # Main app component
-│   └── package.json       # Node.js dependencies
-├── docker-compose.yml      # Docker Compose configuration
-├── .gitignore             # Git ignore rules
-└── README.md              # This file
+├── backend/
+│   ├── core/           # App factory, config, models, DB
+│   ├── api/routes/     # REST endpoints (admin, analytics, auth, generation, ideas, novelty, public)
+│   ├── ai/             # LLM client, prompts, bias registry
+│   ├── generation/     # Pipeline (generator, constraints, job_queue, schemas)
+│   ├── novelty/        # Multi-engine novelty analysis
+│   ├── retrieval/      # arXiv + GitHub live retrieval, source reputation
+│   ├── semantic/       # Embedding, filtering, ranking
+│   ├── scripts/        # DB migrations, seed data, optimization
+│   └── utils/          # Auth helpers, serializers, health checks
+├── frontend/
+│   └── src/
+│       ├── features/   # Admin, User, Public shells + pages
+│       ├── context/    # Auth context (JWT + refresh)
+│       ├── hooks/      # Custom React hooks
+│       └── lib/        # API client with interceptors
+├── tests/
+│   ├── backend/        # Unit tests (16 test files)
+│   ├── integration/    # Integration tests
+│   └── unit/           # Additional unit tests
+└── docs/               # Architecture docs, diagrams
 ```
 
 ## Getting Started
 
 ### Prerequisites
 
-- Docker and Docker Compose
-- Git
+- Python 3.10+
+- Node.js 18+
+- Neon PostgreSQL account (or local PostgreSQL)
+- Ollama (optional, for local LLM) or OpenAI API key
 
-### Installation
+### Backend Setup
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd innovatesphere
-   ```
-
-2. **Environment Setup**
-   - Copy `.env.example` to `.env` and configure your environment variables
-   - For backend: Set up database credentials, Twilio API keys, etc.
-   - For frontend: Configure API endpoints
-
-3. **Run with Docker Compose**
-   ```bash
-   docker-compose up --build
-   ```
-
-   This will start:
-   - Backend API on `http://localhost:5000`
-   - Frontend on `http://localhost:3000`
-   - PostgreSQL database
-
-### Manual Setup (Alternative)
-
-#### Backend Setup
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # macOS/Linux
 pip install -r requirements.txt
-flask run
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your DATABASE_URL, SECRET_KEY, LLM settings
+
+python run.py
 ```
 
-#### Frontend Setup
+### Frontend Setup
+
 ```bash
 cd frontend
 npm install
-npm start
+npm start                      # Dev server on http://localhost:3000
+npm run build                  # Production build
 ```
 
-## API Documentation
+### Environment Variables
 
-### Authentication Endpoints
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | — | Neon PostgreSQL connection string |
+| `SECRET_KEY` | — | Flask secret key |
+| `LLM_PROVIDER` | `ollama` | `ollama` or `openai` |
+| `LLM_MODEL_NAME` | `qwen2.5:7b` | Model name |
+| `OPENAI_API_KEY` | — | Required if provider is `openai` |
+| `DEMO_MODE` | `false` | Enable 1-pass demo pipeline |
+| `HYBRID_MODE` | `true` | Enable 2-pass hybrid pipeline |
+| `MIN_EVIDENCE_REQUIRED` | `3` | Min sources before LLM generation |
+| `MIN_NOVELTY_SCORE` | `25` | Min novelty to pass evidence gate |
 
-- `POST /api/register` - User registration
-- `POST /api/login` - User login
-- `POST /api/change-password` - Change password
-- `POST /api/setup-phone` - Setup phone for 2FA
-- `POST /api/verify-phone` - Verify phone number
-- `POST /api/setup-2fa` - Enable 2FA
-- `POST /api/verify-2fa` - Verify 2FA code
-- `POST /api/disable-2fa` - Disable 2FA
+## API Overview
 
-### Health Check
+### Public
+- `GET /api/public/ideas` — Browse public ideas
+- `GET /api/public/stats` — Platform statistics
+- `GET /api/public/domains` — Available domains
 
-- `GET /api/health` - API health check
+### Auth
+- `POST /api/auth/register` — Register
+- `POST /api/auth/login` — Login (returns access + refresh tokens)
+- `POST /api/auth/refresh` — Refresh access token
+- `POST /api/auth/logout` — Logout (revokes tokens)
 
-## Development
+### User (JWT required)
+- `POST /api/generate` — Generate idea (async, returns job_id)
+- `GET /api/generate/status/<job_id>` — Poll generation progress
+- `POST /api/ideas/<id>/feedback` — Submit feedback
+- `POST /api/ideas/<id>/review` — Submit review
 
-### Running Tests
+### Admin (JWT + admin role)
+- `GET /api/admin/ideas/quality-review` — Review queue
+- `POST /api/admin/ideas/<id>/verdict` — Submit verdict
+- `POST /api/admin/ideas/<id>/human-verified` — Toggle human-verified
+- `POST /api/admin/ideas/<id>/sources/<sid>/hallucinated` — Flag hallucination
+- `GET /api/admin/ideas/<id>/generation-trace` — View generation trace
+- `POST /api/admin/ideas/<id>/rescore` — Recalculate scores
+- `GET /api/admin/abuse-events` — View abuse events
+
+### Analytics (JWT + admin role)
+- `GET /api/admin/domains` — Domain statistics
+- `GET /api/admin/trends` — Generation trends
+- `GET /api/admin/distributions` — Score distributions
+- `GET /api/admin/user-domains` — User domain preferences
+
+## Testing
 
 ```bash
-# Backend tests
-cd backend
-python -m pytest
+# Run all backend tests
+python -m pytest tests/ -v
 
-# Frontend tests
-cd frontend
-npm test
+# Run specific test suite
+python -m pytest tests/backend/test_generation_schemas.py -v
+python -m pytest tests/backend/test_llm_client.py -v
+python -m pytest tests/backend/test_job_queue.py -v
 ```
 
-### Code Style
+## Database Migrations
 
-- Backend: Follow PEP 8 guidelines
-- Frontend: Use ESLint and Prettier
+For new deployments, `db.create_all()` runs automatically on startup and creates missing tables.
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+For adding columns to existing tables, run the DDL script:
+```bash
+psql $DATABASE_URL -f backend/scripts/add_missing_columns.sql
+```
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Built with Flask and React
-- SMS services powered by Twilio
-- UI components styled with Tailwind CSS
+MIT

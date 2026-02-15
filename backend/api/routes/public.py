@@ -7,7 +7,7 @@ from flask_jwt_extended import get_jwt_identity
 from sqlalchemy import func
 from backend.core.db import db
 from backend.core.app import cache
-from backend.core.models import ProjectIdea, Domain, AdminVerdict, IdeaView, SearchQuery, ViewEvent
+from backend.core.models import ProjectIdea, Domain, AdminVerdict, IdeaView, SearchQuery, ViewEvent, User
 
 from backend.utils.serializers import serialize_public_idea
 
@@ -313,4 +313,5 @@ def public_stats():
     return jsonify({
         "total_public_ideas": total_public_ideas,
         "total_domains": Domain.query.count(),
+        "total_users": User.query.count(),
     }), 200

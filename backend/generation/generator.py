@@ -40,8 +40,12 @@ from backend.ai.prompts import (
     PASS4_PROMPT_TEMPLATE,
     DIRECT_GENERATION_SYSTEM,
     DIRECT_GENERATION_PROMPT_TEMPLATE,
+    HYBRID_PASS1_SYSTEM,
+    HYBRID_PASS1_PROMPT_TEMPLATE,
+    HYBRID_PASS2_SYSTEM,
+    HYBRID_PASS2_PROMPT_TEMPLATE,
 )
-from .schemas import validate_generated_idea
+from .schemas import validate_generated_idea, validate_hybrid_idea
 from .constraints import build_hitl_constraints, is_rejected_pattern
 
 
@@ -94,9 +98,10 @@ def check_evidence_sufficiency(
     if len(sources) < Config.MIN_EVIDENCE_REQUIRED:
         return "evidence_insufficient_count"
 
-    # Removed novelty score threshold to allow more ideas to be generated
-    # Focus on evidence availability rather than hard novelty cutoff
-    # This enables ideas with moderate novelty to still be generated and presented
+    # Novelty score threshold: reject ideas that are too derivative
+    # Only enforced in non-demo modes (demo bypasses the gate entirely)
+    if novelty_score < Config.MIN_NOVELTY_SCORE:
+        return "novelty_below_threshold"
 
     return None
 
@@ -163,50 +168,8 @@ def multi_pass_llm_generate(
 ) -> Dict[str, Any]:
     
     # ------------------
-    # Phase 0: Feasibility estimation (hackathon / implementation bounds)
+    # Phase 0: Feasibility estimation (uses module-level estimate_feasibility_module)
     # ------------------
-    def estimate_feasibility(query: str, domain: str, sources: List[Dict[str, Any]], novelty: Dict[str, Any]) -> Dict[str, Any]:
-        source_count = max(0, len(sources))
-        novelty_score = float(novelty.get("novelty_score", 0)) if novelty else 0.0
-
-        # Heuristic scoring: more sources and moderate novelty increase feasibility
-        base = 50
-        source_bonus = (source_count - 3) * 5
-        novelty_penalty = (70 - novelty_score) * 0.5  # low novelty -> easier to implement
-
-        feasibility_score = int(max(0, min(100, base + source_bonus + novelty_penalty)))
-
-        if feasibility_score > 75:
-            complexity = "low"
-        elif feasibility_score > 45:
-            complexity = "medium"
-        else:
-            complexity = "high"
-
-        # Rough time estimate in weeks (heuristic)
-        estimated_time_weeks = round(max(1.0, (100 - feasibility_score) / 10.0 + (0.5 if complexity == "low" else 1.5 if complexity == "medium" else 3.0)), 1)
-
-        # Suggested team size
-        if feasibility_score > 80:
-            team_size = 1
-        elif feasibility_score > 60:
-            team_size = 2
-        elif feasibility_score > 40:
-            team_size = 3
-        else:
-            team_size = 5
-
-        uncertainty = round(max(0.05, min(0.95, 1.0 - min(1.0, source_count / 10.0) * 0.7)), 2)
-
-        return {
-            "feasibility_score": feasibility_score,
-            "complexity": complexity,
-            "estimated_time_weeks": estimated_time_weeks,
-            "recommended_team_size": team_size,
-            "uncertainty": uncertainty,
-            "source_count": source_count,
-            "novelty_score": novelty_score,
-        }
 
     # Apply HITL source penalties (deterministic weighting)
     for src in sources:
@@ -220,121 +183,83 @@ def multi_pass_llm_generate(
     sources = sources[: Config.MAX_SOURCES_FOR_LLM]
 
     # ========================================================
-    # DEMO MODE: SKIP PASS1-3, GO DIRECTLY TO PASS4
+    # PRODUCTION MODE: FULL MULTI-PASS PIPELINE
     # ========================================================
-    if Config.DEMO_MODE:
-        logger.info(f"[DEMO MODE] Skipping PASS1-3, going directly to PASS4 final synthesis")
-        
-        # Mock analysis (PASS1 output)
-        analysis = {
-            "current_landscape": "The research area is actively developing with growing interest in the domain.",
-            "identified_gaps": ["Integration of emerging technologies", "Cross-domain applications"],
-            "saturated_zones": ["Basic implementations", "Well-established techniques"],
-            "research_trends": "Trending toward more sophisticated approaches"
-        }
-        
-        # Mock idea (PASS2 output)
-        idea = {
-            "problem_statement": f"Create innovative solutions for: {query}",
-            "core_contribution": "Advancing the field through novel application and integration approaches",
-            "key_innovation_angles": ["Technical innovation", "Process improvement", "User experience enhancement"]
-        }
-        
-        # Mock evidence (PASS3 output)
-        evidence = {
-            "validated_sources": [
-                {
-                    "id": i,
-                    "title": s.get("title", f"Source {i}"),
-                    "url": s.get("url", f"https://example.com/source/{i}"),
-                    "relevance": "High",
-                    "source_type": s.get("source_type", "other")
-                }
-                for i, s in enumerate(sources[:Config.MIN_EVIDENCE_REQUIRED])
-            ],
-            "content_summary": "Evidence supports the proposed idea with relevant research and implementations"
-        }
-        
-        # Skip directly to PASS4 with mocked phase data
-        validated_ids = {str(i): s for i, s in enumerate(sources[:Config.MIN_EVIDENCE_REQUIRED])}
-    else:
-        # ========================================================
-        # PRODUCTION MODE: FULL MULTI-PASS PIPELINE
-        # ========================================================
-        
-        # Inject HITL constraints into prompts
-        pass1_system = PASS1_SYSTEM
-        if constraints["domain_strictness"] > 1.0:
-            pass1_system += "\n\nADDITIONAL CONSTRAINTS:\n- Use conservative analysis and avoid speculative gaps.\n- Require stronger evidence for any identified limitations."
+    # Note: Demo mode is handled by generate_direct_to_llm() and never reaches here.
+    
+    # Inject HITL constraints into prompts
+    pass1_system = PASS1_SYSTEM
+    if constraints["domain_strictness"] > 1.0:
+        pass1_system += "\n\nADDITIONAL CONSTRAINTS:\n- Use conservative analysis and avoid speculative gaps.\n- Require stronger evidence for any identified limitations."
 
-        penalized_urls = [url for url, mult in constraints["source_penalties"].items() if mult < 1.0]
-        if penalized_urls:
-            pass1_system += "\n- Avoid over-reliance on sources that have been previously rejected by reviewers."
+    penalized_urls = [url for url, mult in constraints["source_penalties"].items() if mult < 1.0]
+    if penalized_urls:
+        pass1_system += "\n- Avoid over-reliance on sources that have been previously rejected by reviewers."
 
-        # ========================================================
-        # PHASE 2: IDEA SPACE ANALYSIS (Explicit Landscape Study)
-        # ========================================================
-        # Pass 1 — landscape analysis (identifies patterns, gaps, saturated zones)
-        try:
-            pass1_body = PASS1_PROMPT_TEMPLATE
-            pass1_body = pass1_body.replace("{domain}", domain)
-            pass1_body = pass1_body.replace(
-                "{sources}",
-                "\n".join(f"[{i}] {s['title']} ({s['source_type']})" for i, s in enumerate(sources)),
-            )
+    # ========================================================
+    # PHASE 2: IDEA SPACE ANALYSIS (Explicit Landscape Study)
+    # ========================================================
+    # Pass 1 — landscape analysis (identifies patterns, gaps, saturated zones)
+    try:
+        pass1_body = PASS1_PROMPT_TEMPLATE
+        pass1_body = pass1_body.replace("{domain}", domain)
+        pass1_body = pass1_body.replace(
+            "{sources}",
+            "\n".join(f"[{i}] {s['title']} ({s['source_type']})" for i, s in enumerate(sources)),
+        )
 
-            analysis = generate_json(pass1_system + pass1_body)
-        except (RuntimeError, ValueError) as e:
-            logger.error(f"PASS 1 LLM generation failed: {e}")
-            raise RuntimeError("Idea generation failed (PHASE 2 - Landscape Analysis): LLM error") from e
+        analysis = generate_json(pass1_system + pass1_body)
+    except (RuntimeError, ValueError) as e:
+        logger.error(f"PASS 1 LLM generation failed: {e}")
+        raise RuntimeError("Idea generation failed (PHASE 2 - Landscape Analysis): LLM error") from e
 
-        # ========================================================
-        # PHASE 3: CONSTRAINT-GUIDED SYNTHESIS
-        # ========================================================
-        # PASS 2 — problem framing (informed by landscape analysis)
-        try:
-            pass2_body = PASS2_PROMPT_TEMPLATE
-            pass2_body = pass2_body.replace("{analysis}", json.dumps(analysis))
-            pass2_body = pass2_body.replace("{context}", query)
-            idea = generate_json(PASS2_SYSTEM + pass2_body)
-        except (RuntimeError, ValueError) as e:
-            logger.error(f"PASS 2 LLM generation failed: {e}")
-            raise RuntimeError("Idea generation failed (PHASE 3 - Problem Framing): LLM error") from e
-        # Defensive: ensure idea is a dict
-        if not isinstance(idea, dict):
-            logger.warning("PASS2 returned unexpected type; coercing to empty dict")
-            idea = {}
+    # ========================================================
+    # PHASE 3: CONSTRAINT-GUIDED SYNTHESIS
+    # ========================================================
+    # PASS 2 — problem framing (informed by landscape analysis)
+    try:
+        pass2_body = PASS2_PROMPT_TEMPLATE
+        pass2_body = pass2_body.replace("{analysis}", json.dumps(analysis))
+        pass2_body = pass2_body.replace("{context}", query)
+        idea = generate_json(PASS2_SYSTEM + pass2_body)
+    except (RuntimeError, ValueError) as e:
+        logger.error(f"PASS 2 LLM generation failed: {e}")
+        raise RuntimeError("Idea generation failed (PHASE 3 - Problem Framing): LLM error") from e
+    # Defensive: ensure idea is a dict
+    if not isinstance(idea, dict):
+        logger.warning("PASS2 returned unexpected type; coercing to empty dict")
+        idea = {}
 
-        # PASS 3 — evidence validation
-        try:
-            pass3_body = PASS3_PROMPT_TEMPLATE
-            pass3_body = pass3_body.replace("{idea}", json.dumps(idea))
-            pass3_body = pass3_body.replace(
-                "{sources}",
-                "\n".join(f"[{i}] {s['title']} — {s['url']}" for i, s in enumerate(sources)),
-            )
-            evidence = generate_json(PASS3_SYSTEM + pass3_body)
-        except (RuntimeError, ValueError) as e:
-            logger.error(f"PASS 3 LLM generation failed: {e}")
-            raise RuntimeError("Idea generation failed (PHASE 3 - Evidence Validation): LLM error") from e
-        # Defensive: ensure evidence is a dict and has validated_sources list
-        if not isinstance(evidence, dict):
-            logger.warning("PASS3 returned unexpected type; coercing to empty evidence dict")
-            evidence = {}
+    # PASS 3 — evidence validation
+    try:
+        pass3_body = PASS3_PROMPT_TEMPLATE
+        pass3_body = pass3_body.replace("{idea}", json.dumps(idea))
+        pass3_body = pass3_body.replace(
+            "{sources}",
+            "\n".join(f"[{i}] {s['title']} — {s['url']}" for i, s in enumerate(sources)),
+        )
+        evidence = generate_json(PASS3_SYSTEM + pass3_body)
+    except (RuntimeError, ValueError) as e:
+        logger.error(f"PASS 3 LLM generation failed: {e}")
+        raise RuntimeError("Idea generation failed (PHASE 3 - Evidence Validation): LLM error") from e
+    # Defensive: ensure evidence is a dict and has validated_sources list
+    if not isinstance(evidence, dict):
+        logger.warning("PASS3 returned unexpected type; coercing to empty evidence dict")
+        evidence = {}
 
-        validated_list = [s for s in evidence.get("validated_sources", []) if isinstance(s, dict)]
-        if len(validated_list) < Config.MIN_EVIDENCE_REQUIRED:
-            raise ValueError("Insufficient validated evidence")
+    validated_list = [s for s in evidence.get("validated_sources", []) if isinstance(s, dict)]
+    if len(validated_list) < Config.MIN_EVIDENCE_REQUIRED:
+        raise ValueError("Insufficient validated evidence")
 
-        validated_ids = {str(s.get("id")): s for s in validated_list if s.get("id") is not None}
+    validated_ids = {str(s.get("id")): s for s in validated_list if s.get("id") is not None}
 
-        # Enforce admin-validated evidence preference
-        validated_urls = {s.get("url") for s in validated_list if s.get("url")}
-        sources = [
-            s for s in sources
-            if s["url"] in validated_urls
-        ]
-        # Preserve HITL weighting order — do not re-sort
+    # Enforce admin-validated evidence preference
+    validated_urls = {s.get("url") for s in validated_list if s.get("url")}
+    sources = [
+        s for s in sources
+        if s["url"] in validated_urls
+    ]
+    # Preserve HITL weighting order — do not re-sort
 
     # ========================================================
     # PHASE 4: EVIDENCE-ANCHORED OUTPUT (USED IN BOTH MODES)
@@ -370,6 +295,383 @@ def multi_pass_llm_generate(
         "phase_2": idea,      # Problem framing
         "phase_3": evidence,  # Evidence validation
     }
+
+
+# ================================================================
+# HYBRID MODE: 2-pass generation (real retrieval + real novelty)
+# ================================================================
+def generate_hybrid(
+    query: str, domain_id: int, user_id: int, job_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Hybrid pipeline: real retrieval, real novelty scoring, 2-pass LLM.
+
+    Pass 1 — Landscape Analysis  (identifies patterns, gaps)
+    Pass 2 — Grounded Generation (single idea informed by analysis + novelty)
+
+    Total LLM calls: 2  (~30-50s on CPU with 7B model)
+    """
+    from backend.utils.common import truncate_source_for_prompt, truncate_novelty_gaps
+
+    logger.info("[HYBRID] Starting 2-pass generation: query='%s'", query[:80])
+    job_queue = get_job_queue() if job_id else None
+
+    # Set hybrid-specific phase names
+    if job_queue:
+        job_queue.set_phase_names(job_id, {
+            0: "Retrieving sources",
+            1: "Analyzing novelty",
+            2: "Generating idea with AI",
+            3: "Validating & saving",
+            4: "Complete",
+        })
+
+    # --- Abuse check ---
+    try:
+        from backend.core.abuse import check_generation_rate, record_abuse_event
+        if check_generation_rate(user_id):
+            try:
+                record_abuse_event(user_id, "generation_blocked", {"query": query[:200]})
+            except Exception:
+                pass
+            return {"error": "rate_limited"}
+        try:
+            record_abuse_event(user_id, "generation_attempt", {"query": query[:200]})
+        except Exception:
+            pass
+    except Exception:
+        logger.exception("Abuse subsystem error; continuing generation")
+
+    # --- Domain lookup ---
+    domain = Domain.query.get(domain_id)
+    if not domain:
+        return {"error": "Invalid domain_id"}
+
+    if job_queue:
+        job_queue.update_job_status(job_id, "running", 0, 5)
+
+    guardrail = check_hitl_guardrails(domain_id)
+    if guardrail:
+        return guardrail
+
+    # =============================================
+    # Phase 0  — Retrieve sources  (0-30%)
+    # =============================================
+    try:
+        if job_queue:
+            job_queue.update_job_status(job_id, "running", 0, 10)
+
+        retrieved = retrieve_sources(query=query, domain=domain.name)
+        raw_sources = retrieved.get("sources", []) if retrieved else []
+        logger.info("[HYBRID] Retrieved %d raw sources", len(raw_sources))
+
+        if not raw_sources:
+            logger.warning("[HYBRID] No sources for query='%s'", query[:60])
+            return {"error": "No sources found for topic. Please try a different topic."}
+
+        # Semantic filter with progressive fallback
+        from backend.novelty.config import SIMILARITY_THRESHOLDS
+        threshold = min(SIMILARITY_THRESHOLDS.get(domain.name.lower(), 0.6), 0.4)
+        filtered = filter_by_semantic_similarity(query, raw_sources, threshold)
+
+        if len(filtered) < Config.MIN_EVIDENCE_REQUIRED and len(raw_sources) >= Config.MIN_EVIDENCE_REQUIRED:
+            filtered = filter_by_semantic_similarity(query, raw_sources, max(0.15, threshold / 2))
+        if not filtered:
+            filtered = raw_sources
+
+        ranked = rank_sources(filtered)
+        if not ranked:
+            return {"error": "Could not rank sources. Please try again."}
+
+        if job_queue:
+            job_queue.set_intermediate_result(job_id, "sources", ranked)
+            job_queue.update_job_status(job_id, "running", 0, 30)
+
+    except Exception as e:
+        logger.error("[HYBRID] Retrieval error: %s", e)
+        if job_queue:
+            job_queue.set_job_error(job_id, f"Retrieval error: {e}")
+        return {"error": f"Retrieval error: {e}"}
+
+    # =============================================
+    # Phase 1  — Novelty analysis  (30-50%)
+    # =============================================
+    try:
+        novelty_input = "\n".join(f"[{s['source_type']}] {s['title']}" for s in ranked)
+        novelty = analyze_novelty(novelty_input, domain.name)
+
+        if job_queue:
+            job_queue.set_intermediate_result(job_id, "novelty", novelty)
+            job_queue.update_job_status(job_id, "running", 1, 50)
+
+    except Exception as e:
+        logger.error("[HYBRID] Novelty error: %s", e)
+        novelty = {"novelty_score": 50, "confidence": "Low", "insights": {}, "sources": []}
+
+    # Evidence gate
+    gate_error = check_evidence_sufficiency(ranked, novelty.get("novelty_score", 0))
+    if gate_error:
+        return {"error": gate_error}
+
+    # =============================================
+    # Phase 2  — 2-Pass LLM generation  (50-85%)
+    # =============================================
+    try:
+        if job_queue:
+            job_queue.update_job_status(job_id, "running", 2, 55)
+
+        # HITL constraints
+        try:
+            constraints = build_hitl_constraints(domain.name, ranked)
+        except Exception:
+            constraints = {"source_penalties": {}, "domain_constraints": {}, "domain_strictness": 1.0}
+
+        # Prepare truncated sources for prompt
+        top_sources = ranked[: Config.HYBRID_MAX_SOURCES_FOR_PROMPT]
+        source_lines = []
+        for i, s in enumerate(top_sources):
+            source_lines.append(f"[{i}] ({s.get('source_type','?').upper()}) {truncate_source_for_prompt(s)}")
+        sources_text = "\n".join(source_lines)
+
+        # --- Pass 1: Landscape Analysis ---
+        pass1_system = HYBRID_PASS1_SYSTEM
+        if constraints.get("domain_strictness", 1.0) > 1.0:
+            pass1_system += "\n\nADDITIONAL: Use conservative analysis; require stronger evidence."
+
+        pass1_body = HYBRID_PASS1_PROMPT_TEMPLATE.replace("{domain}", domain.name).replace("{sources}", sources_text)
+        prompt_len = len(pass1_system + pass1_body)
+        logger.info("[HYBRID] Pass 1 prompt length: %d chars", prompt_len)
+
+        try:
+            analysis = generate_json(pass1_system + pass1_body, max_tokens=800, temperature=0.2)
+        except Exception as e:
+            logger.warning("[HYBRID] Pass 1 failed (%s); using novelty insights as fallback", e)
+            # Fallback: construct analysis from novelty insights
+            insights = novelty.get("insights", {})
+            analysis = {
+                "common_patterns": [str(insights.get("similarity", "common patterns detected"))],
+                "overused_ideas": [],
+                "gaps": [{"gap": g, "why_it_matters": "Identified by novelty analysis"}
+                         for g in truncate_novelty_gaps(novelty.get("gaps", []), max_items=3)]
+            }
+
+        if job_queue:
+            job_queue.update_job_status(job_id, "running", 2, 70)
+
+        # --- Pass 2: Grounded Generation ---
+        # Extract novelty gaps for prompt
+        raw_gaps = analysis.get("gaps", [])
+        gap_strings = truncate_novelty_gaps(raw_gaps, max_items=3, max_words=50)
+        if not gap_strings:
+            # Fallback: use novelty insights
+            for k, v in novelty.get("insights", {}).items():
+                gap_strings.append(str(v)[:200])
+                if len(gap_strings) >= 3:
+                    break
+        novelty_gaps_text = "\n".join(f"- {g}" for g in gap_strings) if gap_strings else "No specific gaps identified"
+
+        pass2_body = (
+            HYBRID_PASS2_PROMPT_TEMPLATE
+            .replace("{query}", query)
+            .replace("{domain}", domain.name)
+            .replace("{analysis}", json.dumps(analysis, default=str))
+            .replace("{novelty_gaps}", novelty_gaps_text)
+            .replace("{sources}", sources_text)
+        )
+        prompt_len = len(HYBRID_PASS2_SYSTEM + pass2_body)
+        logger.info("[HYBRID] Pass 2 prompt length: %d chars", prompt_len)
+
+        idea_raw = generate_json(HYBRID_PASS2_SYSTEM + pass2_body, max_tokens=1500, temperature=0.3)
+
+    except TransientLLMError as e:
+        logger.error("[HYBRID] LLM transient error: %s", e)
+        if job_queue:
+            job_queue.set_job_error(job_id, str(e) or "LLM transient failure")
+        return {"error": str(e) or "LLM transient failure", "transient": True}
+    except (RuntimeError, ValueError) as e:
+        logger.error("[HYBRID] LLM generation error: %s", e)
+        if job_queue:
+            job_queue.set_job_error(job_id, str(e) or "LLM generation failed")
+        return {"error": str(e) or "LLM generation failed"}
+    except Exception as e:
+        logger.exception("[HYBRID] Unexpected LLM error")
+        if job_queue:
+            import traceback
+            job_queue.set_job_error(job_id, f"Generation failed: {e}", traceback.format_exc())
+        return {"error": f"Generation failed: {e}"}
+
+    # =============================================
+    # Phase 3  — Validate & persist  (85-100%)
+    # =============================================
+    if job_queue:
+        job_queue.update_job_status(job_id, "running", 3, 85)
+
+    # Ensure idea_raw is a dict
+    if not isinstance(idea_raw, dict):
+        logger.error("[HYBRID] LLM returned non-dict: %s", type(idea_raw))
+        return {"error": "LLM returned invalid structure"}
+
+    # Validate via relaxed schema
+    try:
+        parsed = validate_hybrid_idea(idea_raw)
+        parsed_dict = parsed.model_dump()
+    except Exception as e:
+        logger.warning("[HYBRID] Schema validation partial fail: %s", e)
+        # Use raw data with minimal sanity check
+        parsed_dict = idea_raw
+        if "title" not in parsed_dict:
+            parsed_dict["title"] = f"Idea: {query[:80]}"
+        if "problem_statement" not in parsed_dict:
+            parsed_dict["problem_statement"] = query
+
+    # Pattern rejection
+    pattern_check = is_rejected_pattern(parsed_dict, constraints)
+    if pattern_check:
+        return pattern_check
+
+    # Grounding enforcement for hybrid mode (was previously skipped)
+    try:
+        # Check that source references in the idea are not fabricated
+        source_refs = parsed_dict.get("source_references", [])
+        known_urls = {s.get("url") for s in ranked if s.get("url")}
+        for ref in source_refs:
+            ref_url = ref.get("url", "") if isinstance(ref, dict) else ""
+            if ref_url and ref_url not in known_urls:
+                logger.warning("[HYBRID] Grounding issue: LLM cited unknown URL %s", ref_url)
+    except Exception as e:
+        logger.warning("[HYBRID] Grounding check error: %s", e)
+
+    # Feasibility estimation (heuristic, no LLM)
+    feasibility = estimate_feasibility_module(query, domain.name, ranked, novelty)
+
+    # Persist to DB
+    try:
+        title = str(parsed_dict.get("title", "Untitled"))[:255]
+        problem_statement = str(parsed_dict.get("problem_statement", query))
+
+        tech_stack_list = parsed_dict.get("tech_stack", [])
+        if isinstance(tech_stack_list, list):
+            tech_stack_str = ", ".join(
+                t.get("component", "") if isinstance(t, dict) else str(t)
+                for t in tech_stack_list
+            )[:500]
+        else:
+            tech_stack_str = str(tech_stack_list)[:500]
+
+        idea = ProjectIdea(
+            title=title,
+            problem_statement=problem_statement,
+            problem_statement_json=parsed_dict,
+            tech_stack=tech_stack_str,
+            tech_stack_json=tech_stack_list,
+            domain_id=domain_id,
+            ai_pipeline_version=get_active_ai_pipeline_version(),
+            is_ai_generated=True,
+            is_public=True,
+            is_validated=False,
+        )
+        db.session.add(idea)
+        db.session.flush()
+
+        idea.quality_score_cached = idea.quality_score
+        idea.novelty_score_cached = novelty.get("novelty_score", 0)
+        idea.novelty_context = novelty
+
+        # Persist sources
+        for src in ranked:
+            if isinstance(src, dict):
+                db.session.add(
+                    IdeaSource(
+                        idea_id=idea.id,
+                        source_type=src.get("source_type", "unknown"),
+                        title=src.get("title", "Untitled"),
+                        url=src.get("url", ""),
+                        summary=src.get("summary", src.get("relevance_explanation", "")),
+                    )
+                )
+
+        db.session.add(IdeaRequest(user_id=user_id, idea_id=idea.id))
+
+        # Audit trace (2-phase) with retrieval metadata
+        active_bias = get_active_bias_profile()
+
+        # Build retrieval audit metadata for reproducibility
+        retrieval_audit = {
+            "query": query,
+            "domain": domain.name,
+            "raw_source_count": len(raw_sources) if 'raw_sources' in dir() else len(ranked),
+            "filtered_source_count": len(filtered) if 'filtered' in dir() else len(ranked),
+            "ranked_source_count": len(ranked),
+            "sources_used": [
+                {"url": s.get("url"), "source_type": s.get("source_type"), "relevance_tier": s.get("relevance_tier")}
+                for s in ranked[:10]
+            ],
+        }
+
+        trace = GenerationTrace(
+            idea_id=idea.id,
+            user_id=user_id,
+            query=query,
+            domain_name=domain.name,
+            ai_pipeline_version=get_active_ai_pipeline_version(),
+            bias_profile_version=active_bias.get("version", "default"),
+            prompt_version="hybrid-v1",
+            phase_0_output={"query": query, "domain": domain.name, "feasibility": feasibility, "retrieval_audit": retrieval_audit},
+            phase_1_output=analysis,
+            phase_2_output=parsed_dict,
+            phase_3_output=None,
+            phase_4_output=None,
+            constraints_active=constraints,
+            bias_penalties_applied={"source_penalties": constraints.get("source_penalties", {})}
+        )
+        db.session.add(trace)
+        db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error("[HYBRID] DB error: %s", e)
+        if job_queue:
+            job_queue.set_job_error(job_id, f"Failed to save idea: {e}")
+        return {"error": "Failed to save idea. Please try again."}
+
+    # Build result
+    result = {
+        "id": idea.id,
+        "title": title,
+        "problem_statement": problem_statement,
+        "tech_stack": tech_stack_str,
+        "domain": domain.name,
+        "domain_id": domain_id,
+        "novelty_score": novelty.get("novelty_score", 0),
+        "novelty_level": novelty.get("novelty_level", ""),
+        "novelty_confidence": novelty.get("confidence", "Low"),
+        "quality_score": idea.quality_score_cached,
+        "evidence_strength": novelty.get("confidence", "Low"),
+        "evidence_sources": [
+            {"title": s.get("title"), "url": s.get("url"), "source_type": s.get("source_type"),
+             "relevance_tier": s.get("relevance_tier", "contextual"),
+             "relevance_explanation": s.get("relevance_explanation", "")}
+            for s in ranked[:10]
+        ],
+        "idea": parsed_dict,
+        "feasibility": feasibility,
+        "novelty_context": novelty,
+        "source_count": len(ranked),
+        "generation_metadata": {
+            "mode": "hybrid",
+            "llm_calls": 2,
+            "hitl_influenced": bool(constraints.get("source_penalties")),
+            "domain_strictness": constraints.get("domain_strictness", 1.0),
+        },
+    }
+
+    if job_queue:
+        if hasattr(trace, "id"):
+            job_queue.set_intermediate_result(job_id, "trace_id", str(trace.id))
+        job_queue.set_final_result(job_id, result)
+
+    logger.info("[HYBRID] Generation completed: idea_id=%s novelty=%.1f", idea.id, novelty.get("novelty_score", 0))
+    return result
 
 
 # DEMO MODE: Direct LLM generation (no retrieval, no multi-pass)
@@ -535,6 +837,11 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
     if Config.DEMO_MODE:
         logger.info(f"[DEMO MODE ENABLED] Using direct LLM generation, skipping full pipeline")
         return generate_direct_to_llm(query, domain_id, user_id, job_id)
+
+    # HYBRID MODE: 2-pass pipeline (real retrieval + real novelty + 2 LLM calls)
+    if Config.HYBRID_MODE:
+        logger.info("[HYBRID MODE ENABLED] Using 2-pass generation pipeline")
+        return generate_hybrid(query, domain_id, user_id, job_id)
     
     job_queue = get_job_queue() if job_id else None
     # Basic abuse check: ensure user is not exceeding generation attempts

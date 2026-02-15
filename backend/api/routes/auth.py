@@ -1,12 +1,17 @@
 """
-Authentication endpoints (login, register, etc.)
+Authentication endpoints (login, register, token refresh, logout with blocklist)
 """
+from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import (
+    create_access_token, create_refresh_token,
+    jwt_required, get_jwt_identity, get_jwt
+)
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from backend.core.db import db
-from backend.core.app import User
+from backend.core.models import User, TokenBlocklist
+from backend.core.config import Config
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -44,17 +49,23 @@ def login():
         user_role = "admin"
 
     # Generate JWT token with user ID and role
+    additional_claims = {
+        "role": user_role,
+        "email": user.email,
+        "preferred_domain_id": user.preferred_domain_id
+    }
     token = create_access_token(
         identity=user.id,
-        additional_claims={
-            "role": user_role,
-            "email": user.email,
-            "preferred_domain_id": user.preferred_domain_id
-        }
+        additional_claims=additional_claims
+    )
+    refresh_token = create_refresh_token(
+        identity=user.id,
+        additional_claims={"role": user_role}
     )
 
     return jsonify({
         "access_token": token,
+        "refresh_token": refresh_token,
         "user": {
             "id": user.id,
             "email": user.email,
@@ -64,13 +75,37 @@ def login():
 
 
 @auth_bp.route("/api/logout", methods=["POST"])
+@jwt_required()
 def logout():
     """
-    Logout endpoint (optional).
-    In practice, frontend just clears localStorage.
-    This can be used for token blacklisting if needed.
+    Real logout: adds current token JTI to blocklist so it cannot be reused.
     """
+    jti = get_jwt()["jti"]
+    db.session.add(TokenBlocklist(jti=jti, created_at=datetime.now(timezone.utc)))
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
     return jsonify({"message": "Logged out successfully"}), 200
+
+
+@auth_bp.route("/api/refresh", methods=["POST"])
+@jwt_required(refresh=True)
+def refresh():
+    """
+    Token refresh endpoint.
+    Request: Authorization header with refresh token.
+    Response: { "access_token": "new_jwt" }
+    """
+    identity = get_jwt_identity()
+    claims = get_jwt()
+    user_role = claims.get("role", "user")
+
+    new_token = create_access_token(
+        identity=identity,
+        additional_claims={"role": user_role}
+    )
+    return jsonify({"access_token": new_token}), 200
 
 
 @auth_bp.route("/api/register", methods=["POST"])
@@ -144,9 +179,14 @@ def register():
                 "preferred_domain_id": new_user.preferred_domain_id
             }
         )
+        refresh_token = create_refresh_token(
+            identity=new_user.id,
+            additional_claims={"role": "user"}
+        )
 
         return jsonify({
             "access_token": token,
+            "refresh_token": refresh_token,
             "user": {
                 "id": new_user.id,
                 "email": new_user.email,

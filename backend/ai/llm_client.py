@@ -106,19 +106,23 @@ def _generate_ollama(
         "model": Config.LLM_MODEL_NAME,
         "prompt": _wrap_json_prompt(prompt),
         "stream": False,
+        "format": "json",
         "options": {
             "temperature": temperature,
             "num_predict": max_tokens,
         },
     }
 
+    timeout = Config.get_llm_timeout()
+    max_retries = Config.get_llm_max_retries()
+
     raw = None
-    for attempt in range(Config.LLM_MAX_RETRIES + 1):
+    for attempt in range(max_retries + 1):
         try:
             resp = requests.post(
                 f"{Config.OLLAMA_BASE_URL}/api/generate",
                 json=payload,
-                timeout=Config.LLM_TIMEOUT_SECONDS,
+                timeout=timeout,
             )
             resp.raise_for_status()
 
@@ -151,7 +155,7 @@ def _generate_ollama(
             except Exception:
                 logger.error(f"[Ollama][trace={trace_id}] HTTP error: {he}")
             
-            if attempt >= Config.LLM_MAX_RETRIES:
+            if attempt >= max_retries:
                 # Treat permanent HTTP errors as non-transient
                 raise RuntimeError(f"Ollama JSON generation failed (trace={trace_id})") from he
 
@@ -159,7 +163,7 @@ def _generate_ollama(
 
         except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError) as e:
             logger.warning(f"[Ollama][trace={trace_id}] attempt {attempt + 1} transient failure: {e}")
-            if attempt >= Config.LLM_MAX_RETRIES:
+            if attempt >= max_retries:
                 logger.error(f"[Ollama][trace={trace_id}] final raw output:\n{raw if raw else 'N/A'}")
                 raise TransientLLMError(
                     f"Ollama JSON generation timed out or connection failed (trace={trace_id})",
@@ -179,7 +183,7 @@ def _generate_ollama(
         except TransientLLMError:
             # Re-raise transient errors so higher-level logic may fallback or return 503
             logger.warning(f"[Ollama][trace={trace_id}] attempt {attempt + 1} transient (parse/connect) failure")
-            if attempt >= Config.LLM_MAX_RETRIES:
+            if attempt >= max_retries:
                 logger.error(f"[Ollama][trace={trace_id}] final raw output:\n{raw if raw else 'N/A'}")
                 raise
             # apply backoff then continue
@@ -194,7 +198,7 @@ def _generate_ollama(
 
         except Exception as e:
             logger.warning(f"[Ollama][trace={trace_id}] attempt {attempt + 1} failed: {e}")
-            if attempt >= Config.LLM_MAX_RETRIES:
+            if attempt >= max_retries:
                 logger.error(f"[Ollama][trace={trace_id}] final raw output:\n{raw if raw else 'N/A'}")
                 raise RuntimeError(f"Ollama JSON generation failed (trace={trace_id})") from e
 
@@ -223,8 +227,10 @@ def _generate_openai(
 
     # Use the same strict JSON wrapping as local models to increase parity
     wrapped_prompt = _wrap_json_prompt(prompt)
+    timeout = Config.get_llm_timeout()
+    max_retries = Config.get_llm_max_retries()
 
-    for attempt in range(Config.LLM_MAX_RETRIES + 1):
+    for attempt in range(max_retries + 1):
         try:
             resp = client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -239,6 +245,8 @@ def _generate_openai(
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens,
+                response_format={"type": "json_object"},
+                timeout=timeout,
             )
 
             # Extract content safely and defensively parse JSON
@@ -264,7 +272,7 @@ def _generate_openai(
             msg = str(e).lower()
             is_network = any(tok in msg for tok in ("timeout", "timed out", "connection", "connect", "503", "502", "api connection"))
             if is_network:
-                if attempt >= Config.LLM_MAX_RETRIES:
+                if attempt >= max_retries:
                     raise TransientLLMError("OpenAI connection timed out or failed") from e
                 # backoff and retry
                 try:
@@ -275,7 +283,7 @@ def _generate_openai(
                     pass
                 continue
 
-            if attempt >= Config.LLM_MAX_RETRIES:
+            if attempt >= max_retries:
                 raise RuntimeError("OpenAI JSON generation failed") from e
 
 

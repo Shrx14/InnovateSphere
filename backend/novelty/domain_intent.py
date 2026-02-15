@@ -162,7 +162,19 @@ def detect_problem_class(description: str, confidence_threshold: float = 0.5) ->
             if confidence >= confidence_threshold:
                 return best_class, min(confidence, 1.0)
     
-    # If no strong match via keywords, try LLM fallback
+    # If no strong match via keywords, try LLM fallback (skip in hybrid/demo mode)
+    from backend.core.config import Config
+    if Config.HYBRID_MODE or Config.DEMO_MODE:
+        # Hybrid/demo: skip LLM, return best keyword match or general
+        if scores:
+            best_class = max(scores, key=scores.get)
+            if scores[best_class] > 0:
+                total_keywords_in_set = sum(len(PROBLEM_CLASS_KEYWORDS[cls].get("keywords", []))
+                                           for cls in scores.keys())
+                confidence = scores[best_class] / total_keywords_in_set if total_keywords_in_set > 0 else 0.0
+                return best_class, min(confidence, 1.0)
+        return "general", 0.3
+
     try:
         from backend.ai.llm_client import generate_json
         

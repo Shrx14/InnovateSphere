@@ -22,7 +22,7 @@ const LoginPage = () => {
 
     try {
       const res = await api.post('/login', form);
-      login(res.data.access_token);
+      login(res.data.access_token, res.data.refresh_token);
       // login() in AuthContext already navigates based on role
     } catch (err) {
       setError(err.response?.data?.error || 'Unable to sign in. Please check your credentials.');

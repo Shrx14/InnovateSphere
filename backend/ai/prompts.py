@@ -178,6 +178,109 @@ Return STRICT JSON:
 If grounding rules cannot be satisfied, return an EMPTY JSON object.
 """
 
+# ==============================
+# HYBRID MODE PROMPTS (2-pass pipeline)
+# ==============================
+# Pass 1 reuses the production analysis system prompt.
+# Pass 2 merges analysis + generation into a single grounded call.
+
+HYBRID_PASS1_SYSTEM = DEFAULT_PASS1_SYSTEM  # reuse — already well-tuned
+
+HYBRID_PASS1_PROMPT_TEMPLATE = """
+Domain: {domain}
+
+Retrieved Sources (title + summary):
+{sources}
+
+Return STRICT JSON with the following structure:
+{{
+  "common_patterns": [
+    "Frequently used approach or technique observed across sources"
+  ],
+  "overused_ideas": [
+    "Ideas that appear repeatedly and are well-established"
+  ],
+  "gaps": [
+    {{
+      "gap": "Clearly stated missing capability or limitation",
+      "why_it_matters": "Why this gap is significant"
+    }}
+  ]
+}}
+
+Rules:
+- Base your analysis ONLY on the provided sources
+- List at most 3 items per field
+- Keep descriptions concise (1 sentence each)
+- No speculative claims, no solutions
+"""
+
+HYBRID_PASS2_SYSTEM = """
+You are an innovation architect specialising in evidence-grounded project design.
+
+Your task is to synthesise ONE novel, feasible project idea that:
+- Combines at least two under-explored elements identified in the analysis
+- Is technically realistic and implementable
+- References the provided sources where relevant
+
+Output ONLY valid JSON. No markdown, no explanations.
+"""
+
+HYBRID_PASS2_PROMPT_TEMPLATE = """
+User Query: {query}
+Domain: {domain}
+
+Landscape Analysis (from prior step):
+{analysis}
+
+Key Novelty Gaps:
+{novelty_gaps}
+
+Available Sources:
+{sources}
+
+Return STRICT JSON:
+{{
+  "title": "Short, descriptive project title",
+  "problem_statement": "Clear 1-2 sentence problem this idea solves",
+  "novelty_reason": "Why this combination of ideas is novel (reference the gaps)",
+  "modules": [
+    {{
+      "name": "Module name",
+      "responsibility": "What this module does"
+    }}
+  ],
+  "tech_stack": [
+    {{
+      "component": "Component area (e.g. Backend, Frontend, ML Pipeline)",
+      "technologies": ["tech1", "tech2"],
+      "rationale": "Why these technologies"
+    }}
+  ],
+  "key_innovations": [
+    "Innovation 1: How this differs from existing solutions",
+    "Innovation 2: Novel approach or technique"
+  ],
+  "implementation_complexity": "low | medium | high",
+  "estimated_timeline_weeks": 8,
+  "risks": ["Risk 1", "Risk 2"],
+  "source_references": [
+    {{
+      "title": "Source title",
+      "url": "Source URL",
+      "relevance": "How this source informed the idea"
+    }}
+  ]
+}}
+
+Rules:
+- Output ONLY valid JSON
+- Combine at least two under-explored elements from the analysis
+- Every module and tech choice should be justified
+- source_references should list sources that informed your design
+- Be specific and actionable — modules should be implementable
+"""
+
 # Load active prompts from DB
 _ACTIVE = get_active_prompt_version()
 

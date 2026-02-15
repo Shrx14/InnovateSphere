@@ -42,6 +42,7 @@ def main():
                 email='admin@example.com',
                 username='admin',
                 password_hash=generate_password_hash('admin123'),
+                role='admin',
                 skill_level='advanced'
             )
             db.session.add(admin)

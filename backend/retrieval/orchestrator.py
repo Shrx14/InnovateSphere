@@ -73,8 +73,8 @@ def retrieve_sources(
     # candidates from GitHub so the orchestrator can merge and round-robin.
     github_results = search_github(query, domain, fetch_limit=max_per_source, final_top_n=limit)
 
-    # In demo mode, skip LLM retry fallback for speed
-    if not Config.DEMO_MODE:
+    # In demo/hybrid mode, skip LLM retry fallback — rely on heuristic query relaxation
+    if not Config.DEMO_MODE and not Config.HYBRID_MODE:
         # If GitHub returned no results (or only returned due to errors), try a
         # short LLM-generated query and retry once. This avoids calling LLM for
         # every request while improving recall when initial search fails.
@@ -91,6 +91,17 @@ def retrieve_sources(
             short_q = _summarize_query_with_llm(query, max_chars=100)
             if short_q and short_q != query:
                 arxiv_results = search_arxiv(short_q, domain, max_per_source)
+    elif Config.HYBRID_MODE:
+        # Hybrid mode: retry with relaxed keywords (no LLM) if both empty
+        if not github_results and not arxiv_results:
+            # Strip to first 5-6 key words as a simpler query
+            words = [w for w in query.split() if len(w) > 3][:5]
+            if words:
+                simple_q = ' '.join(words)
+                logger.info("[Retrieval] Hybrid retry with simplified query: %s", simple_q)
+                github_results = search_github(simple_q, domain, max_per_source)
+                if not arxiv_results:
+                    arxiv_results = search_arxiv(simple_q, domain, max_per_source)
 
     # Merge results
     all_sources = arxiv_results + github_results

@@ -3,6 +3,56 @@ Common utility functions used across the backend.
 """
 
 
+def truncate_source_for_prompt(source, max_title=100, max_summary=200):
+    """
+    Truncate a source dict to a concise string for LLM prompt injection.
+    Keeps total per-source token count predictable (~50-75 tokens).
+
+    Args:
+        source: Dict with 'title' and optionally 'summary'/'description'
+        max_title: Max characters for title
+        max_summary: Max characters for summary
+
+    Returns:
+        String: "Title: summary..."
+    """
+    title = str(source.get("title") or source.get("name") or "Untitled")[:max_title]
+    summary = str(
+        source.get("summary")
+        or source.get("description")
+        or source.get("metadata", {}).get("abstract", "")
+        or ""
+    )[:max_summary]
+    if summary:
+        return f"{title}: {summary}"
+    return title
+
+
+def truncate_novelty_gaps(gaps, max_items=3, max_words=50):
+    """
+    Truncate a list of novelty gap dicts/strings to a compact representation.
+
+    Args:
+        gaps: List of gap dicts (with 'gap' key) or plain strings
+        max_items: Maximum number of gaps to include
+        max_words: Maximum words per gap description
+
+    Returns:
+        List of truncated gap strings
+    """
+    if not gaps:
+        return []
+    result = []
+    for item in gaps[:max_items]:
+        if isinstance(item, dict):
+            text = item.get("gap") or item.get("description") or str(item)
+        else:
+            text = str(item)
+        words = text.split()[:max_words]
+        result.append(" ".join(words))
+    return result
+
+
 def map_domain_to_external_category(domain):
     """
     Map internal domain names to external API category keywords.

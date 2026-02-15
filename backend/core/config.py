@@ -1,9 +1,6 @@
 import os
 from typing import List
 
-# Hard kill switch for legacy ingestion/RAG
-ENABLE_LEGACY_AI = False
-
 
 class Config:
     """
@@ -27,6 +24,7 @@ class Config:
     JWT_SECRET = os.getenv("JWT_SECRET", "dev-jwt-secret")
     JWT_ALGO = os.getenv("JWT_ALGO", "HS256")
     JWT_EXP_SECONDS = int(os.getenv("JWT_EXP_SECONDS", 3600))
+    JWT_REFRESH_EXP_SECONDS = int(os.getenv("JWT_REFRESH_EXP_SECONDS", 86400 * 7))  # 7 days
 
     # =========================================================
     # Embeddings (semantic filtering & similarity)
@@ -45,7 +43,9 @@ class Config:
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama")
 
     # Ollama (local, free, default)
-    LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "phi3:mini")
+    # qwen2.5:7b recommended for 15GB+ RAM (128K context, excellent JSON output)
+    # phi3:mini works on 8GB RAM (4K context, adequate JSON)
+    LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "qwen2.5:7b")
     OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
     # OpenAI (optional, paid)
@@ -70,6 +70,17 @@ class Config:
     LLM_FALLBACK_PROVIDER = os.getenv("LLM_FALLBACK_PROVIDER", "openai")
 
     # =========================================================
+    # Hybrid Mode (optimised for CPU-only / low-end hardware)
+    # =========================================================
+    # When enabled: real retrieval + real novelty, but 2-pass LLM generation
+    # instead of 4-pass.  Heuristic-only keyword extraction (no LLM in retrieval).
+    # Sits between DEMO_MODE (mock everything) and full production (4-pass).
+    HYBRID_MODE = os.getenv("HYBRID_MODE", "true").lower() in ("1", "true", "yes")
+    HYBRID_LLM_TIMEOUT_SECONDS = int(os.getenv("HYBRID_LLM_TIMEOUT_SECONDS", 90))
+    HYBRID_LLM_MAX_RETRIES = int(os.getenv("HYBRID_LLM_MAX_RETRIES", 2))
+    HYBRID_MAX_SOURCES_FOR_PROMPT = int(os.getenv("HYBRID_MAX_SOURCES_FOR_PROMPT", 5))
+
+    # =========================================================
     # Demo Mode (for fast presentation/demo)
     # =========================================================
     # When enabled: skips novelty analysis, runs single LLM pass, reduces retrieval
@@ -85,9 +96,14 @@ class Config:
     # (critical for latency + hallucination reduction)
     MAX_SOURCES_FOR_LLM = int(os.getenv("MAX_SOURCES_FOR_LLM", 8))
 
-    # Minimum number of validated sources required
-    # Lowered to 1 to accept more ideas while still having at least some evidence
-    MIN_EVIDENCE_REQUIRED = int(os.getenv("MIN_EVIDENCE_REQUIRED", 1))
+    # Minimum number of validated sources required before LLM generation
+    # Set to 3 per V2 spec: ensures evidence grounding across diverse sources
+    MIN_EVIDENCE_REQUIRED = int(os.getenv("MIN_EVIDENCE_REQUIRED", 3))
+
+    # Minimum novelty score to pass evidenc sufficiency gate (0-100)
+    # Ideas below this threshold are rejected pre-LLM to avoid generating rehashed ideas
+    # Only enforced in hybrid/production modes (demo bypasses)
+    MIN_NOVELTY_SCORE = int(os.getenv("MIN_NOVELTY_SCORE", 25))
 
     # =========================================================
     # Observability / Logging
@@ -113,6 +129,8 @@ class Config:
     # AI Pipeline Versioning
     # =========================================================
     # Allows safe rollout of future generation / novelty logic
+    # pipeline_version: "v2" is the current multi-pass evidence-grounded pipeline
+    # Stored on each GenerationTrace for reproducibility
     DEFAULT_AI_PIPELINE_VERSION = os.getenv(
         "DEFAULT_AI_PIPELINE_VERSION", "v2"
     )
@@ -121,17 +139,35 @@ class Config:
     ).split(",")
 
     # =========================================================
-    # Demo Mode Helper
+    # Bias Profile Configuration
+    # =========================================================
+    # Bias profiles are versioned rule sets stored in the BiasProfile table.
+    # The active profile's rules are injected into LLM prompts and stored
+    # on each GenerationTrace for audit reproducibility.
+    # Set via admin DB; "default" profile used when no active profile found.
+    # Profile rules can include: domain_adjustments, topic_avoidance,
+    # scoring_modifiers, source_preference_weights.
+
+    # =========================================================
+    # Mode Helpers
     # =========================================================
     @staticmethod
     def get_llm_timeout() -> int:
-        """Returns appropriate LLM timeout based on mode."""
-        return Config.DEMO_LLM_TIMEOUT_SECONDS if Config.DEMO_MODE else Config.LLM_TIMEOUT_SECONDS
+        """Returns appropriate LLM timeout based on active mode."""
+        if Config.DEMO_MODE:
+            return Config.DEMO_LLM_TIMEOUT_SECONDS
+        if Config.HYBRID_MODE:
+            return Config.HYBRID_LLM_TIMEOUT_SECONDS
+        return Config.LLM_TIMEOUT_SECONDS
 
     @staticmethod
     def get_llm_max_retries() -> int:
-        """Returns appropriate LLM max retries based on mode."""
-        return Config.DEMO_LLM_MAX_RETRIES if Config.DEMO_MODE else Config.LLM_MAX_RETRIES
+        """Returns appropriate LLM max retries based on active mode."""
+        if Config.DEMO_MODE:
+            return Config.DEMO_LLM_MAX_RETRIES
+        if Config.HYBRID_MODE:
+            return Config.HYBRID_LLM_MAX_RETRIES
+        return Config.LLM_MAX_RETRIES
 
     # =========================================================
     # Helpers
@@ -145,11 +181,21 @@ class Config:
         return Config.LLM_PROVIDER == "openai" and bool(Config.OPENAI_API_KEY)
 
     @staticmethod
+    def get_active_mode() -> str:
+        """Returns a string label for the currently active pipeline mode."""
+        if Config.DEMO_MODE:
+            return "demo"
+        if Config.HYBRID_MODE:
+            return "hybrid"
+        return "production"
+
+    @staticmethod
     def log_config_startup():
         import logging
         logger = logging.getLogger(__name__)
         logger.info(
-           "Config loaded | LLM_PROVIDER=%s | LLM_MODEL=%s | EMBEDDING_MODEL=%s",
+           "Config loaded | MODE=%s | LLM_PROVIDER=%s | LLM_MODEL=%s | EMBEDDING_MODEL=%s",
+            Config.get_active_mode(),
             Config.LLM_PROVIDER,
             Config.LLM_MODEL_NAME,
             Config.EMBEDDING_MODEL,

@@ -12,6 +12,7 @@ import { AuthProvider } from "./context/AuthContext";
 import AdminReviewQueue from "./features/admin/pages/AdminReviewQueue";
 import AdminIdeaDetail from "./features/admin/pages/AdminIdeaDetail";
 import AdminAnalytics from "./features/admin/pages/AdminAnalytics";
+import AdminAbuseEvents from "./features/admin/pages/AdminAbuseEvents";
 
 /* User Pages */
 import LandingPage from "./features/landing/pages/LandingPage";
@@ -54,6 +55,7 @@ const App = () => {
                   <Route path="/" element={<AdminReviewQueue />} />
                   <Route path="review" element={<AdminReviewQueue />} />
                   <Route path="analytics" element={<AdminAnalytics />} />
+                  <Route path="abuse" element={<AdminAbuseEvents />} />
                   <Route path="idea/:id" element={<AdminIdeaDetail />} />
                 </Routes>
               </AdminShell>

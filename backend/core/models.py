@@ -1,4 +1,5 @@
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 from backend.core.db import db
 
 
@@ -112,6 +113,7 @@ class ProjectIdea(db.Model):
     is_ai_generated = db.Column(db.Boolean, nullable=False)
     is_public = db.Column(db.Boolean, default=True, nullable=False)
     is_validated = db.Column(db.Boolean, default=False, nullable=False)
+    is_human_verified = db.Column(db.Boolean, default=False, nullable=False)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     # view_count added manually in Neon (no migration)
@@ -259,6 +261,7 @@ class IdeaSource(db.Model):
     url = db.Column(db.String(1024), nullable=False)
     summary = db.Column(db.Text)
     published_date = db.Column(db.Date)
+    is_hallucinated = db.Column(db.Boolean, default=False, nullable=False)
 
     idea = db.relationship("ProjectIdea", back_populates="sources")
 
@@ -470,3 +473,45 @@ class AbuseEvent(db.Model):
         db.Index("idx_abuse_events_event_type", "event_type"),
         db.Index("idx_abuse_events_created_at", "created_at"),
     )
+
+
+# ====================================================
+# USER MODEL (moved from core/app.py for proper import ordering)
+# ====================================================
+
+class User(db.Model):
+    __tablename__ = "users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(20), default="user", nullable=False)  # 'user' or 'admin'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    preferred_domains = db.Column(db.JSON, default=list)
+    skill_level = db.Column(db.String(20), default="beginner")
+    saved_ideas = db.Column(db.JSON, default=list)
+
+    preferred_domain_id = db.Column(
+        db.Integer, db.ForeignKey("domains.id"), nullable=True
+    )
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+
+# ====================================================
+# JWT TOKEN BLOCKLIST (for real logout)
+# ====================================================
+
+class TokenBlocklist(db.Model):
+    __tablename__ = "token_blocklist"
+
+    id = db.Column(db.Integer, primary_key=True)
+    jti = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

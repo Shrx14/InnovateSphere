@@ -217,11 +217,17 @@ def _generate_query_variations(query, domain):
     else:
         domain_str = str(domain_keywords) if domain_keywords else ""
     
-    # Decide extraction method based on query length
-    # Only use expensive LLM for substantial queries
+    # Decide extraction method based on query length and pipeline mode
+    from backend.core.config import Config
     word_count = len(query.split()) if query else 0
     
-    if word_count > 6:
+    if Config.HYBRID_MODE or Config.DEMO_MODE:
+        # Hybrid/demo mode: always use fast heuristic — no LLM calls in retrieval
+        all_terms = _extract_key_terms(query, max_terms=5)
+        simple_terms = all_terms[:3]
+        compound_terms = all_terms[3:5]
+        logger.debug("[GitHub] using heuristic extraction (hybrid mode, %d words)", word_count)
+    elif word_count > 6:
         # Substantial detailed query: use LLM semantic extraction (now extracts mixed keywords)
         keyword_result = _extract_semantic_keywords_with_llm(query, domain, max_keywords=5)
         simple_terms = keyword_result.get("simple_terms", [])

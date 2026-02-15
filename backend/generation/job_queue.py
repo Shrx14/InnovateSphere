@@ -28,6 +28,7 @@ class JobQueue:
     def create_job(self, query: str, domain_id: Optional[int], user_id: int) -> str:
         """
         Create a new generation job.
+        Auto-cleans old jobs every 10th creation to prevent memory leaks.
         
         Args:
             query: The idea query/subject
@@ -41,6 +42,16 @@ class JobQueue:
         now = datetime.utcnow()
         
         with self._lock:
+            # Auto-cleanup every 10 jobs to prevent unbounded growth
+            if len(self._jobs) % 10 == 0 and len(self._jobs) > 0:
+                cutoff = now - timedelta(minutes=self.max_age_minutes)
+                to_remove = [jid for jid, j in self._jobs.items()
+                             if datetime.fromisoformat(j["created_at"]) < cutoff]
+                for jid in to_remove:
+                    del self._jobs[jid]
+                if to_remove:
+                    logger.info(f"[Job Queue] Auto-cleaned {len(to_remove)} stale jobs")
+
             self._jobs[job_id] = {
                 "job_id": job_id,
                 "query": query,
@@ -209,6 +220,23 @@ class JobQueue:
             job["completed_at"] = datetime.utcnow().isoformat()
             
             logger.error(f"[Job Queue] Job {job_id} failed: {error}")
+            return True
+
+    def set_phase_names(self, job_id: str, phase_names: Dict[int, str]) -> bool:
+        """
+        Override the default phase names for a job (e.g. hybrid mode phases).
+
+        Args:
+            job_id: Job UUID
+            phase_names: Mapping of phase int -> display label
+
+        Returns:
+            True if updated, False if not found
+        """
+        with self._lock:
+            if job_id not in self._jobs:
+                return False
+            self._jobs[job_id]["phase_names"] = phase_names
             return True
     
     def cleanup_old_jobs(self) -> int:
