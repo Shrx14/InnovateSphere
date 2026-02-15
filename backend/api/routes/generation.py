@@ -2,10 +2,12 @@
 Idea generation endpoints
 """
 from functools import wraps
+import json
 import logging
+import time
 import threading
-from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import jwt_required
+from flask import Blueprint, request, jsonify, current_app, Response
+from flask_jwt_extended import jwt_required, decode_token
 from backend.core.app import limiter
 from backend.utils import require_admin, get_current_user_id
 from backend.generation.job_queue import get_job_queue
@@ -278,3 +280,102 @@ def get_generation_status(job_id: str):
     # Unknown state
     logger.warning(f"[Job {job_id}] Unknown status: {job_status['status']}")
     return jsonify(response), 200
+
+
+@generation_bp.route("/api/ideas/generate/<job_id>/stream", methods=["GET"])
+def stream_generation_status(job_id: str):
+    """
+    Server-Sent Events (SSE) endpoint for real-time job progress updates.
+    
+    Authenticates via ?token=<jwt> query param since EventSource doesn't support headers.
+    Falls through to the polling endpoint if SSE is not supported by the client.
+    
+    Events emitted:
+      - progress: {phase, phase_name, progress, sources_count, novelty_score}
+      - complete: {result, ...}
+      - error_event: {error, detail}
+    """
+    logger = logging.getLogger(__name__)
+
+    # Auth via query param token
+    token = request.args.get("token")
+    if token:
+        try:
+            decode_token(token)
+        except Exception:
+            return jsonify({"error": "Invalid or expired token"}), 401
+    else:
+        return jsonify({"error": "Authentication required. Pass ?token=<jwt>"}), 401
+
+    job_queue = get_job_queue()
+
+    def generate_events():
+        """Generator that yields SSE events until the job completes or fails."""
+        last_phase = -1
+        last_progress = -1
+
+        while True:
+            job_status = job_queue.get_job_status(job_id)
+
+            if not job_status:
+                yield f"event: error_event\ndata: {json.dumps({'error': 'Job not found'})}\n\n"
+                return
+
+            phase = job_status["phase"]
+            progress = job_status["progress"]
+            phase_name = job_status["phase_names"].get(phase, "Processing")
+
+            # Build the payload
+            payload = {
+                "status": job_status["status"],
+                "phase": phase,
+                "phase_name": phase_name,
+                "progress": progress,
+            }
+
+            # Add intermediate results
+            if job_status["intermediate_results"]["sources"]:
+                payload["sources_count"] = len(job_status["intermediate_results"]["sources"])
+            if job_status["intermediate_results"]["novelty"]:
+                payload["novelty_score"] = job_status["intermediate_results"]["novelty"].get("novelty_score")
+
+            # Emit progress if it changed
+            if phase != last_phase or progress != last_progress:
+                last_phase = phase
+                last_progress = progress
+
+                if job_status["status"] == "completed" and job_status["final_result"]:
+                    payload["result"] = job_status["final_result"]
+                    yield f"event: complete\ndata: {json.dumps(payload)}\n\n"
+                    return
+
+                if job_status["status"] == "failed":
+                    payload["error"] = job_status.get("error", "Generation failed")
+                    yield f"event: error_event\ndata: {json.dumps(payload)}\n\n"
+                    return
+
+                yield f"event: progress\ndata: {json.dumps(payload)}\n\n"
+
+            # Also check for terminal states even if progress hasn't changed
+            elif job_status["status"] == "completed" and job_status["final_result"]:
+                payload["result"] = job_status["final_result"]
+                yield f"event: complete\ndata: {json.dumps(payload)}\n\n"
+                return
+            elif job_status["status"] == "failed":
+                payload["error"] = job_status.get("error", "Generation failed")
+                yield f"event: error_event\ndata: {json.dumps(payload)}\n\n"
+                return
+
+            time.sleep(0.5)
+
+    logger.info(f"[Job {job_id}] SSE stream opened")
+
+    return Response(
+        generate_events(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )

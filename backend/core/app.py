@@ -3,6 +3,10 @@ import logging
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
+# Load .env BEFORE importing Config so that class-level os.getenv() calls
+# in Config pick up the values from the .env file.
+load_dotenv()
+
 from flask import Flask, request
 from flask_cors import CORS
 from flask_caching import Cache
@@ -19,8 +23,6 @@ from backend.utils import run_startup_checks
 # ------------------------------------------------------------------
 # Environment & Config
 # ------------------------------------------------------------------
-
-load_dotenv()
 
 DATABASE_URL = Config.DATABASE_URL or os.getenv("DATABASE_URL")
 if not DATABASE_URL:

@@ -1,376 +1,352 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import api from "../../../lib/api";
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, ArrowRight, AlertCircle, RotateCcw, ExternalLink } from 'lucide-react';
 
-const PHASE_LABELS = {
-  0: "Retrieving sources...",
-  1: "Analyzing novelty...",
-  2: "Generating idea with AI...",
-  3: "Validating & saving...",
-  4: "Complete!",
-};
+import { useGeneration } from '@/hooks/useGeneration';
+import { formatScore } from '@/lib/formatScore';
+import { fadeIn, staggerContainer } from '@/lib/motion';
+import { cn } from '@/lib/utils';
+
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Textarea } from '@/components/ui/Textarea';
+import { Badge } from '@/components/ui/Badge';
+import { ProgressBar } from '@/components/ui/ProgressBar';
+import { ScoreDisplay } from '@/components/ui/ScoreDisplay';
+import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 
 const GeneratePage = () => {
   const navigate = useNavigate();
-  const [domains, setDomains] = useState([]);
-  const [selectedDomainId, setSelectedDomainId] = useState("");
-  const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [generatedIdea, setGeneratedIdea] = useState(null);
-  const [error, setError] = useState("");
-  const [progress, setProgress] = useState(0);
-  const [phaseLabel, setPhaseLabel] = useState("");
-  const pollRef = useRef(null);
-
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
-
-  // Load available domains on mount
-  useEffect(() => {
-    const loadDomains = async () => {
-      try {
-        const res = await api.get("/domains");
-        setDomains(res.data.domains || []);
-      } catch (err) {
-        console.error("Failed to load domains:", err);
-        setError("Failed to load available domains");
-      }
-    };
-    loadDomains();
-  }, []);
-
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }, []);
-
-  const handleGenerate = async () => {
-    if (!query.trim()) {
-      setError("Please enter a query or topic");
-      return;
-    }
-
-    if (!selectedDomainId) {
-      setError("Please select a domain");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-    setGeneratedIdea(null);
-    setProgress(5);
-    setPhaseLabel("Starting generation...");
-
-    try {
-      // POST returns 202 with a job_id — generation runs in background
-      const response = await api.post("/ideas/generate", {
-        query: query.trim(),
-        domain_id: parseInt(selectedDomainId),
-      });
-
-      const jobId = response.data?.job_id;
-      if (!jobId) {
-        // Unexpected: backend returned data directly (shouldn't happen)
-        setGeneratedIdea(response.data);
-        setLoading(false);
-        setProgress(0);
-        return;
-      }
-
-      // Poll for job status every 2 seconds
-      pollRef.current = setInterval(async () => {
-        try {
-          const statusRes = await api.get(`/ideas/generate/${jobId}`);
-          const data = statusRes.data;
-
-          // Update progress bar with real backend data
-          setProgress(data.progress ?? 0);
-          const label = data.phase_name || PHASE_LABELS[data.phase] || "Processing...";
-          setPhaseLabel(label);
-
-          if (statusRes.status === 200 && data.status === "completed" && data.result) {
-            // Generation succeeded
-            stopPolling();
-            setProgress(100);
-            setPhaseLabel("Complete!");
-            setTimeout(() => {
-              setGeneratedIdea(data.result);
-              setLoading(false);
-              setProgress(0);
-              setPhaseLabel("");
-            }, 600);
-            setQuery("");
-            setSelectedDomainId("");
-          }
-        } catch (pollErr) {
-          // 400 = job failed, 404 = job not found
-          const status = pollErr.response?.status;
-          const errData = pollErr.response?.data;
-
-          if (status === 400 || status === 404) {
-            stopPolling();
-            setError(errData?.error || "Generation failed. Please try again.");
-            setLoading(false);
-            setProgress(0);
-            setPhaseLabel("");
-          }
-          // For network blips (5xx, timeout), keep polling — it may recover
-        }
-      }, 2000);
-    } catch (err) {
-      stopPolling();
-      const errorMsg =
-        err.response?.data?.error ||
-        err.response?.data?.msg ||
-        "Failed to start generation. Please try again.";
-      setError(errorMsg);
-      setLoading(false);
-      setProgress(0);
-      setPhaseLabel("");
-    }
-  };
+  const gen = useGeneration();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-950 to-neutral-900">
-      {/* Background decorations */}
-      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-purple-600 rounded-full opacity-10 blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-indigo-600 rounded-full opacity-10 blur-3xl" />
-      </div>
-
-      <div className="max-w-4xl mx-auto px-6 py-12 md:py-20 relative z-10">
+    <div className="min-h-screen bg-neutral-950">
+      <div className="max-w-4xl mx-auto px-6 py-12 md:py-20">
         {/* Header */}
-        <div className="mb-12 md:mb-16">
+        <motion.div
+          variants={fadeIn}
+          initial="hidden"
+          animate="visible"
+          className="mb-12 md:mb-16"
+        >
           <h1 className="text-5xl md:text-6xl font-light text-white mb-4">
             Generate Idea
           </h1>
           <p className="text-xl text-neutral-300">
             Create innovative project ideas evaluated with research evidence and real-time novelty scoring.
           </p>
-        </div>
+        </motion.div>
 
-        {!generatedIdea ? (
-          <div className="space-y-8">
-            {/* Domain Selection Grid */}
-            <div>
-              <label className="block text-sm font-semibold text-neutral-300 mb-4 uppercase tracking-wide">
-                Select Domain
-              </label>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {domains.map((domain, i) => (
-                  <button
-                    key={domain.id}
-                    onClick={() => setSelectedDomainId(String(domain.id))}
-                    className={`glass-card-lg p-4 transition-all duration-300 transform hover:scale-105 text-center group ${
-                      selectedDomainId === String(domain.id)
-                        ? "bg-gradient-to-br from-indigo-500/40 to-purple-500/40 border-indigo-500/50 text-white"
-                        : "hover:bg-white/10 hover:border-indigo-500/30 text-neutral-300"
-                    }`}
-                    style={{
-                      animation: `slideIn 0.5s ease-out ${i * 50}ms backwards`,
-                    }}
-                  >
-                    <div className="text-2xl mb-2 group-hover:scale-125 transition-transform">📚</div>
-                    <div className="text-sm font-medium truncate">{domain.name}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Form Card */}
-            <div className="glass-card-lg p-8 md:p-12 border border-white/10">
-              <div className="space-y-6">
-                {/* Topic Input */}
-                <div>
-                  <label className="block text-sm font-semibold text-neutral-300 mb-3 uppercase tracking-wide">
-                    Describe Your Idea
-                  </label>
-                  <textarea
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value.slice(0, 2000))}
-                    placeholder="e.g., 'Build an AI system that detects rare diseases using retinal imaging' or 'Create a blockchain-based supply chain tracking system for pharmaceutical companies'..."
-                    rows={5}
-                    className="glass-input w-full resize-none"
-                  />
-                  <div className="flex justify-between items-center mt-2">
-                    <p className="text-xs text-neutral-500">
-                      Be specific about the problem you're solving
-                    </p>
-                    <p className={`text-xs font-medium ${query.length > 1800 ? "text-yellow-400" : "text-neutral-500"}`}>
-                      {query.length}/2000
-                    </p>
+        <AnimatePresence mode="wait">
+          {/* ==================== GENERATING STATE ==================== */}
+          {gen.isGenerating && (
+            <motion.div
+              key="generating"
+              variants={fadeIn}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <Card className="p-8 md:p-12 border-neutral-800">
+                <CardContent className="space-y-8">
+                  <div className="text-center space-y-3">
+                    <motion.div
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                      className="text-indigo-400 text-sm font-medium uppercase tracking-widest"
+                    >
+                      {gen.phaseName || 'Starting generation…'}
+                    </motion.div>
                   </div>
-                </div>
 
-                {/* Error Display */}
-                {error && (
-                  <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm animate-shake flex items-start gap-3">
-                    <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                    {error}
+                  <ProgressBar value={gen.progress} label={gen.phaseName} />
+
+                  {/* Intermediate results reveal */}
+                  <div className="space-y-3">
+                    <AnimatePresence>
+                      {gen.sourcesCount > 0 && (
+                        <motion.div
+                          variants={fadeIn}
+                          initial="hidden"
+                          animate="visible"
+                          className="flex items-center gap-2 text-sm text-neutral-400"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          Found {gen.sourcesCount} relevant sources
+                        </motion.div>
+                      )}
+                      {gen.noveltyScore != null && (
+                        <motion.div
+                          variants={fadeIn}
+                          initial="hidden"
+                          animate="visible"
+                          className="flex items-center gap-2 text-sm text-neutral-400"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                          Novelty: {formatScore(gen.noveltyScore)}/10
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                )}
 
-                {/* Generate Button */}
-                <button
-                  onClick={handleGenerate}
-                  disabled={loading || !selectedDomainId || !query.trim()}
-                  className="btn-primary w-full flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Generating your idea...
-                    </>
-                  ) : (
-                    <>
-                      <span>✨ Generate Idea</span>
-                      <span>→</span>
-                    </>
-                  )}
-                </button>
-
-                {/* Progress Bar */}
-                {loading && (
-                  <div className="space-y-2">
-                    <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.max(progress, 5)}%` }}
-                      />
+                  {/* Skeleton preview of result layout */}
+                  <div className="space-y-4 pt-4 border-t border-neutral-800">
+                    <Skeleton className="h-8 w-3/4" />
+                    <SkeletonText lines={3} />
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {[0, 1, 2, 3].map(i => (
+                        <Skeleton key={i} className="h-20 rounded-xl" />
+                      ))}
                     </div>
-                    <p className="text-xs text-neutral-400 text-center">
-                      {phaseLabel || "Starting generation..."}
-                    </p>
                   </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* ==================== RESULT STATE ==================== */}
+          {gen.isComplete && gen.result && (
+            <motion.div
+              key="result"
+              variants={fadeIn}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <Card className="p-8 md:p-12 border-indigo-500/30">
+                <CardContent className="space-y-8">
+                  {/* Success indicator */}
+                  <Badge variant="success" className="text-sm px-3 py-1">
+                    Idea Generated
+                  </Badge>
+
+                  {/* Title */}
+                  <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight">
+                    {gen.result.title}
+                  </h2>
+
+                  {/* Content Grid */}
+                  <div className="grid md:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <p className="text-xs text-indigo-400 uppercase tracking-widest font-semibold">
+                        Problem Statement
+                      </p>
+                      <p className="text-base text-neutral-300 leading-relaxed">
+                        {gen.result.problem_statement}
+                      </p>
+                    </div>
+                    <div className="space-y-3">
+                      <p className="text-xs text-neutral-400 uppercase tracking-widest font-semibold">
+                        Suggested Tech Stack
+                      </p>
+                      <p className="text-base text-neutral-300 leading-relaxed">
+                        {gen.result.tech_stack}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="h-px bg-neutral-800" />
+
+                  {/* Metrics */}
+                  <motion.div
+                    variants={staggerContainer}
+                    initial="hidden"
+                    animate="visible"
+                    className="grid grid-cols-2 md:grid-cols-4 gap-4"
+                  >
+                    <motion.div variants={fadeIn}>
+                      <Card className="p-4 text-center bg-neutral-900/50">
+                        <div className="text-lg font-bold text-white mb-1">
+                          {gen.result.domain}
+                        </div>
+                        <p className="text-xs text-neutral-500">Domain</p>
+                      </Card>
+                    </motion.div>
+                    <motion.div variants={fadeIn}>
+                      <Card className="p-4 text-center bg-neutral-900/50">
+                        <ScoreDisplay value={gen.result.novelty_score} label="Novelty" className="justify-center" />
+                      </Card>
+                    </motion.div>
+                    <motion.div variants={fadeIn}>
+                      <Card className="p-4 text-center bg-neutral-900/50">
+                        <ScoreDisplay value={gen.result.quality_score} label="Quality" className="justify-center" />
+                      </Card>
+                    </motion.div>
+                    <motion.div variants={fadeIn}>
+                      <Card className="p-4 text-center bg-neutral-900/50">
+                        <div className="text-lg font-bold text-emerald-400 mb-1">Saved</div>
+                        <p className="text-xs text-neutral-500">Status</p>
+                      </Card>
+                    </motion.div>
+                  </motion.div>
+
+                  {/* Actions */}
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <Button
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={gen.reset}
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Generate Another
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      onClick={() => navigate(`/idea/${gen.result.id}`)}
+                    >
+                      View Full Details
+                      <ExternalLink className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* ==================== FAILED STATE ==================== */}
+          {gen.isFailed && (
+            <motion.div
+              key="failed"
+              variants={fadeIn}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <Card className="p-8 border-red-500/20">
+                <CardContent className="space-y-6">
+                  <div className="flex items-start gap-3 text-red-300">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Generation failed</p>
+                      <p className="text-sm text-red-400 mt-1">{gen.jobError || 'An unexpected error occurred.'}</p>
+                    </div>
+                  </div>
+                  <Button variant="secondary" onClick={gen.reset}>
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Try Again
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* ==================== INPUT FORM ==================== */}
+          {!gen.isGenerating && !gen.isComplete && !gen.isFailed && (
+            <motion.div
+              key="form"
+              variants={fadeIn}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="space-y-8"
+            >
+              {/* Domain Selection Grid */}
+              <div>
+                <label className="block text-sm font-semibold text-neutral-300 mb-4 uppercase tracking-wide">
+                  Select Domain
+                </label>
+                {gen.domainsLoading ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {[0, 1, 2, 3, 4, 5].map(i => (
+                      <Skeleton key={i} className="h-20 rounded-2xl" />
+                    ))}
+                  </div>
+                ) : (
+                  <motion.div
+                    variants={staggerContainer}
+                    initial="hidden"
+                    animate="visible"
+                    className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
+                  >
+                    {gen.domains.map((domain) => (
+                      <motion.button
+                        key={domain.id}
+                        variants={fadeIn}
+                        onClick={() => gen.setSelectedDomainId(String(domain.id))}
+                        className={cn(
+                          'rounded-2xl border p-4 transition-colors text-center',
+                          gen.selectedDomainId === String(domain.id)
+                            ? 'bg-indigo-500/15 border-indigo-500/40 text-white'
+                            : 'bg-neutral-900 border-neutral-800 text-neutral-300 hover:bg-neutral-800 hover:border-neutral-700'
+                        )}
+                      >
+                        <div className="text-sm font-medium truncate">{domain.name}</div>
+                      </motion.button>
+                    ))}
+                  </motion.div>
                 )}
               </div>
-            </div>
-          </div>
-        ) : (
-          /* Generated Idea Display */
-          <div
-            className="glass-card-lg p-8 md:p-12 border border-indigo-500/50 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 animate-float"
-            style={{
-              animation: "slideUp 0.6s ease-out",
-            }}
-          >
-            {/* Success Badge */}
-            <div className="inline-block mb-6 px-4 py-2 bg-gradient-to-r from-indigo-500/30 to-purple-500/30 rounded-full border border-indigo-500/50">
-              <span className="text-sm font-semibold text-indigo-300">✓ Idea Generated</span>
-            </div>
 
-            {/* Title */}
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-8 leading-tight">
-              {generatedIdea.title}
-            </h2>
+              {/* Form Card */}
+              <Card className="p-8 md:p-12">
+                <CardContent className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-neutral-300 mb-3 uppercase tracking-wide">
+                      Describe Your Idea
+                    </label>
+                    <Textarea
+                      value={gen.query}
+                      onChange={(e) => gen.setQuery(e.target.value.slice(0, 2000))}
+                      placeholder="e.g., 'Build an AI system that detects rare diseases using retinal imaging' or 'Create a blockchain-based supply chain tracking system for pharmaceutical companies'..."
+                      rows={5}
+                      className="resize-none"
+                    />
+                    <div className="flex justify-between items-center mt-2">
+                      <p className="text-xs text-neutral-500">
+                        Be specific about the problem you're solving
+                      </p>
+                      <p className={cn(
+                        'text-xs font-medium',
+                        gen.query.length > 1800 ? 'text-yellow-400' : 'text-neutral-500'
+                      )}>
+                        {gen.query.length}/2000
+                      </p>
+                    </div>
+                  </div>
 
-            {/* Content Grid */}
-            <div className="grid md:grid-cols-2 gap-8 mb-8">
-              {/* Problem Statement */}
-              <div className="space-y-3">
-                <p className="text-xs text-indigo-400 uppercase tracking-widest font-semibold">
-                  Problem Statement
-                </p>
-                <p className="text-base text-neutral-300 leading-relaxed">
-                  {generatedIdea.problem_statement}
-                </p>
-              </div>
+                  {/* Error Display */}
+                  <AnimatePresence>
+                    {gen.submitError && (
+                      <motion.div
+                        variants={fadeIn}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-sm flex items-start gap-3"
+                      >
+                        <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                        {gen.submitError}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-              {/* Tech Stack */}
-              <div className="space-y-3">
-                <p className="text-xs text-purple-400 uppercase tracking-widest font-semibold">
-                  Suggested Tech Stack
-                </p>
-                <p className="text-base text-neutral-300 leading-relaxed">
-                  {generatedIdea.tech_stack}
-                </p>
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div className="h-px bg-gradient-to-r from-white/0 via-white/10 to-white/0 my-8" />
-
-            {/* Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              <div className="glass-card p-4 text-center">
-                <div className="text-3xl font-bold text-indigo-400 mb-2">
-                  {generatedIdea.domain}
-                </div>
-                <p className="text-xs text-neutral-500">Domain</p>
-              </div>
-              <div className="glass-card p-4 text-center">
-                <div className="text-3xl font-bold text-purple-400 mb-2">
-                  {typeof generatedIdea.novelty_score === 'number' ? (generatedIdea.novelty_score / 10).toFixed(1) : 'N/A'}
-                </div>
-                <p className="text-xs text-neutral-500">Novelty Score</p>
-              </div>
-              <div className="glass-card p-4 text-center">
-                <div className="text-3xl font-bold text-pink-400 mb-2">
-                  {typeof generatedIdea.quality_score === 'number' ? (generatedIdea.quality_score / 10).toFixed(1) : 'N/A'}
-                </div>
-                <p className="text-xs text-neutral-500">Quality Score</p>
-              </div>
-              <div className="glass-card p-4 text-center">
-                <div className="text-3xl font-bold text-blue-400 mb-2">
-                  Saved
-                </div>
-                <p className="text-xs text-neutral-500">Status</p>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col md:flex-row gap-4 mt-8">
-              <button
-                onClick={() => setGeneratedIdea(null)}
-                className="flex-1 glass-card px-6 py-3 rounded-lg font-medium text-neutral-300 hover:text-white hover:bg-white/15 transition"
-              >
-                Generate Another
-              </button>
-              <button
-                onClick={() => {
-                  // Navigate to view the idea
-                  navigate(`/idea/${generatedIdea.id}`);
-                }}
-                className="flex-1 btn-primary rounded-lg font-medium"
-              >
-                View Full Details →
-              </button>
-            </div>
-          </div>
-        )}
+                  {/* Generate Button */}
+                  <Button
+                    onClick={gen.submit}
+                    disabled={gen.submitting || !gen.selectedDomainId || !gen.query.trim()}
+                    size="lg"
+                    className="w-full"
+                  >
+                    {gen.submitting ? (
+                      <>
+                        <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                        Starting…
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Generate Idea
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-
-      <style>{`
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </div>
   );
 };

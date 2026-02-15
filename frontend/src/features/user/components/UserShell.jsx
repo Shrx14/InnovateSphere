@@ -1,4 +1,5 @@
 import UserNav from "./UserNav";
+import { PageTransition } from "@/components/PageTransition";
 
 const UserShell = ({ children }) => {
   return (
@@ -6,7 +7,7 @@ const UserShell = ({ children }) => {
       <UserNav />
 
       <main>
-        {children}
+        <PageTransition>{children}</PageTransition>
       </main>
     </div>
   );

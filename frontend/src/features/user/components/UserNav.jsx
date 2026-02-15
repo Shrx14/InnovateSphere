@@ -1,49 +1,53 @@
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
+import { cn } from "@/lib/utils";
+
+const navLinkClass = ({ isActive }) =>
+  cn(
+    "text-sm transition-colors",
+    isActive ? "text-white font-medium" : "text-neutral-400 hover:text-white"
+  );
 
 const UserNav = () => {
   const { isAuthenticated, logout } = useAuth();
 
   return (
-    <header className="sticky top-0 z-50 bg-neutral-950/70 backdrop-blur border-b border-neutral-800">
+    <header className="sticky top-0 z-50 bg-neutral-950/80 backdrop-blur-lg border-b border-neutral-800/60">
       <div className="px-6 py-4 max-w-7xl mx-auto flex justify-between items-center">
         <Link to="/" className="text-lg font-medium text-white">
           InnovateSphere
         </Link>
 
-        <nav className="flex gap-6 text-sm">
-          <Link to="/explore" className="text-neutral-300 hover:text-white">
+        <nav className="flex items-center gap-6 text-sm">
+          <NavLink to="/explore" className={navLinkClass}>
             Explore
-          </Link>
+          </NavLink>
           {isAuthenticated ? (
             <>
-              <Link to="/user/generate" className="text-neutral-300 hover:text-white">
-                Generate
-              </Link>
-              <Link to="/user/novelty" className="text-neutral-300 hover:text-white">
-                Novelty
-              </Link>
-              <Link to="/user/my-ideas" className="text-neutral-300 hover:text-white">
-                My Ideas
-              </Link>
-              <Link to="/user/dashboard" className="text-neutral-300 hover:text-white">
+              <NavLink to="/user/dashboard" className={navLinkClass}>
                 Dashboard
-              </Link>
+              </NavLink>
+              <NavLink to="/user/generate" className={navLinkClass}>
+                Generate
+              </NavLink>
+              <NavLink to="/user/novelty" className={navLinkClass}>
+                Novelty
+              </NavLink>
               <button
                 onClick={logout}
-                className="text-neutral-300 hover:text-white"
+                className="text-neutral-400 hover:text-white transition-colors"
               >
                 Logout
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" className="text-neutral-300 hover:text-white">
+              <NavLink to="/login" className={navLinkClass}>
                 Login
-              </Link>
-              <Link to="/register" className="text-neutral-300 hover:text-white">
+              </NavLink>
+              <NavLink to="/register" className={navLinkClass}>
                 Register
-              </Link>
+              </NavLink>
             </>
           )}
         </nav>

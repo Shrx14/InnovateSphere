@@ -6,7 +6,8 @@ import PublicShell from "./features/shared/components/PublicShell";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminProtectedRoute from "./components/AdminProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
-
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { Toaster } from "./components/ui/Toaster";
 
 /* Admin Pages */
 import AdminReviewQueue from "./features/admin/pages/AdminReviewQueue";
@@ -30,9 +31,9 @@ const NotFoundPage = () => (
     <div className="text-center max-w-md">
       <h1 className="text-7xl font-bold text-indigo-500 mb-4">404</h1>
       <h2 className="text-2xl font-light text-white mb-4">Page not found</h2>
-      <p className="text-neutral-400 mb-8">The page you're looking for doesn't exist or has been moved.</p>
-      <a href="/" className="btn-primary inline-flex items-center gap-2">
-        <span>Go Home</span><span>→</span>
+      <p className="text-neutral-400 mb-8">The page you&apos;re looking for doesn&apos;t exist or has been moved.</p>
+      <a href="/" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition">
+        Go Home
       </a>
     </div>
   </div>
@@ -42,6 +43,7 @@ const App = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <ErrorBoundary>
         <Routes>
 
 
@@ -96,6 +98,8 @@ const App = () => {
         />
 
         </Routes>
+        <Toaster />
+        </ErrorBoundary>
       </AuthProvider>
     </BrowserRouter>
   );

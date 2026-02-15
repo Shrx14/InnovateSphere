@@ -3,7 +3,6 @@ __pycache__/
 *.pyc
 .env
 .env.local
-.env.production
 .env.development
 node_modules/
 .DS_Store
@@ -13,4 +12,4 @@ node_modules/
 .vscode/
 backend/.env
 frontend/.env
-instance/
+#instance/

@@ -84,7 +84,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const storedToken = localStorage.getItem('access_token');
       if (storedToken) {
-        await fetch((process.env.REACT_APP_API_URL || 'http://localhost:5000/api') + '/logout', {
+        await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000/api') + '/logout', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${storedToken}` },
         });
