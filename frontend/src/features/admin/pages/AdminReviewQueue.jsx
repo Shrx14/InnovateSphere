@@ -16,7 +16,7 @@ const AdminReviewQueue = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.get('/api/admin/ideas/quality-review');
+      const response = await api.get('/admin/ideas/quality-review');
       setIdeas(response.data || []);
     } catch (error) {
       console.error('Failed to fetch review queue:', error);
@@ -30,7 +30,7 @@ const AdminReviewQueue = () => {
     setProcessing(prev => new Set(prev).add(ideaId));
     try {
       setError(null);
-      await api.post(`/api/admin/ideas/${ideaId}/verdict`, { verdict });
+      await api.post(`/admin/ideas/${ideaId}/verdict`, { verdict });
       // Optimistically remove from list
       setIdeas(prev => prev.filter(idea => idea.id !== ideaId));
     } catch (error) {
@@ -109,10 +109,11 @@ const AdminReviewQueue = () => {
               <tr>
                 <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Title</th>
                 <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Domain</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Novelty %</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Quality score</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Hallucination risk</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Feedback flags</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Novelty</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Quality</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Risk</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Flags</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Details</th>
                 <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Actions</th>
               </tr>
             </thead>
@@ -121,8 +122,8 @@ const AdminReviewQueue = () => {
                 <tr key={idea.id} className="hover:bg-neutral-800/50">
                   <td className="px-6 py-4 text-sm text-white">{idea.title}</td>
                   <td className="px-6 py-4 text-sm text-neutral-300">{idea.domain}</td>
-                  <td className="px-6 py-4 text-sm text-neutral-300">{idea.novelty_score.toFixed(1)}%</td>
-                  <td className="px-6 py-4 text-sm text-neutral-300">{idea.quality_score}</td>
+                  <td className="px-6 py-4 text-sm text-neutral-300">{typeof idea.novelty_score === 'number' ? (idea.novelty_score / 10).toFixed(1) : 'N/A'}</td>
+                  <td className="px-6 py-4 text-sm text-neutral-300">{typeof idea.quality_score === 'number' ? (idea.quality_score / 10).toFixed(1) : 'N/A'}</td>
                   <td className={`px-6 py-4 text-sm ${getRiskColor(idea.hallucination_risk_level)}`}>{idea.hallucination_risk_level}</td>
                   <td className="px-6 py-4 text-sm text-neutral-300">{formatFeedbackFlags(idea.feedback_summary)}</td>
                   <td className="px-6 py-4">

@@ -20,8 +20,6 @@ logger = logging.getLogger(__name__)
 ideas_bp = Blueprint("ideas", __name__)
 
 
-@ideas_bp.route("/api/ideas/<int:idea_id>/feedback", methods=["POST"])
-
 @ideas_bp.route("/api/ideas/<int:idea_id>/novelty-explanation", methods=["GET"])
 @jwt_required()
 def get_novelty_explanation(idea_id):
@@ -131,6 +129,7 @@ def get_novelty_explanation(idea_id):
         "trace_available": trace is not None
     }), 200
 
+@ideas_bp.route("/api/ideas/<int:idea_id>/feedback", methods=["POST"])
 @jwt_required()
 def submit_idea_feedback(idea_id):
     """

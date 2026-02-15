@@ -36,7 +36,6 @@ const RegisterPage = () => {
         skill_level: form.skillLevel
       });
       login(res.data.access_token);
-      navigate('/user/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed. Please try again.');
     } finally {

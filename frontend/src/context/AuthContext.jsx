@@ -78,8 +78,20 @@ export const AuthProvider = ({ children }) => {
   }, [hydrateUserFromToken]);
 
   // Logout function
-  const logout = useCallback((reason = 'User logout') => {
+  const logout = useCallback(async (reason = 'User logout') => {
     console.log('Logout triggered:', reason);
+    // Call backend logout endpoint (best-effort)
+    try {
+      const storedToken = localStorage.getItem('access_token');
+      if (storedToken) {
+        await fetch((process.env.REACT_APP_API_URL || 'http://localhost:5000/api') + '/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${storedToken}` },
+        });
+      }
+    } catch (e) {
+      // Ignore errors - logout should always succeed client-side
+    }
     localStorage.removeItem('access_token');
     localStorage.removeItem('user_email');
     setToken(null);

@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../../../context/AuthContext";
+import api from "../../../lib/api";
 
 const LandingPage = () => {
   const [topIdeas, setTopIdeas] = useState([]);
@@ -11,34 +13,34 @@ const LandingPage = () => {
     total_domains: 0,
     total_users: 0,
   });
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Check if user is authenticated
-  useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    setIsAuthenticated(!!token);
-  }, []);
+  const { isAuthenticated } = useAuth();
+  const timersRef = useRef([]);
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/public/top-ideas").then(r => r.json()),
-      fetch("/api/public/top-domains").then(r => r.json()),
-      fetch("/api/public/stats").then(r => r.json()),
-    ]).then(([ideas, domains, stats]) => {
+      api.get("/public/top-ideas").then(r => r.data),
+      api.get("/public/top-domains").then(r => r.data),
+      api.get("/public/stats").then(r => r.data),
+    ]).then(([ideas, domains, statsData]) => {
       setTopIdeas(ideas.ideas || []);
       setTopDomains(domains.domains || []);
-      setStats(stats || {});
+      setStats(statsData || {});
       setLoading(false);
       
       // Animate stats counters
-      if (stats) {
-        animateCounter("ideas", stats.total_public_ideas || 0);
-        animateCounter("domains", stats.total_domains || 0);
-        animateCounter("users", stats.total_users || 0);
+      if (statsData) {
+        animateCounter("ideas", statsData.total_public_ideas || 0);
+        animateCounter("domains", statsData.total_domains || 0);
+        animateCounter("users", statsData.total_users || 0);
       }
     }).catch(() => {
       setLoading(false);
     });
+
+    // Cleanup timers on unmount
+    return () => {
+      timersRef.current.forEach(t => clearInterval(t));
+    };
   }, []);
 
   const animateCounter = (key, target) => {
@@ -55,6 +57,7 @@ const LandingPage = () => {
         [key === "ideas" ? "total_public_ideas" : key === "domains" ? "total_domains" : "total_users"]: current,
       }));
     }, 20);
+    timersRef.current.push(timer);
   };
 
   const HeroSection = () => (
@@ -229,36 +232,16 @@ const LandingPage = () => {
                 </div>
 
                 {/* Scores Section */}
-                                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/10">
-                                  <div>
-                                    <div className="text-sm font-bold text-indigo-400">
-                                      {isAuthenticated 
-                                        ? (typeof idea.novelty_score === 'number' ? idea.novelty_score.toFixed(1) : 'N/A')
-                                        : '—'}
-                                    </div>
-                                    <div className="text-xs text-neutral-500">
-                                      {isAuthenticated ? 'Novelty' : 'Score'}
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <div className="text-sm font-bold text-purple-400">
-                                      {isAuthenticated ? 'Sign in' : '→'}
-                                    </div>
-                                    <div className="text-xs text-neutral-500">
-                                      {isAuthenticated ? 'Quality' : 'to see'}
-                                    </div>
-                                  </div>
-                                </div>
                 <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/10">
                   <div>
                     <div className="text-sm font-bold text-indigo-400">
-                      {typeof idea.novelty_score === 'number' ? idea.novelty_score.toFixed(1) : 'N/A'}
+                      {typeof idea.novelty_score === 'number' ? (idea.novelty_score / 10).toFixed(1) : 'N/A'}
                     </div>
                     <div className="text-xs text-neutral-500">Novelty</div>
                   </div>
                   <div>
                     <div className="text-sm font-bold text-purple-400">
-                      {typeof idea.quality_score === 'number' ? idea.quality_score.toFixed(1) : 'N/A'}
+                      {typeof idea.quality_score === 'number' ? (idea.quality_score / 10).toFixed(1) : 'N/A'}
                     </div>
                     <div className="text-xs text-neutral-500">Quality</div>
                   </div>

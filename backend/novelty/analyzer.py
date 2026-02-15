@@ -16,15 +16,15 @@ from backend.novelty.utils.signals import compute_similarity_stats, compute_spec
 from backend.novelty.normalization import determine_level, normalize_score
 from backend.novelty.explain import generate_explanation
 
-from backend.retrieval.cached_retrieval import cached_retrieve_sources
-from backend.semantic.cached_embedder import CachedEmbedder
+from backend.retrieval.orchestrator import retrieve_sources
+from backend.semantic.embedder import Embedder
 
 logger = logging.getLogger(__name__)
 
 
 class NoveltyAnalyzer:
     def __init__(self):
-        self.embedder = CachedEmbedder()
+        self.embedder = Embedder()
 
     def _admin_stats(self, domain_name: str):
         domain = Domain.query.filter_by(name=domain_name).first()
@@ -101,11 +101,12 @@ class NoveltyAnalyzer:
 
         return max(-30, min(10, penalty))  # bound between -30 and 10
 
-    def analyze(self, description: str, domain: str):
-        sources = cached_retrieve_sources(
+    def analyze(self, description: str, domain: str, problem_class: str = "general"):
+        sources = retrieve_sources(
             query=description,
             domain=domain,
-            limit=20,
+            problem_class=problem_class,
+            limit=50,
             semantic_filter=False,
         ).get("sources", [])
 
@@ -158,26 +159,58 @@ class NoveltyAnalyzer:
             return text if len(text) <= n else text[: n - 1] + "…"
 
         # Sanitize sources for public API consumption (use for bonuses count)
+        # Also track relevance tiers for evidence calibration
         sanitized_sources = []
+        tier_breakdown = {"supporting": 0, "contextual": 0, "peripheral": 0}
+        
         for s in sources[:20]:
+            relevance_tier = s.get("relevance_tier", "contextual")
+            tier_breakdown[relevance_tier] = tier_breakdown.get(relevance_tier, 0) + 1
+            
+            # Generate relevance explanation based on source type and tier
+            relevance_explanation = ""
+            if s.get("source_type") == "arxiv":
+                if s.get("metadata", {}).get("query_variation_quality") == "domain_only":
+                    relevance_explanation = f"Matched domain keywords; problem-type relevance is weaker."
+                else:
+                    problem_class = s.get("problem_class", "general")
+                    relevance_explanation = f"Relevant to {problem_class} class."
+            else:  # github
+                relevance_explanation = "Practical implementation example."
+            
             sanitized_sources.append({
                 "title": s.get("title") or s.get("name") or (s.get("url") or ""),
                 "url": s.get("url"),
                 "source_type": s.get("source_type"),
                 "summary": _truncate(s.get("summary") or s.get("snippet") or s.get("description") or ""),
                 "confidence": s.get("confidence"),
+                "relevance_tier": relevance_tier,
+                "relevance_explanation": relevance_explanation,
+                "problem_type_match": s.get("relevance_class", "indirect"),
+                "similarity_score": s.get("similarity_score_adjusted") or s.get("similarity_score", 0),
             })
+
 
         # Compute bonuses based on the final sanitized source count
         bonus = compute_bonuses(description, domain, source_count=len(sanitized_sources))
         hitl_penalty = self._compute_hitl_penalty(sources)
         score = blend(base * 0.9, base + bonus + hitl_penalty)
 
+        # NEW: Penalize if too many peripheral sources
+        confidence_override = None
+        peripheral_penalty_note = None
+        if tier_breakdown["peripheral"] > tier_breakdown["supporting"] * 2:
+            # More than 2x peripheral vs supporting sources
+            score = score * 0.85  # 15% penalty
+            confidence_override = "Low"
+            peripheral_penalty_note = "Novelty assessment has lower confidence: many retrieved sources are tangentially related rather than directly relevant to this problem type."
+
         weighted = score * DOMAIN_NOVELTY_WEIGHT.get(domain.lower(), 1.0)
         stabilized = check_stability(description + domain, weighted, "Medium")
 
         # Normalize score to engine caps before mapping to level
         normalized = normalize_score(stabilized, "software")
+
 
         explanations = generate_explanation(
             novelty_score=stabilized,
@@ -186,6 +219,11 @@ class NoveltyAnalyzer:
             avg_popularity_penalty=saturation,
             sources=sources,
         )
+
+        # Add peripheral penalty note if applicable
+        if peripheral_penalty_note:
+            explanations.append(f"⚠️ {peripheral_penalty_note}")
+
 
         record_telemetry("novelty.software.score", stabilized)
 
@@ -211,13 +249,17 @@ class NoveltyAnalyzer:
             ],
         }
 
+        # Determine final confidence
+        final_confidence = confidence_override if confidence_override else ("High" if len(sanitized_sources) >= 8 else "Medium")
+
         return {
             "novelty_score": normalized,
             "novelty_level": determine_level(normalized),
-            "confidence": "High" if len(sanitized_sources) >= 8 else "Medium",
+            "confidence": final_confidence,
             "explanations": explanations,
             "insights": insights,
             "sources": sanitized_sources,
+            "evidence_breakdown": tier_breakdown,
             "engine": "software",
             "trace_id": trace_id,
             "debug": {

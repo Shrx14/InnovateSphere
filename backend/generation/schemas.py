@@ -89,6 +89,18 @@ class EvidenceSource(BaseModel):
     url: str
     source_type: str
     used_for: str
+    relevance_tier: str = Field(
+        default="contextual",
+        description="supporting | contextual | peripheral"
+    )
+    relevance_explanation: str = Field(
+        default="",
+        description="Why this source is relevant to the user's query"
+    )
+    problem_type_match: str = Field(
+        default="indirect",
+        description="direct | indirect | noise - how well problem type matches"
+    )
 
     @field_validator("source_type")
     def validate_source_type(cls, v):
@@ -96,6 +108,7 @@ class EvidenceSource(BaseModel):
         if v not in allowed:
             raise ValueError(f"Invalid source_type: {v}")
         return v
+
 
 
 
@@ -113,6 +126,11 @@ class GeneratedIdea(BaseModel):
     novelty_positioning: NoveltyPositioning
     limitations_and_risks: List[str]
     evidence_sources: List[EvidenceSource]
+    evidence_breakdown: dict = Field(
+        default_factory=lambda: {"supporting": 0, "contextual": 0, "peripheral": 0},
+        description="Count of sources by relevance tier"
+    )
+
 
     @field_validator("evidence_sources")
     def validate_sources(cls, v):

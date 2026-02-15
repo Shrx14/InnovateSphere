@@ -75,31 +75,31 @@ def main():
             sample_ideas = [
                 {
                     'title': 'AI-Powered Healthcare Diagnostic Assistant',
-                    'domain': 'AI',
+                    'domain': 'AI & Machine Learning',
                     'problem_statement': 'Medical professionals spend significant time analyzing patient symptoms and medical records. An AI assistant could help by analyzing patterns in patient data and suggesting potential diagnoses based on current medical research.',
                     'tech_stack': 'Python, TensorFlow, FastAPI, PostgreSQL, Redis'
                 },
                 {
                     'title': 'Real-Time Cyberattack Detection System',
-                    'domain': 'Cybersecurity',
+                    'domain': 'Cybersecurity & Privacy',
                     'problem_statement': 'Current intrusion detection systems are often reactive and miss zero-day attacks. A machine learning-based system could detect anomalous network patterns in real-time and alert security teams before damage occurs.',
                     'tech_stack': 'Go, Rust, Kubernetes, Prometheus, ELK Stack'
                 },
                 {
                     'title': 'Blockchain Supply Chain Transparency Platform',
-                    'domain': 'Web Development',
+                    'domain': 'Blockchain & Web3',
                     'problem_statement': 'Supply chain opacity leads to counterfeiting and ethical sourcing issues. A blockchain-based platform could provide immutable tracking of products from manufacture to consumer, ensuring authenticity and ethical practices.',
                     'tech_stack': 'Solidity, Web3.js, React, Ethereum, IPFS'
                 },
                 {
                     'title': 'Predictive Maintenance for IoT Devices',
-                    'domain': 'IoT',
+                    'domain': 'IoT & Hardware',
                     'problem_statement': 'Industrial IoT devices fail unexpectedly, causing costly downtime. Predictive analytics could analyze sensor data to forecast failures before they occur, enabling proactive maintenance.',
                     'tech_stack': 'C++, MQTT, InfluxDB, Grafana, TensorFlow Lite'
                 },
                 {
                     'title': 'Automated Data Quality Improvement Framework',
-                    'domain': 'Data Science',
+                    'domain': 'Data Science & Analytics',
                     'problem_statement': 'Data scientists spend 80% of time on data cleaning. An automated framework could detect and fix common data quality issues, validation rules, and outliers automatically.',
                     'tech_stack': 'Python, Pandas, Great Expectations, PySpark, Airflow'
                 }

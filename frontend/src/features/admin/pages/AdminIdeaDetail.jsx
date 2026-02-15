@@ -16,7 +16,7 @@ const AdminIdeaDetail = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.get(`/api/admin/ideas/${id}`);
+      const response = await api.get(`/admin/ideas/${id}`);
       setIdea(response.data);
     } catch (err) {
       console.error('Failed to fetch idea:', err);
@@ -40,7 +40,7 @@ const AdminIdeaDetail = () => {
     setSubmitting(true);
     setError(null);
     try {
-      await api.post(`/api/admin/ideas/${id}/verdict`, { verdict, reason: reason.trim() });
+      await api.post(`/admin/ideas/${id}/verdict`, { verdict, reason: reason.trim() });
       // Navigate back to review queue
       navigate('/admin');
     } catch (err) {
@@ -174,7 +174,7 @@ const AdminIdeaDetail = () => {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-neutral-300">Quality Score</span>
-                <span className="text-white font-medium">{idea.quality_score}/100</span>
+                <span className="text-white font-medium">{typeof idea.quality_score === 'number' ? (idea.quality_score / 10).toFixed(1) : 'N/A'}/10</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-300">Novelty Confidence</span>

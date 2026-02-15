@@ -10,6 +10,10 @@ export default function UserDashboard() {
   useEffect(() => {
     api.get("/ideas/mine")
       .then(res => setIdeas(res.data.ideas || []))
+      .catch(err => {
+        console.error("Failed to load ideas:", err);
+        setIdeas([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -215,13 +219,13 @@ export default function UserDashboard() {
                       <div>
                         <span className="text-neutral-500">Novelty: </span>
                         <span className="text-indigo-400 font-bold">
-                          {typeof idea.novelty_score === 'number' ? idea.novelty_score.toFixed(1) : 'N/A'}
+                          {typeof idea.novelty_score === 'number' ? (idea.novelty_score / 10).toFixed(1) : 'N/A'}
                         </span>
                       </div>
                       <div>
                         <span className="text-neutral-500">Quality: </span>
                         <span className="text-purple-400 font-bold">
-                          {typeof idea.quality_score === 'number' ? idea.quality_score.toFixed(1) : 'N/A'}
+                          {typeof idea.quality_score === 'number' ? (idea.quality_score / 10).toFixed(1) : 'N/A'}
                         </span>
                       </div>
                     </div>

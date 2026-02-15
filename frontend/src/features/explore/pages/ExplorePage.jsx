@@ -38,8 +38,13 @@ const ExplorePage = () => {
         setMeta(ideasRes.data.meta);
         setDomains(domainsRes.data.domains);
       })
+      .catch((err) => {
+        console.error("Failed to fetch ideas:", err);
+        setIdeas([]);
+        setMeta(null);
+      })
       .finally(() => setLoading(false));
-  }, [filters, debouncedSearchQuery]);
+  }, [debouncedSearchQuery, filters.domain, filters.page]);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-950 to-neutral-900">
@@ -208,13 +213,13 @@ const ExplorePage = () => {
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
                     <div className="group/stat">
                       <div className="text-sm font-bold text-indigo-400 group-hover/stat:text-indigo-300 transition">
-                        {typeof idea.novelty_score === 'number' ? idea.novelty_score.toFixed(1) : 'N/A'}
+                        {typeof idea.novelty_score === 'number' ? (idea.novelty_score / 10).toFixed(1) : 'N/A'}
                       </div>
                       <div className="text-xs text-neutral-500">Novelty</div>
                     </div>
                     <div className="group/stat">
                       <div className="text-sm font-bold text-purple-400 group-hover/stat:text-purple-300 transition">
-                        {typeof idea.quality_score === 'number' ? idea.quality_score.toFixed(1) : 'N/A'}
+                        {typeof idea.quality_score === 'number' ? (idea.quality_score / 10).toFixed(1) : 'N/A'}
                       </div>
                       <div className="text-xs text-neutral-500">Quality</div>
                     </div>

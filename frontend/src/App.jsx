@@ -24,6 +24,18 @@ import GeneratePage from "./features/generate/pages/GeneratePage";
 import NoveltyPage from "./features/novelty/pages/NoveltyPage";
 import MyIdeasPage from "./features/novelty/pages/MyIdeasPage";
 
+const NotFoundPage = () => (
+  <div className="min-h-screen flex items-center justify-center bg-neutral-950 px-6">
+    <div className="text-center max-w-md">
+      <h1 className="text-7xl font-bold text-indigo-500 mb-4">404</h1>
+      <h2 className="text-2xl font-light text-white mb-4">Page not found</h2>
+      <p className="text-neutral-400 mb-8">The page you're looking for doesn't exist or has been moved.</p>
+      <a href="/" className="btn-primary inline-flex items-center gap-2">
+        <span>Go Home</span><span>→</span>
+      </a>
+    </div>
+  </div>
+);
 
 const App = () => {
   return (
@@ -49,22 +61,6 @@ const App = () => {
           }
         />
 
-        {/* ================= PUBLIC ROUTES ================= */}
-        <Route
-          path="/*"
-          element={
-            <PublicShell>
-              <Routes>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="explore" element={<ExplorePage />} />
-                <Route path="idea/:id" element={<IdeaDetail />} />
-                <Route path="login" element={<LoginPage />} />
-                <Route path="register" element={<RegisterPage />} />
-              </Routes>
-            </PublicShell>
-          }
-        />
-
         {/* ================= USER ROUTES ================= */}
         <Route
           path="/user/*"
@@ -77,6 +73,23 @@ const App = () => {
                 <Route path="my-ideas" element={<ProtectedRoute><MyIdeasPage /></ProtectedRoute>} />
               </Routes>
             </UserShell>
+          }
+        />
+
+        {/* ================= PUBLIC ROUTES (catch-all, must be last) ================= */}
+        <Route
+          path="/*"
+          element={
+            <PublicShell>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="explore" element={<ExplorePage />} />
+                <Route path="idea/:id" element={<IdeaDetail />} />
+                <Route path="login" element={<LoginPage />} />
+                <Route path="register" element={<RegisterPage />} />
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </PublicShell>
           }
         />
 

@@ -48,16 +48,19 @@ def create_app():
     app.logger.setLevel(_logging.DEBUG)
     _logging.getLogger().setLevel(_logging.DEBUG)
 
-    # Request logging for debugging 4xx issues (capture headers and body)
+    # Request logging for debugging 4xx issues (redact sensitive paths)
     @app.before_request
     def log_incoming_request():
+        # Skip logging for sensitive endpoints to avoid leaking credentials
+        sensitive_paths = ('/api/login', '/api/register', '/api/logout')
+        if request.path in sensitive_paths:
+            app.logger.debug("Incoming request: %s %s [body redacted]", request.method, request.path)
+            return
         try:
             body = request.get_data(as_text=True)
         except Exception:
             body = "<unreadable>"
-        # limit header dump and body length to avoid excessive logs
-        headers = dict(list(request.headers)[:10])
-        app.logger.debug("Incoming request: %s %s Headers=%s Body=%s", request.method, request.path, headers, (body[:2000] if body else ""))
+        app.logger.debug("Incoming request: %s %s Body=%s", request.method, request.path, (body[:500] if body else ""))
 
     # Rate limiting
     limiter.init_app(app)
@@ -86,13 +89,23 @@ def create_app():
         if url.drivername.startswith("postgresql"):
             host = url.host or ""
             is_neon_pooler = "neon.tech" in host and "pooler" in host
-            if not is_neon_pooler:
+            if is_neon_pooler:
                 engine_opts = {
                     "pool_pre_ping": True,
-                    "connect_args": {"options": "-c statement_timeout=5000"},
+                    "pool_size": 5,
+                    "max_overflow": 10,
+                    "pool_recycle": 300,
+                    "pool_timeout": 30,
                 }
             else:
-                engine_opts = {"pool_pre_ping": True}
+                engine_opts = {
+                    "pool_pre_ping": True,
+                    "pool_size": 5,
+                    "max_overflow": 10,
+                    "pool_recycle": 300,
+                    "pool_timeout": 30,
+                    "connect_args": {"options": "-c statement_timeout=30000"},
+                }
     except Exception:
         engine_opts = {}
 
@@ -126,10 +139,19 @@ def create_app():
     from backend.api import register_blueprints
     register_blueprints(app)
 
+    # Graceful shutdown: wait for background threads to complete
+    @app.teardown_appcontext
+    def shutdown_threads(exception=None):
+        from backend.api.routes.generation import wait_for_active_threads
+        try:
+            wait_for_active_threads(timeout_seconds=300)
+        except Exception as e:
+            logging.error(f"Error during graceful shutdown of background threads: {e}")
+
     return app
 
 
-# User Model (must be defined here for Flask-Login compatibility)
+# User Model
 class User(db.Model):
     __tablename__ = "users"
 
@@ -137,6 +159,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(20), default="user", nullable=False)  # 'user' or 'admin'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -1,7 +1,7 @@
 from backend.novelty.normalization import determine_level
 
 class BusinessNoveltyEngine:
-    def analyze(self, description: str, domain: str):
+    def analyze(self, description: str, domain: str, problem_class: str = "general"):
         text = description.lower()
 
         score = 30

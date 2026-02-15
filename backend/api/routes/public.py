@@ -7,9 +7,7 @@ from flask_jwt_extended import get_jwt_identity
 from sqlalchemy import func
 from backend.core.db import db
 from backend.core.app import cache
-from backend.core.models import ProjectIdea, Domain, AdminVerdict, IdeaView, SearchQuery
-from backend.core.app import User
-
+from backend.core.models import ProjectIdea, Domain, AdminVerdict, IdeaView, SearchQuery, ViewEvent
 
 from backend.utils.serializers import serialize_public_idea
 
@@ -142,7 +140,10 @@ def public_idea_detail(idea_id):
     if not idea:
         return jsonify({"error": "Idea not found"}), 404
 
-    user_id = get_jwt_identity()
+    try:
+        user_id = get_jwt_identity()
+    except Exception:
+        user_id = None
 
     if user_id:
         already_viewed = IdeaView.query.filter(
@@ -187,12 +188,14 @@ def public_idea_detail(idea_id):
                     referrer="anonymous_public_detail"
                 )
                 db.session.add(view_event)
-                db.session.commit()
             except Exception as e:
                 logger.warning(f"Failed to log anonymous ViewEvent: {e}")
-                db.session.rollback()
             
-            db.session.commit()
+            try:
+                db.session.commit()
+            except Exception as e:
+                logger.warning(f"Failed to commit anonymous view: {e}")
+                db.session.rollback()
 
     return jsonify({
         "idea": {
@@ -236,7 +239,7 @@ def public_top_ideas():
 
     ideas = sorted(
         ideas,
-        key=lambda i: (i.quality_score_cached, i.view_count),
+        key=lambda i: (i.quality_score_cached or 0, i.view_count or 0),
         reverse=True
     )[:10]
 

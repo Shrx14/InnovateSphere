@@ -1,5 +1,6 @@
 import datetime
 import logging
+from backend.core.config import Config
 from backend.retrieval.arxiv_client import search_arxiv
 from backend.retrieval.github_client import search_github
 from backend.retrieval.source_reputation import get_source_reputation
@@ -44,6 +45,7 @@ def _summarize_query_with_llm(original_query: str, max_chars: int = 120) -> str:
 def retrieve_sources(
     query,
     domain,
+    problem_class="general",
     limit=10,
     semantic_filter=False,
     similarity_threshold=0.6,
@@ -56,32 +58,39 @@ def retrieve_sources(
     if source_types is None:
         source_types = ["arxiv", "github"]
 
-    # Cap max_results per source to prevent excessive API calls
-    max_per_source = min(limit * 2, 20)  # Reasonable cap
+    # In demo mode, reduce API calls for speed
+    if Config.DEMO_MODE:
+        demo_limit = 5  # Reduced from default 10 for faster demo
+        max_per_source = min(demo_limit * 2, 15)  # Reduced from 30 for faster API calls
+        logger.info(f"[DEMO MODE] Using reduced limits: max_per_source={max_per_source}, limit={demo_limit}")
+    else:
+        max_per_source = min(limit * 2, 30)  # Increased cap for better discovery
 
     # Search both sources
-    arxiv_results = search_arxiv(query, domain, max_per_source)
+    arxiv_results = search_arxiv(query, domain, max_per_source, problem_class=problem_class)
     # Ensure we pass fetch_limit explicitly so the GitHub client knows how many
     # raw results to request per-variation. Also ask for up to `limit` final
     # candidates from GitHub so the orchestrator can merge and round-robin.
     github_results = search_github(query, domain, fetch_limit=max_per_source, final_top_n=limit)
 
-    # If GitHub returned no results (or only returned due to errors), try a
-    # short LLM-generated query and retry once. This avoids calling LLM for
-    # every request while improving recall when initial search fails.
-    if not github_results:
-        logger.info("[Retrieval] GitHub returned no results; attempting LLM summarization and retry")
-        short_q = _summarize_query_with_llm(query, max_chars=120)
-        if short_q and short_q != query:
-            github_results = search_github(short_q, domain, max_per_source)
-    
-    # If both sources returned no results, retry arXiv with simplified query
-    # (in case it was timing out or had transient issues)
-    if not arxiv_results and len(github_results) == 0:
-        logger.info("[Retrieval] Both sources empty; retrying arXiv with simplified query")
-        short_q = _summarize_query_with_llm(query, max_chars=100)
-        if short_q and short_q != query:
-            arxiv_results = search_arxiv(short_q, domain, max_per_source)
+    # In demo mode, skip LLM retry fallback for speed
+    if not Config.DEMO_MODE:
+        # If GitHub returned no results (or only returned due to errors), try a
+        # short LLM-generated query and retry once. This avoids calling LLM for
+        # every request while improving recall when initial search fails.
+        if not github_results:
+            logger.info("[Retrieval] GitHub returned no results; attempting LLM summarization and retry")
+            short_q = _summarize_query_with_llm(query, max_chars=120)
+            if short_q and short_q != query:
+                github_results = search_github(short_q, domain, max_per_source)
+        
+        # If both sources returned no results, retry arXiv with simplified query
+        # (in case it was timing out or had transient issues)
+        if not arxiv_results and len(github_results) == 0:
+            logger.info("[Retrieval] Both sources empty; retrying arXiv with simplified query")
+            short_q = _summarize_query_with_llm(query, max_chars=100)
+            if short_q and short_q != query:
+                arxiv_results = search_arxiv(short_q, domain, max_per_source)
 
     # Merge results
     all_sources = arxiv_results + github_results
@@ -109,22 +118,25 @@ def retrieve_sources(
     # Apply simple ranking
     def sort_key(source):
         if source['source_type'] == 'arxiv':
-            # For arXiv, prefer more recent publications
+            # For arXiv, prioritize by:
+            # 1. Specificity score (compound academic queries > simple queries)
+            # 2. Recency of publication
+            specificity = source.get('metadata', {}).get('specificity_score', 0)
             pub_date = source.get('metadata', {}).get('published_date')
             if pub_date:
                 try:
-                    return (0, datetime.date.fromisoformat(pub_date))  # Recent first
+                    return (0, -specificity, datetime.date.fromisoformat(pub_date))  # Specificity first (negated for desc), then recent
                 except ValueError:
                     pass
-            return (0, datetime.date.min)
+            return (0, -specificity, datetime.date.min)
         elif source['source_type'] == 'github':
             # For GitHub, prefer higher star count
             stars = source.get('metadata', {}).get('stars', 0)
-            return (1, stars)  # Higher stars first
+            return (1, -stars)  # Higher stars first (negated for desc)
         return (2, 0)  # Fallback
 
-    # Sort by ranking (recent/high-stars first)
-    ranked_sources = sorted(unique_sources, key=sort_key, reverse=True)
+    # Sort by ranking (specificity/recency/high-stars first)
+    ranked_sources = sorted(unique_sources, key=sort_key)
 
     # Return at most limit results
     # Ensure we return a diverse set of source types when possible by
@@ -166,15 +178,45 @@ def retrieve_sources(
             filtered = filter_by_semantic_similarity(
                 query,
                 final_sources,
-                similarity_threshold
+                similarity_threshold,
+                problem_class=problem_class
             )
             final_sources = rank_sources(filtered)
 
         except Exception:
             pass
+    else:
+        # Even when semantic_filter=False, classify relevance for tier assignment
+        try:
+            from backend.semantic.filter import classify_source_relevance
+            
+            for src in final_sources:
+                relevance_class, match_count, noise_count = classify_source_relevance(src, problem_class)
+                src["relevance_class"] = relevance_class
+                src["relevance_match_count"] = match_count
+                src["relevance_noise_count"] = noise_count
+        except Exception as e:
+            logger.debug("Problem-type relevance classification failed: %s", str(e))
+            for src in final_sources:
+                src["relevance_class"] = "indirect"  # Default fallback
 
     for src in final_sources:
         src["retrieval_tier"] = "tier_2"
+
+    # Classify source relevance tiers
+    # supporting: high similarity or direct relevance problem-type match
+    # contextual: moderate similarity with indirect relevance  
+    # peripheral: low similarity or noise relevance
+    for src in final_sources:
+        sim_score = src.get("similarity_score_adjusted") or src.get("similarity_score", 0)
+        relevance_class = src.get("relevance_class", "direct")
+        
+        if sim_score >= 0.75 or relevance_class == "direct":
+            src["relevance_tier"] = "supporting"
+        elif 0.4 <= sim_score < 0.75 and relevance_class == "indirect":
+            src["relevance_tier"] = "contextual"
+        else:
+            src["relevance_tier"] = "peripheral"
 
     # Add confidence scores
     for src in final_sources:
@@ -185,10 +227,49 @@ def retrieve_sources(
         )
         src["confidence"] = max(0, min(1, confidence))  # Clamp to [0,1]
 
+    # Add relevance explanation to each source
+    for src in final_sources:
+        relevance_tier = src.get("relevance_tier", "contextual")
+        relevance_class = src.get("relevance_class", "indirect")
+        source_type = src.get("source_type", "unknown")
+        query_quality = src.get("metadata", {}).get("query_variation_quality", "unknown")
+        
+        # Generate explanation based on source type and tier
+        if source_type == "arxiv":
+            if query_quality == "domain_only":
+                src["relevance_explanation"] = "Matched domain keywords only; problem-type relevance is weaker."
+            elif relevance_tier == "supporting":
+                src["relevance_explanation"] = f"Strong academic match for {problem_class} problem type."
+            elif relevance_tier == "contextual":
+                src["relevance_explanation"] = f"Related academic work; indirect match to {problem_class}."
+            else:
+                src["relevance_explanation"] = "Tangentially related academic paper; low relevance."
+        else:  # github
+            if relevance_tier == "supporting":
+                src["relevance_explanation"] = "Direct implementation example matching your requirements."
+            elif relevance_tier == "contextual":
+                src["relevance_explanation"] = "Related implementation with some applicable patterns."
+            else:
+                src["relevance_explanation"] = "Loosely related project; limited applicability."
+        
+        # Add problem_class to source for tracking
+        src["problem_class"] = problem_class
+
     logging.info(
         "Retrieval result | total_sources=%d | source_types=%s",
         len(final_sources),
         list(set(s.get("source_type") for s in final_sources))
+    )
+    
+    # Enhanced logging: show source details for auditing
+    arxiv_count = sum(1 for s in final_sources if s.get("source_type") == "arxiv")
+    github_count = sum(1 for s in final_sources if s.get("source_type") == "github")
+    logging.info(
+        "[Retrieval Audit] breakdown: arxiv=%d, github=%d | sources_by_type: %s",
+        arxiv_count,
+        github_count,
+        {s_type: [s.get("title") or s.get("name", "")[:30] for s in final_sources if s.get("source_type") == s_type] 
+         for s_type in set(s.get("source_type") for s in final_sources)}
     )
 
     return {

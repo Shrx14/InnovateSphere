@@ -24,7 +24,10 @@ models_to_check = {
     'IdeaSource': 'backend/core/models.py',
     'IdeaReview': 'backend/core/models.py',
     'IdeaView': 'backend/core/models.py',
+    'IdeaFeedback': 'backend/core/models.py',
     'AdminVerdict': 'backend/core/models.py',
+    'ViewEvent': 'backend/core/models.py',
+    'SearchQuery': 'backend/core/models.py',
     'User': 'backend/core/app.py',
 }
 
@@ -48,15 +51,18 @@ print("=== CHECKING CRITICAL DATABASE COLUMNS ===")
 print()
 
 critical_columns = {
-    'User': ['email', 'username', 'created_at'],
+    'User': ['email', 'username', 'created_at', 'role'],
     'Domain': ['name'],
-    'ProjectIdea': ['user_id', 'title', 'description', 'domain_id', 'created_at'],
+    'ProjectIdea': ['title', 'problem_statement', 'domain_id', 'created_at', 'is_ai_generated'],
     'IdeaRequest': ['user_id', 'idea_id'],
     'IdeaSource': ['idea_id', 'title', 'url', 'source_type'],
     'IdeaReview': ['idea_id', 'rating'],
     'IdeaView': ['idea_id', 'user_id'],
+    'IdeaFeedback': ['idea_id', 'user_id'],
     'AdminVerdict': ['idea_id', 'admin_id', 'verdict'],
     'DomainCategory': ['domain_id', 'name'],
+    'ViewEvent': ['idea_id'],
+    'SearchQuery': ['query_text'],
 }
 
 columns_ok = 0

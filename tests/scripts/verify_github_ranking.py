@@ -24,18 +24,23 @@ for query, domain in test_cases:
         print(f"  Results: {len(results)} returned")
         
         if results:
-            # Verify results are sorted by stars
-            stars = [r["metadata"]["stars"] for r in results]
-            is_sorted = stars == sorted(stars, reverse=True)
+            # Verify results have ranking metadata (variation_index, position_in_result)
+            has_ranking_metadata = all(
+                "variation_index" in r.get("metadata", {}) and 
+                "position_in_result" in r.get("metadata", {})
+                for r in results
+            )
             
             for i, r in enumerate(results[:2], 1):
-                print(f"    {i}. {r['title'][:35]}... - {r['metadata']['stars']} stars")
+                meta = r['metadata']
+                print(f"    {i}. {r['title'][:35]}... - {meta['stars']} stars (var_idx={meta.get('variation_index', 'N/A')}, pos={meta.get('position_in_result', 'N/A')})")
             
-            if is_sorted:
-                print(f"  STATUS: PASS (results sorted by stars)")
+            if has_ranking_metadata:
+                print(f"  STATUS: PASS (results have relevance-based ranking metadata)")
             else:
-                print(f"  STATUS: FAIL (not sorted: {stars})")
+                print(f"  STATUS: FAIL (missing ranking metadata)")
                 all_pass = False
+
         else:
             print(f"  WARNING: No results (may be API issue)")
     except Exception as e:

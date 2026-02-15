@@ -1,8 +1,9 @@
 ENGINE_CAPS = {
     "software": 100,
-    "business": 85,
-    "social": 80,
-    "generic": 60,
+    # Suspended engines (kept for reference, no longer routed to):
+    # "business": 85,
+    # "social": 80,
+    # "generic": 60,
 }
 
 

@@ -70,6 +70,15 @@ class Config:
     LLM_FALLBACK_PROVIDER = os.getenv("LLM_FALLBACK_PROVIDER", "openai")
 
     # =========================================================
+    # Demo Mode (for fast presentation/demo)
+    # =========================================================
+    # When enabled: skips novelty analysis, runs single LLM pass, reduces retrieval
+    DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() in ("1", "true", "yes")
+    # In demo mode, demo LLM settings override production defaults
+    DEMO_LLM_TIMEOUT_SECONDS = int(os.getenv("DEMO_LLM_TIMEOUT_SECONDS", 45))  # Shorter timeout for demo
+    DEMO_LLM_MAX_RETRIES = int(os.getenv("DEMO_LLM_MAX_RETRIES", 1))  # Fail fast in demo
+
+    # =========================================================
     # Idea Generation Safety Controls
     # =========================================================
     # Limits how much context the LLM ever sees
@@ -77,7 +86,8 @@ class Config:
     MAX_SOURCES_FOR_LLM = int(os.getenv("MAX_SOURCES_FOR_LLM", 8))
 
     # Minimum number of validated sources required
-    MIN_EVIDENCE_REQUIRED = int(os.getenv("MIN_EVIDENCE_REQUIRED", 3))
+    # Lowered to 1 to accept more ideas while still having at least some evidence
+    MIN_EVIDENCE_REQUIRED = int(os.getenv("MIN_EVIDENCE_REQUIRED", 1))
 
     # =========================================================
     # Observability / Logging
@@ -109,6 +119,19 @@ class Config:
     ENABLE_AI_PIPELINES = os.getenv(
         "ENABLE_AI_PIPELINES", "v2"
     ).split(",")
+
+    # =========================================================
+    # Demo Mode Helper
+    # =========================================================
+    @staticmethod
+    def get_llm_timeout() -> int:
+        """Returns appropriate LLM timeout based on mode."""
+        return Config.DEMO_LLM_TIMEOUT_SECONDS if Config.DEMO_MODE else Config.LLM_TIMEOUT_SECONDS
+
+    @staticmethod
+    def get_llm_max_retries() -> int:
+        """Returns appropriate LLM max retries based on mode."""
+        return Config.DEMO_LLM_MAX_RETRIES if Config.DEMO_MODE else Config.LLM_MAX_RETRIES
 
     # =========================================================
     # Helpers

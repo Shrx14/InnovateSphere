@@ -78,8 +78,6 @@ def admin_get_bias_breakdown(idea_id):
     }), 200
 
 
-@admin_bp.route("/api/admin/ideas/quality-review", methods=["GET"])
-
 @admin_bp.route("/api/admin/ideas/<int:idea_id>/generation-trace", methods=["GET"])
 @jwt_required()
 def admin_get_generation_trace(idea_id):
@@ -145,6 +143,7 @@ def admin_get_generation_trace(idea_id):
         }
     }), 200
 
+@admin_bp.route("/api/admin/ideas/quality-review", methods=["GET"])
 @jwt_required()
 def admin_quality_review():
     """

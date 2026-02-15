@@ -253,13 +253,13 @@ const GeneratePage = () => {
               </div>
               <div className="glass-card p-4 text-center">
                 <div className="text-3xl font-bold text-purple-400 mb-2">
-                  {(generatedIdea.novelty_score / 10).toFixed(1)}
+                  {typeof generatedIdea.novelty_score === 'number' ? (generatedIdea.novelty_score / 10).toFixed(1) : 'N/A'}
                 </div>
                 <p className="text-xs text-neutral-500">Novelty Score</p>
               </div>
               <div className="glass-card p-4 text-center">
                 <div className="text-3xl font-bold text-pink-400 mb-2">
-                  {(generatedIdea.quality_score / 10).toFixed(1)}
+                  {typeof generatedIdea.quality_score === 'number' ? (generatedIdea.quality_score / 10).toFixed(1) : 'N/A'}
                 </div>
                 <p className="text-xs text-neutral-500">Quality Score</p>
               </div>

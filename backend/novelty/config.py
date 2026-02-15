@@ -14,27 +14,53 @@ COMMODITY_PATTERNS = GENERIC_IDEAS + [
     "landing page", "admin panel", "authentication"
 ]
 
+# Updated to match the 10-domain model
+# Keys are stored in original case - lookups should match case
 SIMILARITY_THRESHOLDS = {
-    "web development": 0.35,     # Lower: diverse web ideas
-    "ai tools": 0.45,            # Medium: AI is more focused  
-    "blockchain": 0.48,          # Medium-high: specific domain
-    "research": 0.52,            # Higher: research is specialized
-    "data science": 0.45,        # Medium: diverse data applications
-    "cybersecurity": 0.50,       # Medium-high: domain specific
-    "iot": 0.40,                 # Lower: diverse IoT applications
-    "business": 0.50,            # Medium: business ideas have patterns
+    "AI & Machine Learning": 0.45,
+    "ai & machine learning": 0.45,
+    "Web & Mobile Development": 0.35,
+    "web & mobile development": 0.35,
+    "Data Science & Analytics": 0.42,
+    "data science & analytics": 0.42,
+    "Cybersecurity & Privacy": 0.50,
+    "cybersecurity & privacy": 0.50,
+    "Cloud & DevOps": 0.48,
+    "cloud & devops": 0.48,
+    "Blockchain & Web3": 0.52,
+    "blockchain & web3": 0.52,
+    "IoT & Hardware": 0.40,
+    "iot & hardware": 0.40,
+    "Healthcare & Biotech": 0.55,
+    "healthcare & biotech": 0.55,
+    "Education & E-Learning": 0.45,
+    "education & e-learning": 0.45,
+    "Business & Productivity Tools": 0.50,
+    "business & productivity tools": 0.50,
 }
 
 DOMAIN_NOVELTY_WEIGHT = {
-    "web development": 1.0,
-    "ai tools": 1.15,
-    "blockchain": 1.1,
-    "research": 1.2,
+    "AI & Machine Learning": 1.2,
+    "Web & Mobile Development": 0.95,
+    "Data Science & Analytics": 1.1,
+    "Cybersecurity & Privacy": 1.15,
+    "Cloud & DevOps": 1.05,
+    "Blockchain & Web3": 1.25,
+    "IoT & Hardware": 1.1,
+    "Healthcare & Biotech": 1.3,
+    "Education & E-Learning": 1.05,
+    "Business & Productivity Tools": 0.9,
 }
 
 DOMAIN_MATURITY = {
-    "web development": "mature",
-    "ai tools": "emerging",
-    "blockchain": "emerging",
-    "quantum computing": "nascent",
+    "AI & Machine Learning": "emerging",
+    "Web & Mobile Development": "mature",
+    "Data Science & Analytics": "mature",
+    "Cybersecurity & Privacy": "mature",
+    "Cloud & DevOps": "mature",
+    "Blockchain & Web3": "emerging",
+    "IoT & Hardware": "growing",
+    "Healthcare & Biotech": "growing",
+    "Education & E-Learning": "growing",
+    "Business & Productivity Tools": "mature",
 }

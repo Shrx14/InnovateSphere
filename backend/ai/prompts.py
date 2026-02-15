@@ -236,3 +236,95 @@ PASS4_PROMPT_TEMPLATE = (
     _ACTIVE.get("PASS4_PROMPT_TEMPLATE")
     if _ACTIVE else DEFAULT_PASS4_PROMPT_TEMPLATE
 )
+
+# Problem class extraction prompt for LLM fallback
+PROBLEM_CLASS_EXTRACTION_PROMPT = """You are an expert at classifying software problems by their fundamental type.
+
+Given a user's project description, determine which problem class it belongs to:
+
+**Problem Classes:**
+- optimization: Resource allocation, scheduling, layout design, cost/efficiency minimization
+- classification: Categorization, labeling, detection, prediction of discrete categories
+- simulation: Modeling systems, prediction engines, forecasting, behavior emulation
+- scheduling: Timetabling, event planning, task sequencing, resource booking
+- anomaly_detection: Finding outliers, fraud detection, pattern deviation
+- nlp: Text processing, language understanding, sentiment analysis, extraction
+- ranking: Sorting, relevance ordering, recommendation, prioritization
+- general: Doesn't fit above categories clearly
+
+**User Project Description:**
+{description}
+
+**Domain:**
+{domain}
+
+Respond in JSON format:
+{{
+  "problem_class": "<one of the classes above>",
+  "confidence": <0.0 to 1.0>,
+  "reasoning": "<1-2 sentences explaining why>"
+}}
+
+Focus on the core problem being solved, not the implementation technology."""
+
+# Direct generation prompt (DEMO MODE - single call instead of multi-pass)
+DEFAULT_DIRECT_GENERATION_SYSTEM = """
+You are an innovative product strategist and architect.
+
+Your task is to create a complete, actionable project idea based on a user query.
+Generate problem statement, technology stack, modules, and key innovations.
+Be specific, practical, and grounded in realistic implementation.
+"""
+
+DEFAULT_DIRECT_GENERATION_PROMPT_TEMPLATE = """
+User Idea Query: {query}
+
+Domain: {domain}
+
+Create a complete project idea with the following JSON structure:
+
+{{
+  "problem_statement": "Clear, specific problem this idea solves. 1-2 sentences.",
+  "problem_context": "Why this problem matters and current gaps in solutions.",
+  "tech_stack": [
+    {{
+      "component": "Component name (e.g., Backend, Frontend, Database)",
+      "technologies": ["tech1", "tech2"],
+      "rationale": "Why these technologies were chosen"
+    }}
+  ],
+  "modules": [
+    {{
+      "name": "Module name",
+      "responsibility": "What this module does",
+      "key_features": ["feature1", "feature2"]
+    }}
+  ],
+  "key_innovations": [
+    "Innovation 1: How this idea differs from existing solutions",
+    "Innovation 2: Novel approach or technique"
+  ],
+  "implementation_complexity": "low | medium | high",
+  "estimated_timeline_weeks": "<number>",
+  "team_size_recommendation": "<number>",
+  "success_metrics": ["metric1", "metric2"],
+  "potential_risks": ["risk1", "risk2"]
+}}
+
+Rules:
+- Output ONLY valid JSON
+- No markdown, no explanations, no code blocks
+- Be specific and actionable
+- Modules should be implementable
+- Tech stack should be realistic and justified
+"""
+
+DIRECT_GENERATION_SYSTEM = (
+    _ACTIVE.get("DIRECT_GENERATION_SYSTEM")
+    if _ACTIVE else DEFAULT_DIRECT_GENERATION_SYSTEM
+)
+
+DIRECT_GENERATION_PROMPT_TEMPLATE = (
+    _ACTIVE.get("DIRECT_GENERATION_PROMPT_TEMPLATE")
+    if _ACTIVE else DEFAULT_DIRECT_GENERATION_PROMPT_TEMPLATE
+)

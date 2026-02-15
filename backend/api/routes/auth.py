@@ -37,9 +37,10 @@ def login():
             "error": "Invalid email or password"
         }), 401
 
-    # Determine user role - for now, default to "user" unless it's the admin account
-    user_role = "user"
-    if user.email == "admin@example.com":
+    # Determine user role from the database role column
+    user_role = user.role or "user"
+    # Legacy fallback: if no role column yet, check known admin email
+    if user_role == "user" and user.email == "admin@example.com":
         user_role = "admin"
 
     # Generate JWT token with user ID and role
