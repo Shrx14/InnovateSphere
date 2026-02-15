@@ -2,7 +2,7 @@ import AdminNav from "./AdminNav";
 
 const AdminShell = ({ children }) => {
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-200">
+    <div className="min-h-screen bg-neutral-950 text-neutral-200">
       <AdminNav />
 
       <main className="px-6 py-6 max-w-7xl mx-auto">

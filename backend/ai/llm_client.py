@@ -2,6 +2,7 @@ import json
 import logging
 import time
 import uuid
+import threading
 import requests
 from typing import Dict, Any, Optional
 
@@ -9,6 +10,15 @@ from backend.core.config import Config
 
 
 logger = logging.getLogger(__name__)
+
+# Cached Ollama health status (thread-safe)
+_ollama_health_cache = {"healthy": None, "checked_at": 0.0}
+_ollama_health_lock = threading.Lock()
+_OLLAMA_HEALTH_TTL = 30  # seconds
+
+# Reusable OpenAI client
+_openai_client = None
+_openai_client_lock = threading.Lock()
 
 
 class TransientLLMError(RuntimeError):
@@ -75,16 +85,25 @@ def generate_json(
 def _check_ollama_health() -> bool:
     """
     Quick health check: attempt lightweight model listing.
-    Returns True if Ollama is reachable.
+    Returns True if Ollama is reachable. Caches result for 30s.
     """
+    now = time.monotonic()
+    with _ollama_health_lock:
+        if (_ollama_health_cache["healthy"] is not None
+                and now - _ollama_health_cache["checked_at"] < _OLLAMA_HEALTH_TTL):
+            return _ollama_health_cache["healthy"]
     try:
         resp = requests.get(
             f"{Config.OLLAMA_BASE_URL}/api/tags",
             timeout=getattr(Config, "OLLAMA_HEALTH_TIMEOUT", 2),
         )
-        return resp.status_code == 200
+        healthy = resp.status_code == 200
     except Exception:
-        return False
+        healthy = False
+    with _ollama_health_lock:
+        _ollama_health_cache["healthy"] = healthy
+        _ollama_health_cache["checked_at"] = time.monotonic()
+    return healthy
 
 
 def _generate_ollama(
@@ -110,6 +129,7 @@ def _generate_ollama(
         "options": {
             "temperature": temperature,
             "num_predict": max_tokens,
+            "num_ctx": 2048,
         },
     }
 
@@ -223,7 +243,11 @@ def _generate_openai(
     if not Config.OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is not set")
 
-    client = openai.OpenAI(api_key=Config.OPENAI_API_KEY)
+    global _openai_client
+    with _openai_client_lock:
+        if _openai_client is None:
+            _openai_client = openai.OpenAI(api_key=Config.OPENAI_API_KEY)
+        client = _openai_client
 
     # Use the same strict JSON wrapping as local models to increase parity
     wrapped_prompt = _wrap_json_prompt(prompt)
@@ -233,7 +257,7 @@ def _generate_openai(
     for attempt in range(max_retries + 1):
         try:
             resp = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=getattr(Config, "OPENAI_MODEL_NAME", "gpt-4o-mini"),
                 messages=[
                     {
                         "role": "system",

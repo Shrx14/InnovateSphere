@@ -12,6 +12,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from backend.core.db import db
 from backend.core.models import User, TokenBlocklist
 from backend.core.config import Config
+from backend.core.app import limiter
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -37,7 +38,11 @@ def login():
     user = User.query.filter_by(email=email.lower()).first()
 
     # Verify user exists and password is correct
-    if not user or not check_password_hash(user.password_hash, password):
+    try:
+        password_valid = user and check_password_hash(user.password_hash, password)
+    except (ValueError, TypeError):
+        password_valid = False
+    if not password_valid:
         return jsonify({
             "error": "Invalid email or password"
         }), 401
@@ -48,6 +53,12 @@ def login():
     if user_role == "user" and user.email == "admin@example.com":
         user_role = "admin"
 
+    import logging as _logging
+    _logging.getLogger(__name__).info(
+        "[LOGIN] user_id=%s email=%s db_role=%r resolved_role=%s",
+        user.id, user.email, user.role, user_role
+    )
+
     # Generate JWT token with user ID and role
     additional_claims = {
         "role": user_role,
@@ -55,11 +66,11 @@ def login():
         "preferred_domain_id": user.preferred_domain_id
     }
     token = create_access_token(
-        identity=user.id,
+        identity=str(user.id),
         additional_claims=additional_claims
     )
     refresh_token = create_refresh_token(
-        identity=user.id,
+        identity=str(user.id),
         additional_claims={"role": user_role}
     )
 
@@ -109,6 +120,7 @@ def refresh():
 
 
 @auth_bp.route("/api/register", methods=["POST"])
+@limiter.limit("5 per minute")
 def register():
     """
     User registration endpoint.
@@ -172,7 +184,7 @@ def register():
 
         # Generate JWT token
         token = create_access_token(
-            identity=new_user.id,
+            identity=str(new_user.id),
             additional_claims={
                 "role": "user",
                 "email": new_user.email,
@@ -180,7 +192,7 @@ def register():
             }
         )
         refresh_token = create_refresh_token(
-            identity=new_user.id,
+            identity=str(new_user.id),
             additional_claims={"role": "user"}
         )
 

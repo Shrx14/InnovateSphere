@@ -1,3 +1,4 @@
+import React, { Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import AdminShell from "./features/admin/components/AdminShell";
@@ -9,22 +10,26 @@ import { AuthProvider } from "./context/AuthContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Toaster } from "./components/ui/Toaster";
 
-/* Admin Pages */
-import AdminReviewQueue from "./features/admin/pages/AdminReviewQueue";
-import AdminIdeaDetail from "./features/admin/pages/AdminIdeaDetail";
-import AdminAnalytics from "./features/admin/pages/AdminAnalytics";
-import AdminAbuseEvents from "./features/admin/pages/AdminAbuseEvents";
+/* Route-level code splitting with React.lazy */
+const AdminReviewQueue = React.lazy(() => import("./features/admin/pages/AdminReviewQueue"));
+const AdminIdeaDetail = React.lazy(() => import("./features/admin/pages/AdminIdeaDetail"));
+const AdminAnalytics = React.lazy(() => import("./features/admin/pages/AdminAnalytics"));
+const AdminAbuseEvents = React.lazy(() => import("./features/admin/pages/AdminAbuseEvents"));
+const LandingPage = React.lazy(() => import("./features/landing/pages/LandingPage"));
+const ExplorePage = React.lazy(() => import("./features/explore/pages/ExplorePage"));
+const UserDashboard = React.lazy(() => import("./features/dashboard/pages/UserDashboard"));
+const LoginPage = React.lazy(() => import("./features/auth/pages/LoginPage"));
+const RegisterPage = React.lazy(() => import("./features/auth/pages/RegisterPage"));
+const IdeaDetail = React.lazy(() => import("./features/idea/pages/IdeaDetail"));
+const GeneratePage = React.lazy(() => import("./features/generate/pages/GeneratePage"));
+const NoveltyPage = React.lazy(() => import("./features/novelty/pages/NoveltyPage"));
+const MyIdeasPage = React.lazy(() => import("./features/novelty/pages/MyIdeasPage"));
 
-/* User Pages */
-import LandingPage from "./features/landing/pages/LandingPage";
-import ExplorePage from "./features/explore/pages/ExplorePage";
-import UserDashboard from "./features/dashboard/pages/UserDashboard";
-import LoginPage from "./features/auth/pages/LoginPage";
-import RegisterPage from "./features/auth/pages/RegisterPage";
-import IdeaDetail from "./features/idea/pages/IdeaDetail";
-import GeneratePage from "./features/generate/pages/GeneratePage";
-import NoveltyPage from "./features/novelty/pages/NoveltyPage";
-import MyIdeasPage from "./features/novelty/pages/MyIdeasPage";
+const RouteFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-neutral-950">
+    <div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+  </div>
+);
 
 const NotFoundPage = () => (
   <div className="min-h-screen flex items-center justify-center bg-neutral-950 px-6">
@@ -44,6 +49,7 @@ const App = () => {
     <BrowserRouter>
       <AuthProvider>
         <ErrorBoundary>
+        <Suspense fallback={<RouteFallback />}>
         <Routes>
 
 
@@ -98,6 +104,7 @@ const App = () => {
         />
 
         </Routes>
+        </Suspense>
         <Toaster />
         </ErrorBoundary>
       </AuthProvider>

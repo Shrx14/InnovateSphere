@@ -19,6 +19,49 @@ logger = logging.getLogger(__name__)
 from backend.retrieval.orchestrator import retrieve_sources
 from backend.semantic.filter import filter_by_semantic_similarity
 
+
+def _get_domain_threshold(domain_name: str, cap: float = 0.4) -> float:
+    """Get the similarity threshold for a domain, capped at `cap`."""
+    from backend.novelty.config import SIMILARITY_THRESHOLDS
+    return min(SIMILARITY_THRESHOLDS.get(domain_name.lower(), 0.6), cap)
+
+
+def _filter_with_fallback(
+    query: str,
+    raw_sources: list,
+    threshold: float,
+    min_required: int | None = None,
+) -> list:
+    """Apply semantic filtering with progressive fallback.
+
+    Tries the given *threshold* first, then halves it repeatedly (down to 0.1)
+    until at least *min_required* sources survive filtering.  Falls back to the
+    full *raw_sources* list if all thresholds fail.
+    """
+    if min_required is None:
+        min_required = getattr(Config, "MIN_EVIDENCE_REQUIRED", 2)
+
+    filtered = filter_by_semantic_similarity(query, raw_sources, threshold)
+
+    fallback_thresholds = [max(0.2, threshold / 2), 0.2, 0.1]
+    for fb in fallback_thresholds:
+        if len(filtered) >= min_required or len(raw_sources) < min_required:
+            break
+        logger.info(
+            "Progressive fallback: %d/%d sources, retrying at threshold=%.2f",
+            len(filtered), len(raw_sources), fb,
+        )
+        filtered = filter_by_semantic_similarity(query, raw_sources, fb)
+
+    if not filtered:
+        logger.warning(
+            "Semantic filter exhausted all fallbacks — using all %d raw sources",
+            len(raw_sources),
+        )
+        filtered = raw_sources
+
+    return filtered
+
 from backend.semantic.ranker import rank_sources
 
 # Novelty analysis - required dependency
@@ -370,14 +413,8 @@ def generate_hybrid(
             return {"error": "No sources found for topic. Please try a different topic."}
 
         # Semantic filter with progressive fallback
-        from backend.novelty.config import SIMILARITY_THRESHOLDS
-        threshold = min(SIMILARITY_THRESHOLDS.get(domain.name.lower(), 0.6), 0.4)
-        filtered = filter_by_semantic_similarity(query, raw_sources, threshold)
-
-        if len(filtered) < Config.MIN_EVIDENCE_REQUIRED and len(raw_sources) >= Config.MIN_EVIDENCE_REQUIRED:
-            filtered = filter_by_semantic_similarity(query, raw_sources, max(0.15, threshold / 2))
-        if not filtered:
-            filtered = raw_sources
+        threshold = _get_domain_threshold(domain.name, cap=0.4)
+        filtered = _filter_with_fallback(query, raw_sources, threshold)
 
         ranked = rank_sources(filtered)
         if not ranked:
@@ -481,7 +518,7 @@ def generate_hybrid(
         prompt_len = len(HYBRID_PASS2_SYSTEM + pass2_body)
         logger.info("[HYBRID] Pass 2 prompt length: %d chars", prompt_len)
 
-        idea_raw = generate_json(HYBRID_PASS2_SYSTEM + pass2_body, max_tokens=1500, temperature=0.3)
+        idea_raw = generate_json(HYBRID_PASS2_SYSTEM + pass2_body, max_tokens=1000, temperature=0.3)
 
     except TransientLLMError as e:
         logger.error("[HYBRID] LLM transient error: %s", e)
@@ -894,8 +931,7 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
             return {"error": "No sources found for topic. Please try a different topic."}
         
         # Use domain-specific similarity threshold, or fall back to unfiltered sources
-        from backend.novelty.config import SIMILARITY_THRESHOLDS
-        threshold = SIMILARITY_THRESHOLDS.get(domain.name.lower(), 0.6)
+        threshold = _get_domain_threshold(domain.name, cap=0.4)
         
         raw_sources = retrieved.get("sources", [])
         
@@ -904,54 +940,7 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
             logger.info(f"[DEMO MODE] Skipping semantic filter, using all {len(raw_sources)} retrieved sources")
             filtered = raw_sources
         else:
-            # Use domain-appropriate threshold but don't cap too aggressively
-            threshold = min(threshold, 0.4)  # Cap threshold at 0.4 to balance inclusivity with relevance
-            filtered = filter_by_semantic_similarity(query, raw_sources, threshold)
-        
-        # Log initial filter attempt (production mode only)
-        if not Config.DEMO_MODE and filtered:
-            scores = [s.get("similarity_score", 0) for s in filtered]
-            logger.info(f"Semantic filter (attempt 1): {len(filtered)}/{len(raw_sources)} sources passed threshold={threshold}, scores={scores[:5]}...")
-        else:
-            logger.warning(f"Semantic filter (attempt 1) removed ALL {len(raw_sources)} sources at threshold={threshold}")
-            
-            # Progressive fallback: retry with lower thresholds if we don't have enough sources
-            # This gracefully degrades quality rather than failing hard
-            # Start with more aggressive fallback to ensure we get results
-            if len(filtered) < Config.MIN_EVIDENCE_REQUIRED and len(raw_sources) >= Config.MIN_EVIDENCE_REQUIRED:
-                logger.info(f"Progressive fallback: filtered sources {len(filtered)} < {Config.MIN_EVIDENCE_REQUIRED} required, retrying with lower threshold")
-                # More aggressive: divide threshold by 2
-                fallback_threshold_1 = max(0.2, threshold / 2)
-                filtered = filter_by_semantic_similarity(query, raw_sources, fallback_threshold_1)
-                if filtered:
-                    scores = [s.get("similarity_score", 0) for s in filtered]
-                    logger.info(f"Semantic filter (attempt 2): {len(filtered)}/{len(raw_sources)} sources passed threshold={fallback_threshold_1}, scores={scores[:5]}...")
-            
-            # Second fallback: even lower threshold
-            if len(filtered) < Config.MIN_EVIDENCE_REQUIRED and len(raw_sources) >= Config.MIN_EVIDENCE_REQUIRED:
-                logger.info(f"Progressive fallback 2: filtered sources {len(filtered)} < {Config.MIN_EVIDENCE_REQUIRED} required, retrying with even lower threshold")
-                # Very low threshold (0.2 or lower)
-                fallback_threshold_2 = 0.2
-                filtered = filter_by_semantic_similarity(query, raw_sources, fallback_threshold_2)
-                if filtered:
-                    scores = [s.get("similarity_score", 0) for s in filtered]
-                    logger.info(f"Semantic filter (attempt 3): {len(filtered)}/{len(raw_sources)} sources passed threshold={fallback_threshold_2}, scores={scores[:5]}...")
-            
-            # Third fallback: minimal threshold to catch something
-            if len(filtered) < Config.MIN_EVIDENCE_REQUIRED and len(raw_sources) >= Config.MIN_EVIDENCE_REQUIRED:
-                logger.info(f"Progressive fallback 3: filtered sources {len(filtered)} < {Config.MIN_EVIDENCE_REQUIRED} required, retrying with minimal threshold")
-                # Minimal threshold (0.1)
-                fallback_threshold_3 = 0.1
-                filtered = filter_by_semantic_similarity(query, raw_sources, fallback_threshold_3)
-                if filtered:
-                    scores = [s.get("similarity_score", 0) for s in filtered]
-                    logger.info(f"Semantic filter (attempt 4): {len(filtered)}/{len(raw_sources)} sources passed threshold={fallback_threshold_3}, scores={scores[:5]}...")
-            
-            # Final fallback: if still no sources, use all retrieved sources
-            # (better to work with less-similar sources than to fail completely)
-            if not filtered:
-                logger.warning(f"Semantic filter exhausted all fallback thresholds. Using all {len(raw_sources)} retrieved sources.")
-                filtered = raw_sources
+            filtered = _filter_with_fallback(query, raw_sources, threshold)
 
         ranked = rank_sources(filtered)
         logger.info(f"Ranking complete: {len(ranked)} sources ranked")

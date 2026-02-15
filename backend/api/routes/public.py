@@ -5,6 +5,7 @@ import logging
 from flask import Blueprint, request, jsonify, session
 from flask_jwt_extended import get_jwt_identity
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload, selectinload
 from backend.core.db import db
 from backend.core.app import cache
 from backend.core.models import ProjectIdea, Domain, AdminVerdict, IdeaView, SearchQuery, ViewEvent, User
@@ -30,6 +31,10 @@ def public_ideas():
 
     query = (
         ProjectIdea.query
+        .options(
+            joinedload(ProjectIdea.domain),
+            joinedload(ProjectIdea.admin_verdict),
+        )
         .outerjoin(AdminVerdict)
         .filter(
             ProjectIdea.is_public.is_(True),
@@ -125,6 +130,11 @@ def public_idea_detail(idea_id):
     """
     idea = (
         ProjectIdea.query
+        .options(
+            joinedload(ProjectIdea.domain),
+            selectinload(ProjectIdea.sources),
+            joinedload(ProjectIdea.admin_verdict),
+        )
         .outerjoin(AdminVerdict)
         .filter(
             ProjectIdea.id == idea_id,
@@ -224,6 +234,10 @@ def public_idea_detail(idea_id):
 def public_top_ideas():
     ideas = (
         ProjectIdea.query
+        .options(
+            joinedload(ProjectIdea.domain),
+            joinedload(ProjectIdea.admin_verdict),
+        )
         .outerjoin(AdminVerdict)
         .filter(
             ProjectIdea.is_public.is_(True),

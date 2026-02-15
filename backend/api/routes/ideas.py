@@ -6,6 +6,7 @@ from flask import Blueprint, request, jsonify, session
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload, selectinload
 from backend.core.db import db
 from backend.core.models import (
     ProjectIdea, IdeaRequest, IdeaFeedback, IdeaReview, IdeaView, AdminVerdict, Domain, GenerationTrace, ViewEvent
@@ -44,7 +45,7 @@ def get_novelty_explanation(idea_id):
         return jsonify({"error": "Access denied. You can only view explanations for your own ideas."}), 403
 
     # Get generation trace
-    trace = GenerationTrace.query.filter_by(idea_id=idea_id).first()
+    trace = db.session.query(GenerationTrace).filter_by(idea_id=idea_id).first()
     
     # Extract comprehensive signal breakdown
     signal_breakdown = {}
@@ -197,6 +198,10 @@ def my_ideas():
 
     query = (
         db.session.query(ProjectIdea)
+        .options(
+            joinedload(ProjectIdea.domain),
+            joinedload(ProjectIdea.admin_verdict),
+        )
         .join(IdeaRequest, IdeaRequest.idea_id == ProjectIdea.id)
         .join(Domain, Domain.id == ProjectIdea.domain_id)
         .outerjoin(AdminVerdict)
@@ -246,7 +251,14 @@ def authenticated_idea_detail(idea_id):
     if not user_id:
         return jsonify({"error": "Authentication required"}), 401
 
-    idea = ProjectIdea.query.get(idea_id)
+    idea = ProjectIdea.query.options(
+        joinedload(ProjectIdea.domain),
+        selectinload(ProjectIdea.sources),
+        selectinload(ProjectIdea.feedbacks),
+        selectinload(ProjectIdea.reviews),
+        joinedload(ProjectIdea.admin_verdict),
+        selectinload(ProjectIdea.requests),
+    ).get(idea_id)
     if not idea:
         return jsonify({"error": "Idea not found"}), 404
 

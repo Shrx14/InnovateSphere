@@ -74,13 +74,15 @@ const RegisterPage = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Email Input */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-neutral-300">
+                <label htmlFor="reg-email" className="block text-sm font-medium text-neutral-300">
                   Email
                 </label>
                 <input
+                  id="reg-email"
                   name="email"
                   type="email"
                   required
+                  autoComplete="email"
                   value={form.email}
                   onChange={handleChange}
                   placeholder="your@email.com"
@@ -90,13 +92,15 @@ const RegisterPage = () => {
 
               {/* Username Input */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-neutral-300">
+                <label htmlFor="reg-username" className="block text-sm font-medium text-neutral-300">
                   Username
                 </label>
                 <input
+                  id="reg-username"
                   name="username"
                   type="text"
                   required
+                  autoComplete="username"
                   value={form.username}
                   onChange={handleChange}
                   placeholder="your_username"
@@ -106,10 +110,11 @@ const RegisterPage = () => {
 
               {/* Skill Level Select */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-neutral-300">
+                <label htmlFor="reg-skill" className="block text-sm font-medium text-neutral-300">
                   Skill Level
                 </label>
                 <select
+                  id="reg-skill"
                   name="skillLevel"
                   value={form.skillLevel}
                   onChange={handleChange}
@@ -124,14 +129,16 @@ const RegisterPage = () => {
 
               {/* Password Input */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-neutral-300">
+                <label htmlFor="reg-password" className="block text-sm font-medium text-neutral-300">
                   Password
                 </label>
                 <div className="relative">
                   <input
+                    id="reg-password"
                     name="password"
                     type={showPassword ? 'text' : 'password'}
                     required
+                    autoComplete="new-password"
                     value={form.password}
                     onChange={handleChange}
                     placeholder="••••••••"
@@ -149,14 +156,16 @@ const RegisterPage = () => {
 
               {/* Confirm Password Input */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-neutral-300">
+                <label htmlFor="reg-confirm" className="block text-sm font-medium text-neutral-300">
                   Confirm Password
                 </label>
                 <div className="relative">
                   <input
+                    id="reg-confirm"
                     name="confirmPassword"
                     type={showConfirm ? 'text' : 'password'}
                     required
+                    autoComplete="new-password"
                     value={form.confirmPassword}
                     onChange={handleChange}
                     placeholder="••••••••"

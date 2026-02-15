@@ -106,7 +106,7 @@ def create_app(test_config=None):
                     "pool_pre_ping": True,
                     "pool_size": 5,
                     "max_overflow": 10,
-                    "pool_recycle": 300,
+                    "pool_recycle": 60,
                     "pool_timeout": 30,
                 }
             else:
@@ -164,13 +164,14 @@ def create_app(test_config=None):
     register_blueprints(app)
 
     # Graceful shutdown: wait for background threads to complete
-    @app.teardown_appcontext
-    def shutdown_threads(exception=None):
+    import atexit
+    def shutdown_threads():
         from backend.api.routes.generation import wait_for_active_threads
         try:
             wait_for_active_threads(timeout_seconds=300)
         except Exception as e:
             logging.error(f"Error during graceful shutdown of background threads: {e}")
+    atexit.register(shutdown_threads)
 
     return app
 

@@ -1,7 +1,10 @@
 """
 Authentication utilities for the backend.
 """
+import logging
 from flask_jwt_extended import get_jwt, get_jwt_identity
+
+_logger = logging.getLogger(__name__)
 
 
 def require_admin():
@@ -10,7 +13,13 @@ def require_admin():
     Returns True if admin, False otherwise.
     """
     claims = get_jwt()
-    return claims.get("role") == "admin"
+    is_admin = claims.get("role") == "admin"
+    if not is_admin:
+        _logger.warning(
+            "[AUTH] require_admin DENIED — jwt sub=%s role=%r (expected 'admin')",
+            claims.get("sub"), claims.get("role"),
+        )
+    return is_admin
 
 
 def get_current_user_id():

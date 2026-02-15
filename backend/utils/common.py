@@ -1,6 +1,32 @@
 """
 Common utility functions used across the backend.
 """
+import logging
+from functools import wraps
+from sqlalchemy.exc import OperationalError, DisconnectionError
+
+logger = logging.getLogger(__name__)
+
+
+def db_retry(max_attempts=2):
+    """Decorator that retries a Flask view on stale DB connections (Neon serverless)."""
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            from backend.core.db import db
+            for attempt in range(max_attempts):
+                try:
+                    return f(*args, **kwargs)
+                except (OperationalError, DisconnectionError) as exc:
+                    db.session.rollback()
+                    if attempt < max_attempts - 1:
+                        logger.warning("DB connection error in %s (attempt %d), retrying: %s", f.__name__, attempt + 1, exc)
+                        continue
+                    logger.error("DB connection error in %s after %d attempts: %s", f.__name__, max_attempts, exc)
+                    raise
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 def truncate_source_for_prompt(source, max_title=100, max_summary=200):

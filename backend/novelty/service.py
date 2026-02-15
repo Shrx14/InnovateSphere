@@ -1,20 +1,25 @@
 """Novelty analysis service - consolidated from services/novelty_service.py"""
 import hashlib
 import logging
+import threading
 from functools import lru_cache
 
 _analyzer = None
+_analyzer_lock = threading.Lock()
 _novelty_cache = {}  # Simple TTL cache: key -> (result, expiry_ts)
+_cache_lock = threading.Lock()
 
 logger = logging.getLogger(__name__)
 
 
 def _get_analyzer():
-    """Lazy-load analyzer only when needed"""
+    """Lazy-load analyzer only when needed (thread-safe)"""
     global _analyzer
     if _analyzer is None:
-        from backend.novelty.analyzer import NoveltyAnalyzer
-        _analyzer = NoveltyAnalyzer()
+        with _analyzer_lock:
+            if _analyzer is None:
+                from backend.novelty.analyzer import NoveltyAnalyzer
+                _analyzer = NoveltyAnalyzer()
     return _analyzer
 
 
@@ -53,13 +58,15 @@ def analyze_novelty(description: str, domain: str, bypass_cache: bool = False) -
     """
     import time
 
-    # Check cache (10 min TTL)
+    # Check cache (10 min TTL) — thread-safe
     key = _cache_key(description, domain)
-    if not bypass_cache and key in _novelty_cache:
-        cached_result, expiry = _novelty_cache[key]
-        if time.time() < expiry:
-            logger.debug("Novelty cache hit for %s", key[:12])
-            return cached_result
+    if not bypass_cache:
+        with _cache_lock:
+            if key in _novelty_cache:
+                cached_result, expiry = _novelty_cache[key]
+                if time.time() < expiry:
+                    logger.debug("Novelty cache hit for %s", key[:12])
+                    return cached_result
 
     # Route through domain intent detection
     try:
@@ -88,14 +95,15 @@ def analyze_novelty(description: str, domain: str, bypass_cache: bool = False) -
         "problem_class_confidence": round(pc_confidence, 2) if pc_confidence else 0.0,
     }
 
-    # Store in cache (10 min TTL)
-    _novelty_cache[key] = (result, time.time() + 600)
+    # Store in cache (10 min TTL) — thread-safe
+    with _cache_lock:
+        _novelty_cache[key] = (result, time.time() + 600)
 
-    # Evict stale entries if cache grows too large
-    if len(_novelty_cache) > 200:
-        now = time.time()
-        stale = [k for k, (_, exp) in _novelty_cache.items() if now >= exp]
-        for k in stale:
-            del _novelty_cache[k]
+        # Evict stale entries if cache grows too large
+        if len(_novelty_cache) > 200:
+            now = time.time()
+            stale = [k for k, (_, exp) in _novelty_cache.items() if now >= exp]
+            for k in stale:
+                del _novelty_cache[k]
 
     return result

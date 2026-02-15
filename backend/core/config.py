@@ -26,6 +26,28 @@ class Config:
     JWT_EXP_SECONDS = int(os.getenv("JWT_EXP_SECONDS", 3600))
     JWT_REFRESH_EXP_SECONDS = int(os.getenv("JWT_REFRESH_EXP_SECONDS", 86400 * 7))  # 7 days
 
+    @staticmethod
+    def validate_security():
+        """Raise if insecure default secrets are used outside demo mode."""
+        import logging as _log
+        logger = _log.getLogger(__name__)
+        insecure_defaults = {"dev-secret-key", "dev-jwt-secret"}
+        if not Config.DEMO_MODE:
+            if Config.SECRET_KEY in insecure_defaults:
+                logger.critical("SECURITY: SECRET_KEY is using insecure default! Set a strong SECRET_KEY in .env")
+                if not Config.HYBRID_MODE:  # Hard fail in production only
+                    raise RuntimeError(
+                        "SECRET_KEY is set to the insecure default 'dev-secret-key'. "
+                        "Set a strong SECRET_KEY in your .env file before running in production."
+                    )
+            if Config.JWT_SECRET in insecure_defaults:
+                logger.critical("SECURITY: JWT_SECRET is using insecure default! Set a strong JWT_SECRET in .env")
+                if not Config.HYBRID_MODE:
+                    raise RuntimeError(
+                        "JWT_SECRET is set to the insecure default 'dev-jwt-secret'. "
+                        "Set a strong JWT_SECRET in your .env file before running in production."
+                    )
+
     # =========================================================
     # Embeddings (semantic filtering & similarity)
     # =========================================================
@@ -193,6 +215,7 @@ class Config:
     def log_config_startup():
         import logging
         logger = logging.getLogger(__name__)
+        Config.validate_security()
         logger.info(
            "Config loaded | MODE=%s | LLM_PROVIDER=%s | LLM_MODEL=%s | EMBEDDING_MODEL=%s",
             Config.get_active_mode(),

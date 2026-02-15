@@ -5,12 +5,13 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload, selectinload
 from backend.core.db import db
 from backend.core.models import (
     ProjectIdea, IdeaFeedback, IdeaSource, AdminVerdict, Domain, GenerationTrace
 )
 from backend.novelty.explain import generate_detailed_explanation
-from backend.utils import require_admin, get_current_user_id, serialize_public_idea, serialize_full_idea
+from backend.utils import require_admin, get_current_user_id, serialize_public_idea, serialize_full_idea, db_retry
 from backend.ai.registry import get_active_bias_profile
 
 admin_bp = Blueprint("admin", __name__)
@@ -29,7 +30,7 @@ def admin_get_bias_breakdown(idea_id):
     if not idea:
         return jsonify({"error": "Idea not found"}), 404
 
-    trace = GenerationTrace.query.filter_by(idea_id=idea_id).first()
+    trace = db.session.query(GenerationTrace).filter_by(idea_id=idea_id).first()
     if not trace:
         return jsonify({"error": "Generation trace not found for this idea"}), 404
 
@@ -93,7 +94,7 @@ def admin_get_generation_trace(idea_id):
     if not idea:
         return jsonify({"error": "Idea not found"}), 404
 
-    trace = GenerationTrace.query.filter_by(idea_id=idea_id).first()
+    trace = db.session.query(GenerationTrace).filter_by(idea_id=idea_id).first()
     if not trace:
         return jsonify({"error": "Generation trace not found for this idea"}), 404
 
@@ -145,6 +146,7 @@ def admin_get_generation_trace(idea_id):
 
 @admin_bp.route("/api/admin/ideas/quality-review", methods=["GET"])
 @jwt_required()
+@db_retry()
 def admin_quality_review():
     """
     Admin review queue for ideas needing governance.
@@ -158,7 +160,13 @@ def admin_quality_review():
     except ValueError:
         return jsonify({"error": "page and limit must be valid integers"}), 400
 
-    query = ProjectIdea.query.filter(
+    query = ProjectIdea.query.options(
+        joinedload(ProjectIdea.domain),
+        selectinload(ProjectIdea.feedbacks),
+        selectinload(ProjectIdea.sources),
+        selectinload(ProjectIdea.reviews),
+        joinedload(ProjectIdea.admin_verdict),
+    ).filter(
         db.or_(
             ProjectIdea.id.in_(
                 db.session.query(IdeaFeedback.idea_id).filter(
@@ -212,7 +220,14 @@ def admin_idea_detail(idea_id):
     if not require_admin():
         return jsonify({"error": "Admin access required"}), 403
 
-    idea = ProjectIdea.query.get(idea_id)
+    idea = ProjectIdea.query.options(
+        joinedload(ProjectIdea.domain),
+        selectinload(ProjectIdea.feedbacks),
+        selectinload(ProjectIdea.sources),
+        selectinload(ProjectIdea.reviews),
+        joinedload(ProjectIdea.admin_verdict),
+        selectinload(ProjectIdea.requests),
+    ).get(idea_id)
     if not idea:
         return jsonify({"error": "Idea not found"}), 404
 
@@ -320,6 +335,7 @@ def admin_verdict(idea_id):
 
 @admin_bp.route("/api/admin/abuse-events", methods=["GET"])
 @jwt_required()
+@db_retry()
 def admin_list_abuse_events():
     if not require_admin():
         return jsonify({"error": "Admin access required"}), 403

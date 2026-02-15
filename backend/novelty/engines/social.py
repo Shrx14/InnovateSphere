@@ -19,8 +19,15 @@ class SocialNoveltyEngine:
 
         score = min(score, 80)
 
+        novelty_level = (
+            "High" if score >= 70 else
+            "Medium" if score >= 40 else
+            "Low"
+        )
+
         return {
             "novelty_score": score,
+            "novelty_level": novelty_level,
             "confidence": "High" if signals >= 2 else "Medium",
             "engine": "social",
             "debug": {

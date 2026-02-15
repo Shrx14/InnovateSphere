@@ -1,5 +1,6 @@
 import datetime
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from backend.core.config import Config
 from backend.retrieval.arxiv_client import search_arxiv
 from backend.retrieval.github_client import search_github
@@ -66,12 +67,24 @@ def retrieve_sources(
     else:
         max_per_source = min(limit * 2, 30)  # Increased cap for better discovery
 
-    # Search both sources
-    arxiv_results = search_arxiv(query, domain, max_per_source, problem_class=problem_class)
-    # Ensure we pass fetch_limit explicitly so the GitHub client knows how many
-    # raw results to request per-variation. Also ask for up to `limit` final
-    # candidates from GitHub so the orchestrator can merge and round-robin.
-    github_results = search_github(query, domain, fetch_limit=max_per_source, final_top_n=limit)
+    # Search both sources in parallel for faster retrieval
+    arxiv_results = []
+    github_results = []
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = {
+            executor.submit(search_arxiv, query, domain, max_per_source, problem_class): "arxiv",
+            executor.submit(search_github, query, domain, max_per_source, limit): "github",
+        }
+        for future in as_completed(futures):
+            source_name = futures[future]
+            try:
+                result = future.result(timeout=30)
+                if source_name == "arxiv":
+                    arxiv_results = result
+                else:
+                    github_results = result
+            except Exception as e:
+                logger.warning("[Retrieval] %s search failed: %s", source_name, e)
 
     # In demo/hybrid mode, skip LLM retry fallback — rely on heuristic query relaxation
     if not Config.DEMO_MODE and not Config.HYBRID_MODE:

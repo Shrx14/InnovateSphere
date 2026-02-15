@@ -36,14 +36,16 @@ const AdminAnalytics = () => {
 
     const results = {};
 
-    for (const { key, url } of endpoints) {
-      try {
-        const res = await api.get(url);
-        results[key] = res.data;
-      } catch (error) {
-        console.error(`Failed to fetch ${key}:`, error);
+    // Fetch all endpoints in parallel instead of sequentially
+    const settled = await Promise.allSettled(
+      endpoints.map(({ key, url }) => api.get(url).then(res => ({ key, data: res.data })))
+    );
+
+    for (const result of settled) {
+      if (result.status === 'fulfilled') {
+        results[result.value.key] = result.value.data;
+      } else {
         setPartialError(true);
-        results[key] = key === 'distributions' ? { novelty: [], quality: [] } : [];
       }
     }
 

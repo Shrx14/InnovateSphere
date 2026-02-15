@@ -3,7 +3,7 @@ Shared utilities for the backend.
 """
 from .auth import require_admin, get_current_user_id
 from .serializers import serialize_public_idea, serialize_full_idea
-from .common import map_domain_to_external_category
+from .common import map_domain_to_external_category, db_retry
 from .health_checks import (
     run_startup_checks,
     check_llm,
@@ -17,6 +17,7 @@ __all__ = [
     'serialize_public_idea',
     'serialize_full_idea',
     'map_domain_to_external_category',
+    'db_retry',
     'run_startup_checks',
     'check_llm',
     'check_embeddings',
