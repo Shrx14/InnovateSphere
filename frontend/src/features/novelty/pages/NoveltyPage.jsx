@@ -1,17 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../lib/api';
+import SourcesList from '../components/SourcesList';
 
 const NoveltyPage = () => {
   const { user } = useAuth();
   const [description, setDescription] = useState('');
-  const [domain, setDomain] = useState('Software');
+  const [domain, setDomain] = useState('');
+  const [domains, setDomains] = useState([]);
+  const [loadingDomains, setLoadingDomains] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  const domains = ['Software', 'Business', 'Social', 'Generic'];
+  // Fetch domains from API on component mount
+  useEffect(() => {
+    const fetchDomains = async () => {
+      try {
+        const res = await api.get('/domains');
+        const domainList = res.data.domains || res.data;
+        
+        if (Array.isArray(domainList) && domainList.length > 0) {
+          setDomains(domainList);
+          // Set first domain as default
+          const firstDomain = domainList[0];
+          setDomain(typeof firstDomain === 'string' ? firstDomain : firstDomain.name);
+        }
+      } catch (err) {
+        console.error('Failed to fetch domains:', err);
+        // Fallback to empty state - domains field will be disabled
+        setDomains([]);
+      } finally {
+        setLoadingDomains(false);
+      }
+    };
+
+    fetchDomains();
+  }, []);
 
   const handleCheckNovelty = async (e) => {
     e.preventDefault();
@@ -106,17 +132,30 @@ const NoveltyPage = () => {
                 <label className="block text-sm font-medium text-white mb-3">
                   Domain
                 </label>
-                <select
-                  value={domain}
-                  onChange={(e) => setDomain(e.target.value)}
-                  className="glass-input w-full"
-                >
-                  {domains.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
+                {loadingDomains ? (
+                  <div className="glass-input w-full bg-neutral-700/50 text-neutral-400 flex items-center justify-center py-2">
+                    Loading domains...
+                  </div>
+                ) : domains.length > 0 ? (
+                  <select
+                    value={domain}
+                    onChange={(e) => setDomain(e.target.value)}
+                    className="glass-input w-full"
+                  >
+                    {domains.map((d) => {
+                      const domainName = typeof d === 'string' ? d : d.name;
+                      return (
+                        <option key={domainName} value={domainName}>
+                          {domainName}
+                        </option>
+                      );
+                    })}
+                  </select>
+                ) : (
+                  <div className="glass-input w-full bg-red-500/20 text-red-400 flex items-center justify-center py-2">
+                    Failed to load domains
+                  </div>
+                )}
               </div>
 
               {/* Error Message */}
@@ -180,7 +219,7 @@ const NoveltyPage = () => {
                   </p>
                   <div className="flex items-end gap-4 mb-4">
                     <div className="text-5xl font-bold text-indigo-300">
-                      {typeof result.novelty_score === 'number' ? result.novelty_score.toFixed(1) : 'N/A'}
+                      {typeof result.novelty_score === 'number' ? (result.novelty_score / 10).toFixed(1) : 'N/A'}
                     </div>
                     <div className="flex-1">
                       <div className={`inline-block px-3 py-1 rounded-full border text-sm font-semibold ${getNoveltyStyling(result.novelty_level)}`}>
@@ -230,76 +269,16 @@ const NoveltyPage = () => {
                   </div>
                 )}
 
-                {/* Research Sources */}
+                {/* Research Sources with Tier-Based Display */}
                 {result.sources && result.sources.length > 0 && (
                   <div className="glass-card-lg p-6 border border-white/10">
                     <p className="text-xs text-neutral-400 uppercase tracking-widest font-semibold mb-4">
                       Research Sources
                     </p>
-                    <div className="space-y-4">
-                      {/* arXiv Papers Section */}
-                      {result.sources.filter(s => s.source_type === 'arxiv').slice(0, 5).length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-indigo-300 mb-2">📄 Research Papers</p>
-                          <div className="space-y-2">
-                            {result.sources.filter(s => s.source_type === 'arxiv').slice(0, 5).map((src, idx) => (
-                              <div key={`arxiv-${idx}`} className="p-3 bg-indigo-500/10 rounded border border-indigo-500/20">
-                                <a 
-                                  href={src.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-indigo-300 hover:text-indigo-200 font-medium text-sm underline break-words"
-                                >
-                                  {src.title}
-                                </a>
-                                <span className="ml-2 text-xs px-2 py-0.5 bg-indigo-600/40 text-indigo-200 rounded font-semibold">
-                                  ARXIV
-                                </span>
-                                {src.summary && (
-                                  <p className="text-xs text-neutral-400 mt-2 line-clamp-2 leading-relaxed">
-                                    {src.summary}
-                                  </p>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* GitHub Repos Section */}
-                      {result.sources.filter(s => s.source_type === 'github').slice(0, 5).length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-purple-300 mb-2">🔗 GitHub Repositories</p>
-                          <div className="space-y-2">
-                            {result.sources.filter(s => s.source_type === 'github').slice(0, 5).map((src, idx) => (
-                              <div key={`github-${idx}`} className="p-3 bg-purple-500/10 rounded border border-purple-500/20">
-                                <a 
-                                  href={src.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-purple-300 hover:text-purple-200 font-medium text-sm underline break-words"
-                                >
-                                  {src.title}
-                                </a>
-                                <span className="ml-2 text-xs px-2 py-0.5 bg-purple-600/40 text-purple-200 rounded font-semibold">
-                                  GITHUB
-                                </span>
-                                {src.summary && (
-                                  <p className="text-xs text-neutral-400 mt-2 line-clamp-2 leading-relaxed">
-                                    {src.summary}
-                                  </p>
-                                )}
-                                {src.confidence && (
-                                  <p className="text-xs text-neutral-500 mt-1">
-                                    Confidence: {(src.confidence * 100).toFixed(0)}%
-                                  </p>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    <SourcesList 
+                      sources={result.sources} 
+                      evidenceBreakdown={result.evidence_breakdown}
+                    />
                   </div>
                 )}
 

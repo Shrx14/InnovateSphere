@@ -13,12 +13,16 @@ graph TB
     end
     
     subgraph API["📍 API Routes"]
+        Health["Health<br/>Routes"]
+        Auth_R["Auth<br/>Routes"]
         Gen["Generation<br/>Routes"]
         Ret["Retrieval<br/>Routes"]
         Nov["Novelty<br/>Routes"]
         Admin_R["Admin<br/>Routes"]
         Ideas["Ideas<br/>Routes"]
         Public["Public<br/>Routes"]
+        Analytics_R["Analytics<br/>Routes"]
+        Domains_R["Domains<br/>Routes"]
     end
     
     subgraph Services["⚙️ Service Layer"]
@@ -41,12 +45,16 @@ graph TB
     end
     
     React -->|HTTP/REST| Flask
+    Flask --> Health
+    Flask --> Auth_R
     Flask --> Gen
     Flask --> Ret
     Flask --> Nov
     Flask --> Admin_R
     Flask --> Ideas
     Flask --> Public
+    Flask --> Analytics_R
+    Flask --> Domains_R
     
     Gen --> Generator
     Ret --> Retrieval
@@ -223,6 +231,8 @@ erDiagram
     USERS ||--o{ IDEA_FEEDBACK : leaves
     USERS ||--o{ ADMIN_VERDICT : issues
     USERS ||--o{ GENERATION_TRACE : generates
+    USERS ||--o{ SEARCH_QUERY : searches
+    USERS ||--o{ ABUSE_EVENT : triggers
     
     DOMAINS ||--o{ DOMAIN_CATEGORY : has
     DOMAINS ||--o{ PROJECT_IDEAS : categorizes
@@ -323,7 +333,9 @@ erDiagram
         json phase_4_output
         json constraints_active
         int retrieval_time_ms
+        int analysis_time_ms
         int generation_time_ms
+        datetime created_at
     }
     
     DOMAIN {
@@ -351,6 +363,34 @@ erDiagram
         string event_type
         int duration_ms
         string session_id
+        datetime created_at
+    }
+    
+    SEARCH_QUERY {
+        int id PK
+        int user_id FK
+        string query
+        string domain
+        int results_count
+        float duration_ms
+        string source
+        datetime created_at
+    }
+    
+    ABUSE_EVENT {
+        int id PK
+        int user_id FK
+        string event_type
+        string severity
+        text description
+        json metadata
+        datetime created_at
+    }
+    
+    TOKEN_BLOCKLIST {
+        int id PK
+        string jti UK
+        datetime created_at
     }
 ```
 
@@ -497,17 +537,21 @@ sequenceDiagram
 ```mermaid
 graph TB
     subgraph Frontend["🖥️ FRONTEND"]
-        React["React 18+"]
-        Router["React Router v7"]
-        Charts["Recharts"]
-        Tailwind["Tailwind CSS"]
+        Vite["Vite 7.3"]
+        React["React 18.2"]
+        Router["React Router v6.22"]
+        RadixUI["Radix UI"]
+        Charts["Recharts 3.7"]
+        Tailwind["Tailwind CSS 3.3"]
+        Framer["Framer Motion"]
     end
     
     subgraph Backend["🐍 BACKEND"]
         Flask["Flask 2.3"]
         SQLAlchemy["SQLAlchemy ORM"]
+        Pydantic["Pydantic v2"]
         JWT["JWT Auth"]
-        Cache["Flask-Cache"]
+        Cache["Flask-Caching"]
         Limiter["Flask-Limiter"]
     end
     
@@ -517,14 +561,13 @@ graph TB
     end
     
     subgraph ML["🤖 ML/AI"]
-        Transformers["Transformers"]
         SentenceT["SentenceTransformers"]
-        LangChain["LangChain"]
+        OpenAISDK["OpenAI SDK 1.0+"]
     end
     
     subgraph LLM["🧠 LLM PROVIDERS"]
-        Ollama["Ollama<br/>Local Models"]
-        OpenAI["OpenAI API<br/>GPT Models"]
+        Ollama["Ollama<br/>qwen2.5:7b"]
+        OpenAI["OpenAI API<br/>GPT-4o-mini"]
     end
     
     subgraph External["🌐 EXTERNAL APIs"]
@@ -540,6 +583,7 @@ graph TB
     end
     
     React -->|REST| Backend
+    Vite -->|Build| React
     
     Flask -->|Query| SQLAlchemy
     SQLAlchemy -->|CRUD| DB
@@ -547,10 +591,11 @@ graph TB
     Backend -->|Uses| JWT
     Backend -->|Uses| Cache
     Backend -->|Uses| Limiter
+    Backend -->|Validates| Pydantic
     
     Backend -->|Calls| ML
-    ML -->|Uses| Transformers
     ML -->|Uses| SentenceT
+    ML -->|Uses| OpenAISDK
     
     Backend -->|Calls| LLM
     LLM -->|Routes to| Ollama
@@ -575,12 +620,12 @@ graph TB
     
     subgraph Production["🚀 PRODUCTION"]
         subgraph Frontend["Frontend Hosting"]
-            Vercel["Vercel/Netlify<br/>React Build"]
-            CDN["CDN<br/>Static Assets"]
+        Vercel["Vercel/Netlify<br/>Vite Build"]
+        CDN["CDN<br/>Static Assets"]
         end
         
         subgraph Backend["Backend Hosting"]
-            Gunicorn["Gunicorn<br/>ASGI Server"]
+            Gunicorn["Gunicorn<br/>WSGI Server"]
             Nginx["Nginx<br/>Reverse Proxy"]
             Region["Multi-region<br/>Load Balancer"]
         end
@@ -676,13 +721,13 @@ graph TD
 graph TD
     User["👤 User"]
     
-    User -->|Email/Password| Login["POST /api/auth/login"]
+    User -->|Email/Password| Login["POST /api/login"]
     
     Login -->|Hash with bcrypt| Hash["🔐 Hash Password"]
     Hash -->|Compare| DBCheck["Query DB for user"]
     
     DBCheck -->|Match| Gen["Generate JWT Token"]
-    Gen -->|Payload| Payload["{<br/>user_id: 123,<br/>role: 'user',<br/>exp: now + 24h<br/>}"]
+    Gen -->|Payload| Payload["{<br/>user_id: 123,<br/>role: 'user',<br/>exp: now + 1h<br/>}"]
     
     Payload -->|Sign| Sign["Sign with Secret<br/>HS256"]
     Sign -->|Return| Token["Return JWT to Client"]

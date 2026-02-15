@@ -5,11 +5,10 @@ import logging
 from flask import Blueprint, request, jsonify, session
 from flask_jwt_extended import get_jwt_identity
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload, selectinload
 from backend.core.db import db
 from backend.core.app import cache
-from backend.core.models import ProjectIdea, Domain, AdminVerdict, IdeaView, SearchQuery
-from backend.core.app import User
-
+from backend.core.models import ProjectIdea, Domain, AdminVerdict, IdeaView, SearchQuery, ViewEvent, User
 
 from backend.utils.serializers import serialize_public_idea
 
@@ -32,6 +31,10 @@ def public_ideas():
 
     query = (
         ProjectIdea.query
+        .options(
+            joinedload(ProjectIdea.domain),
+            joinedload(ProjectIdea.admin_verdict),
+        )
         .outerjoin(AdminVerdict)
         .filter(
             ProjectIdea.is_public.is_(True),
@@ -127,6 +130,11 @@ def public_idea_detail(idea_id):
     """
     idea = (
         ProjectIdea.query
+        .options(
+            joinedload(ProjectIdea.domain),
+            selectinload(ProjectIdea.sources),
+            joinedload(ProjectIdea.admin_verdict),
+        )
         .outerjoin(AdminVerdict)
         .filter(
             ProjectIdea.id == idea_id,
@@ -142,7 +150,10 @@ def public_idea_detail(idea_id):
     if not idea:
         return jsonify({"error": "Idea not found"}), 404
 
-    user_id = get_jwt_identity()
+    try:
+        user_id = get_jwt_identity()
+    except Exception:
+        user_id = None
 
     if user_id:
         already_viewed = IdeaView.query.filter(
@@ -187,12 +198,14 @@ def public_idea_detail(idea_id):
                     referrer="anonymous_public_detail"
                 )
                 db.session.add(view_event)
-                db.session.commit()
             except Exception as e:
                 logger.warning(f"Failed to log anonymous ViewEvent: {e}")
-                db.session.rollback()
             
-            db.session.commit()
+            try:
+                db.session.commit()
+            except Exception as e:
+                logger.warning(f"Failed to commit anonymous view: {e}")
+                db.session.rollback()
 
     return jsonify({
         "idea": {
@@ -221,6 +234,10 @@ def public_idea_detail(idea_id):
 def public_top_ideas():
     ideas = (
         ProjectIdea.query
+        .options(
+            joinedload(ProjectIdea.domain),
+            joinedload(ProjectIdea.admin_verdict),
+        )
         .outerjoin(AdminVerdict)
         .filter(
             ProjectIdea.is_public.is_(True),
@@ -236,7 +253,7 @@ def public_top_ideas():
 
     ideas = sorted(
         ideas,
-        key=lambda i: (i.quality_score_cached, i.view_count),
+        key=lambda i: (i.quality_score_cached or 0, i.view_count or 0),
         reverse=True
     )[:10]
 
@@ -310,4 +327,5 @@ def public_stats():
     return jsonify({
         "total_public_ideas": total_public_ideas,
         "total_domains": Domain.query.count(),
+        "total_users": User.query.count(),
     }), 200

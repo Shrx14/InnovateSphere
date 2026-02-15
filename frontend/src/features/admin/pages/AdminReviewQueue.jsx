@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../../lib/api';
 
@@ -7,30 +7,34 @@ const AdminReviewQueue = () => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(new Set()); // Track processing ideas by ID
   const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ page: 1, pages: 1, total: 0, limit: 20 });
 
-  useEffect(() => {
-    fetchIdeas();
-  }, []);
-
-  const fetchIdeas = async () => {
+  const fetchIdeas = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.get('/api/admin/ideas/quality-review');
-      setIdeas(response.data || []);
+      const response = await api.get(`/admin/ideas/quality-review?page=${page}&limit=20`);
+      const data = response.data;
+      setIdeas(data.ideas || []);
+      if (data.meta) setMeta(data.meta);
     } catch (error) {
       console.error('Failed to fetch review queue:', error);
       setError('Failed to load review queue. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
+
+  useEffect(() => {
+    fetchIdeas();
+  }, [fetchIdeas]);
 
   const handleVerdict = async (ideaId, verdict) => {
     setProcessing(prev => new Set(prev).add(ideaId));
     try {
       setError(null);
-      await api.post(`/api/admin/ideas/${ideaId}/verdict`, { verdict });
+      await api.post(`/admin/ideas/${ideaId}/verdict`, { verdict });
       // Optimistically remove from list
       setIdeas(prev => prev.filter(idea => idea.id !== ideaId));
     } catch (error) {
@@ -109,10 +113,11 @@ const AdminReviewQueue = () => {
               <tr>
                 <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Title</th>
                 <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Domain</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Novelty %</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Quality score</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Hallucination risk</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Feedback flags</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Novelty</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Quality</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Risk</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Flags</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Details</th>
                 <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Actions</th>
               </tr>
             </thead>
@@ -121,8 +126,8 @@ const AdminReviewQueue = () => {
                 <tr key={idea.id} className="hover:bg-neutral-800/50">
                   <td className="px-6 py-4 text-sm text-white">{idea.title}</td>
                   <td className="px-6 py-4 text-sm text-neutral-300">{idea.domain}</td>
-                  <td className="px-6 py-4 text-sm text-neutral-300">{idea.novelty_score.toFixed(1)}%</td>
-                  <td className="px-6 py-4 text-sm text-neutral-300">{idea.quality_score}</td>
+                  <td className="px-6 py-4 text-sm text-neutral-300">{typeof idea.novelty_score === 'number' ? (idea.novelty_score / 10).toFixed(1) : 'N/A'}</td>
+                  <td className="px-6 py-4 text-sm text-neutral-300">{typeof idea.quality_score === 'number' ? (idea.quality_score / 10).toFixed(1) : 'N/A'}</td>
                   <td className={`px-6 py-4 text-sm ${getRiskColor(idea.hallucination_risk_level)}`}>{idea.hallucination_risk_level}</td>
                   <td className="px-6 py-4 text-sm text-neutral-300">{formatFeedbackFlags(idea.feedback_summary)}</td>
                   <td className="px-6 py-4">
@@ -162,6 +167,31 @@ const AdminReviewQueue = () => {
               ))}
             </tbody>
           </table>
+
+          {/* Pagination */}
+          {meta.pages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-800 bg-neutral-900/50">
+              <span className="text-sm text-neutral-400">
+                Showing {ideas.length} of {meta.total} ideas (Page {meta.page} of {meta.pages})
+              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-3 py-1 text-sm rounded border border-neutral-700 text-neutral-300 hover:border-white hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  ← Previous
+                </button>
+                <button
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={page >= meta.pages}
+                  className="px-3 py-1 text-sm rounded border border-neutral-700 text-neutral-300 hover:border-white hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

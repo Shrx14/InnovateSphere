@@ -25,6 +25,11 @@ const AdminNav = () => {
               </Link>
             </li>
             <li>
+              <Link to="/admin/abuse" className="hover:text-neutral-200 transition">
+                Abuse Events
+              </Link>
+            </li>
+            <li>
               <Link to="/" className="hover:text-neutral-200 transition">
                 Back to Site
               </Link>

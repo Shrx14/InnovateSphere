@@ -38,22 +38,41 @@ def enforce_evidence_constraints(
     }
 
 
-def compute_evidence_score(debug: dict, intent_confidence: float) -> float:
+def compute_evidence_score(debug: dict, intent_confidence: float, sources: list = None) -> float:
     """
-    Evidence score ∈ [0,1], based ONLY on existing metadata.
+    Evidence score ∈ [0,1], based ONLY on existing metadata and source relevance tiers.
     No embeddings. No retrieval. No heuristics.
+    
+    Args:
+        debug: Debug dict with retrieved_sources count
+        intent_confidence: Domain/problem-class confidence
+        sources: Optional list of sources with relevance_tier field
+        
+    Returns:
+        Evidence score 0-1
     """
-    sources = debug.get("retrieved_sources", 0)
+    source_count = debug.get("retrieved_sources", 0)
     variance = (
         debug.get("similarity_variance")
         or debug.get("variance")
         or 0.5
     )
 
-    if sources == 0:
-        source_score = 0.2  # minimal epistemic credit
+    # If sources provided, only count "supporting" tier in evidence
+    if sources:
+        supporting_count = sum(1 for s in sources if s.get("relevance_tier") == "supporting")
+        contextual_count = sum(1 for s in sources if s.get("relevance_tier") == "contextual")
+        total_count = len(sources)
+        
+        # Supporting sources score at 100%, contextual at 50%
+        weighted_source_count = supporting_count + (contextual_count * 0.5)
+        source_score = min(weighted_source_count / 8, 1.0)
     else:
-        source_score = min(sources / 8, 1.0)
+        if source_count == 0:
+            source_score = 0.2  # minimal epistemic credit
+        else:
+            source_score = min(source_count / 8, 1.0)
+    
     variance_score = 1 - min(variance, 1.0)
 
     evidence = (
@@ -64,10 +83,12 @@ def compute_evidence_score(debug: dict, intent_confidence: float) -> float:
     return round(evidence, 2)
 
 
-def apply_evidence_constraints(result: dict, evidence: float) -> dict:
+def apply_evidence_constraints(result: dict, evidence: float, sources: list = None) -> dict:
     """
     Enforce HARD caps. This must modify score, level, confidence.
     Cosmetic relabeling is NOT acceptable.
+    
+    Also penalize if arXiv evidence came from "domain_only" fallback.
     """
 
     score = result.get("novelty_score", 0)
@@ -75,6 +96,23 @@ def apply_evidence_constraints(result: dict, evidence: float) -> dict:
     confidence = result.get("confidence", "Low")
 
     speculative = False
+    evidence_notes = []
+
+    # Check if arXiv sources relied on domain-only fallback
+    if sources:
+        arxiv_sources = [s for s in sources if s.get("source_type") == "arxiv"]
+        domain_only_count = sum(1 for s in arxiv_sources 
+                               if s.get("metadata", {}).get("query_variation_quality") == "domain_only")
+        
+        if arxiv_sources and domain_only_count > len(arxiv_sources) * 0.5:
+            # More than 50% of arXiv sources came from domain-only fallback
+            evidence_penalty = 0.2
+            evidence = max(0, evidence - evidence_penalty)
+            evidence_notes.append("Academic evidence based on domain keywords only; problem-type match is weak.")
+            
+            # Also reduce confidence if relying on weak arXiv evidence
+            if confidence == "High":
+                confidence = "Medium"
 
     if evidence < 0.20:
         score = min(score, 30)
@@ -97,7 +135,10 @@ def apply_evidence_constraints(result: dict, evidence: float) -> dict:
     }
 
     if speculative:
-        update_dict["evidence_note"] = "Insufficient comparable data; score is capped for safety."
+        evidence_notes.insert(0, "Insufficient comparable data; score is capped for safety.")
+    
+    if evidence_notes:
+        update_dict["evidence_note"] = " ".join(evidence_notes)
 
     result.update(update_dict)
 

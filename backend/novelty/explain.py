@@ -119,12 +119,13 @@ def generate_detailed_explanation(
                 else:
                     explanation_parts.append(f"  • {signal_name}: {weight:.1f} (↓{abs(pct):.0f}%)")
     
-    # Confidence explanation
-    if confidence_tier == "High":
+    # Confidence explanation (normalize to lowercase for consistent comparison)
+    _tier = (confidence_tier or "").strip().lower()
+    if _tier == "high":
         reason = f"Based on {source_count} diverse sources"
         if admin_validated_count > 0:
             reason += f" ({admin_validated_count} admin-validated)"
-    elif confidence_tier == "Medium":
+    elif _tier == "medium":
         reason = f"Based on {source_count} sources"
         if admin_validated_count == 0:
             reason += " (no admin validation yet)"

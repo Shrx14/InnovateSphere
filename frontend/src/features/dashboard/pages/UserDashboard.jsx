@@ -1,268 +1,206 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import api from "../../../lib/api";
+import { useState, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Sparkles, ArrowRight, ChevronRight } from 'lucide-react';
+
+import { useIdeas } from '@/hooks/useIdeas';
+import { formatScore } from '@/lib/formatScore';
+import { fadeIn, staggerContainer } from '@/lib/motion';
+import { cn } from '@/lib/utils';
+
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { ScoreDisplay } from '@/components/ui/ScoreDisplay';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { SkeletonCard, SkeletonMetric } from '@/components/ui/Skeleton';
+
+const SORT_OPTIONS = [
+  { value: 'recent', label: 'Most Recent' },
+  { value: 'novelty_desc', label: 'Novelty (High)' },
+  { value: 'novelty_asc', label: 'Novelty (Low)' },
+  { value: 'quality_desc', label: 'Quality (High)' },
+  { value: 'quality_asc', label: 'Quality (Low)' },
+];
+
+function sortIdeas(ideas, sortBy) {
+  const sorted = [...ideas];
+  switch (sortBy) {
+    case 'novelty_desc': return sorted.sort((a, b) => (b.novelty_score || 0) - (a.novelty_score || 0));
+    case 'novelty_asc': return sorted.sort((a, b) => (a.novelty_score || 0) - (b.novelty_score || 0));
+    case 'quality_desc': return sorted.sort((a, b) => (b.quality_score || 0) - (a.quality_score || 0));
+    case 'quality_asc': return sorted.sort((a, b) => (a.quality_score || 0) - (b.quality_score || 0));
+    case 'recent': return sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    default: return sorted;
+  }
+}
 
 export default function UserDashboard() {
-  const [ideas, setIdeas] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("all");
+  const { ideas, loading, grouped } = useIdeas();
+  const [sortBy, setSortBy] = useState('recent');
 
-  useEffect(() => {
-    api.get("/ideas/mine")
-      .then(res => setIdeas(res.data.ideas || []))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const grouped = {
-    all: ideas,
-    validated: ideas.filter(i => i.status === "validated"),
-    pending: ideas.filter(i => i.status === "pending"),
-    rejected: ideas.filter(i => i.status === "rejected" || i.status === "downgraded"),
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case "validated":
-        return "✓";
-      case "pending":
-        return "⏳";
-      case "rejected":
-      case "downgraded":
-        return "✕";
-      default:
-        return "→";
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "validated":
-        return "from-emerald-500/20 to-teal-500/20 border-emerald-500/30 text-emerald-300";
-      case "pending":
-        return "from-yellow-500/20 to-orange-500/20 border-yellow-500/30 text-yellow-300";
-      case "rejected":
-      case "downgraded":
-        return "from-red-500/20 to-pink-500/20 border-red-500/30 text-red-300";
-      default:
-        return "from-blue-500/20 to-indigo-500/20 border-blue-500/30 text-blue-300";
-    }
-  };
-
+  // Loading state with skeletons
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-950 to-neutral-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-neutral-400">Loading your ideas...</p>
+      <div className="min-h-screen bg-neutral-950">
+        <div className="max-w-6xl mx-auto px-6 py-12 md:py-20">
+          <div className="mb-12">
+            <div className="h-12 w-64 bg-neutral-800 rounded-lg mb-4" />
+            <div className="h-6 w-96 bg-neutral-800 rounded-lg" />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-12">
+            {[0, 1, 2, 3].map(i => <SkeletonMetric key={i} />)}
+          </div>
+          <div className="space-y-4">
+            {[0, 1, 2].map(i => <SkeletonCard key={i} />)}
+          </div>
         </div>
       </div>
     );
   }
 
+  // Empty state
   if (ideas.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-950 to-neutral-900 flex items-center justify-center px-6">
-        <div className="text-center max-w-md">
-          <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6">
-            <span className="text-4xl">💡</span>
-          </div>
-          <h2 className="text-3xl font-light text-white mb-3">
-            No ideas yet
-          </h2>
-          <p className="text-neutral-400 mb-8">
-            Start generating innovative ideas based on research evidence.
-          </p>
-          <Link
-            to="/user/generate"
-            className="btn-primary inline-flex items-center justify-center gap-2"
-          >
-            <span>✨ Generate Your First Idea</span>
-            <span>→</span>
-          </Link>
-        </div>
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center px-6">
+        <EmptyState
+          title="No ideas yet"
+          description="Start generating innovative ideas based on research evidence."
+          action={
+            <Button asChild>
+              <Link to="/user/generate">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Generate Your First Idea
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
+            </Button>
+          }
+        />
       </div>
     );
   }
 
-  const currentIdeas = grouped[activeTab];
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-950 to-neutral-900">
-      {/* Background decorations */}
-      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-600 rounded-full opacity-10 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-600 rounded-full opacity-10 blur-3xl" />
-      </div>
-
-      <div className="max-w-6xl mx-auto px-6 py-12 md:py-20 relative z-10">
+    <div className="min-h-screen bg-neutral-950">
+      <div className="max-w-6xl mx-auto px-6 py-12 md:py-20">
         {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-5xl md:text-6xl font-light text-white mb-2">
-            Your Ideas
-          </h1>
+        <motion.div variants={fadeIn} initial="hidden" animate="visible" className="mb-12">
+          <h1 className="text-5xl md:text-6xl font-light text-white mb-2">Your Ideas</h1>
           <p className="text-xl text-neutral-300">
             Track the status and performance of your generated ideas.
           </p>
-        </div>
+        </motion.div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-12">
-          <div className="glass-card-lg p-6 text-center transform hover:scale-105 transition-transform duration-300">
-            <div className="text-3xl font-bold text-white mb-2">
-              {ideas.length}
-            </div>
-            <p className="text-sm text-neutral-400">Total Ideas</p>
-          </div>
-          <div className="glass-card-lg p-6 text-center transform hover:scale-105 transition-transform duration-300">
-            <div className="text-3xl font-bold text-emerald-400 mb-2">
-              {grouped.validated.length}
-            </div>
-            <p className="text-sm text-neutral-400">Validated</p>
-          </div>
-          <div className="glass-card-lg p-6 text-center transform hover:scale-105 transition-transform duration-300">
-            <div className="text-3xl font-bold text-yellow-400 mb-2">
-              {grouped.pending.length}
-            </div>
-            <p className="text-sm text-neutral-400">Pending</p>
-          </div>
-          <div className="glass-card-lg p-6 text-center transform hover:scale-105 transition-transform duration-300">
-            <div className="text-3xl font-bold text-red-400 mb-2">
-              {grouped.rejected.length}
-            </div>
-            <p className="text-sm text-neutral-400">Rejected</p>
-          </div>
-        </div>
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-12"
+        >
+          {[
+            { label: 'Total Ideas', value: ideas.length, color: 'text-white' },
+            { label: 'Validated', value: grouped.validated.length, color: 'text-emerald-400' },
+            { label: 'Pending', value: grouped.pending.length, color: 'text-yellow-400' },
+            { label: 'Rejected', value: grouped.rejected.length, color: 'text-red-400' },
+          ].map(stat => (
+            <motion.div key={stat.label} variants={fadeIn}>
+              <Card className="p-6 text-center">
+                <div className={cn('text-3xl font-bold mb-2', stat.color)}>{stat.value}</div>
+                <p className="text-sm text-neutral-400">{stat.label}</p>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
 
         {/* Tabs */}
-        <div className="mb-8">
-          <div className="glass-card-lg p-2 border border-white/10 inline-flex gap-2">
-            {[
-              { key: "all", label: "All Ideas", count: grouped.all.length },
-              { key: "validated", label: "Validated", count: grouped.validated.length },
-              { key: "pending", label: "Pending", count: grouped.pending.length },
-              { key: "rejected", label: "Rejected", count: grouped.rejected.length },
-            ].map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 whitespace-nowrap ${
-                  activeTab === tab.key
-                    ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg"
-                    : "text-neutral-300 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                {tab.label} ({tab.count})
-              </button>
-            ))}
+        <Tabs defaultValue="all" className="mb-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <TabsList>
+              <TabsTrigger value="all">All ({grouped.all.length})</TabsTrigger>
+              <TabsTrigger value="validated">Validated ({grouped.validated.length})</TabsTrigger>
+              <TabsTrigger value="pending">Pending ({grouped.pending.length})</TabsTrigger>
+              <TabsTrigger value="rejected">Rejected ({grouped.rejected.length})</TabsTrigger>
+            </TabsList>
+
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value)}
+              className="h-10 rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {SORT_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
           </div>
-        </div>
 
-        {/* Ideas List */}
-        <div className="space-y-4">
-          {currentIdeas.length === 0 ? (
-            <div className="text-center py-12 glass-card-lg p-8">
-              <p className="text-neutral-400 mb-4">
-                {activeTab === "all"
-                  ? "No ideas found."
-                  : `No ${activeTab} ideas yet.`}
-              </p>
-              <Link
-                to="/user/generate"
-                className="text-indigo-400 hover:text-indigo-300 font-medium transition"
-              >
-                Generate an idea →
-              </Link>
-            </div>
-          ) : (
-            currentIdeas.map((idea, i) => (
-              <Link
-                key={idea.id}
-                to={`/idea/${idea.id}`}
-                className={`glass-card-lg p-6 md:p-8 hover:bg-white/10 transition-all duration-300 transform hover:scale-102 hover:border-indigo-500/50 group cursor-pointer`}
-                style={{
-                  animation: `fadeInUp 0.5s ease-out ${i * 50}ms backwards`,
-                }}
-              >
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className={`glass-card p-2 rounded-lg ${getStatusColor(idea.status)}`}>
-                        <span className="font-semibold">{getStatusIcon(idea.status)}</span>
-                      </div>
-                      <div
-                        className={`px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r ${getStatusColor(
-                          idea.status
-                        )}`}
-                      >
-                        {idea.status.charAt(0).toUpperCase() + idea.status.slice(1)}
-                      </div>
-                    </div>
-
-                    <h3 className="text-lg md:text-xl font-semibold text-white mb-2 group-hover:text-indigo-300 transition line-clamp-2">
-                      {idea.title}
-                    </h3>
-
-                    <p className="text-sm text-neutral-400 line-clamp-2 mb-4">
-                      {idea.problem_statement}
-                    </p>
-
-                    <div className="flex flex-wrap gap-6 text-sm">
-                      <div>
-                        <span className="text-neutral-500">Domain: </span>
-                        <span className="text-neutral-300 font-medium">{idea.domain}</span>
-                      </div>
-                      <div>
-                        <span className="text-neutral-500">Novelty: </span>
-                        <span className="text-indigo-400 font-bold">
-                          {typeof idea.novelty_score === 'number' ? idea.novelty_score.toFixed(1) : 'N/A'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-neutral-500">Quality: </span>
-                        <span className="text-purple-400 font-bold">
-                          {typeof idea.quality_score === 'number' ? idea.quality_score.toFixed(1) : 'N/A'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Arrow Icon */}
-                  <div className="flex-shrink-0 text-indigo-400 group-hover:translate-x-2 transition-transform">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
-              </Link>
-            ))
-          )}
-        </div>
+          {['all', 'validated', 'pending', 'rejected'].map(tab => (
+            <TabsContent key={tab} value={tab}>
+              <IdeaList ideas={sortIdeas(grouped[tab], sortBy)} tab={tab} />
+            </TabsContent>
+          ))}
+        </Tabs>
 
         {/* Generate More Button */}
         <div className="text-center mt-12">
-          <Link
-            to="/user/generate"
-            className="btn-primary inline-flex items-center justify-center gap-2"
-          >
-            <span>✨ Generate Another Idea</span>
-            <span>→</span>
-          </Link>
+          <Button asChild>
+            <Link to="/user/generate">
+              <Sparkles className="w-4 h-4 mr-2" />
+              Generate Another Idea
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Link>
+          </Button>
         </div>
       </div>
-
-      <style>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </div>
+  );
+}
+
+function IdeaList({ ideas, tab }) {
+  if (ideas.length === 0) {
+    return (
+      <Card className="p-8 text-center">
+        <p className="text-neutral-400 mb-4">
+          {tab === 'all' ? 'No ideas found.' : `No ${tab} ideas yet.`}
+        </p>
+        <Link to="/user/generate" className="text-indigo-400 hover:text-indigo-300 font-medium transition">
+          Generate an idea <ArrowRight className="w-4 h-4 inline ml-1" />
+        </Link>
+      </Card>
+    );
+  }
+
+  return (
+    <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-4">
+      {ideas.map(idea => (
+        <motion.div key={idea.id} variants={fadeIn}>
+          <Link to={`/idea/${idea.id}`}>
+            <Card className="p-6 md:p-8 hover:bg-neutral-800/50 transition-colors cursor-pointer group">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-3">
+                    <StatusBadge status={idea.status} />
+                    {idea.domain && <Badge>{idea.domain}</Badge>}
+                  </div>
+                  <h3 className="text-lg md:text-xl font-semibold text-white mb-2 group-hover:text-indigo-300 transition line-clamp-2">
+                    {idea.title}
+                  </h3>
+                  <p className="text-sm text-neutral-400 line-clamp-2 mb-4">
+                    {idea.problem_statement}
+                  </p>
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <ScoreDisplay value={idea.novelty_score} label="Novelty" />
+                    <ScoreDisplay value={idea.quality_score} label="Quality" />
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-neutral-600 group-hover:text-indigo-400 transition flex-shrink-0 hidden md:block" />
+              </div>
+            </Card>
+          </Link>
+        </motion.div>
+      ))}
+    </motion.div>
   );
 }

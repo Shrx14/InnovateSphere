@@ -5,12 +5,13 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload, selectinload
 from backend.core.db import db
 from backend.core.models import (
     ProjectIdea, IdeaFeedback, IdeaSource, AdminVerdict, Domain, GenerationTrace
 )
 from backend.novelty.explain import generate_detailed_explanation
-from backend.utils import require_admin, get_current_user_id, serialize_public_idea, serialize_full_idea
+from backend.utils import require_admin, get_current_user_id, serialize_public_idea, serialize_full_idea, db_retry
 from backend.ai.registry import get_active_bias_profile
 
 admin_bp = Blueprint("admin", __name__)
@@ -29,7 +30,7 @@ def admin_get_bias_breakdown(idea_id):
     if not idea:
         return jsonify({"error": "Idea not found"}), 404
 
-    trace = GenerationTrace.query.filter_by(idea_id=idea_id).first()
+    trace = db.session.query(GenerationTrace).filter_by(idea_id=idea_id).first()
     if not trace:
         return jsonify({"error": "Generation trace not found for this idea"}), 404
 
@@ -78,8 +79,6 @@ def admin_get_bias_breakdown(idea_id):
     }), 200
 
 
-@admin_bp.route("/api/admin/ideas/quality-review", methods=["GET"])
-
 @admin_bp.route("/api/admin/ideas/<int:idea_id>/generation-trace", methods=["GET"])
 @jwt_required()
 def admin_get_generation_trace(idea_id):
@@ -95,7 +94,7 @@ def admin_get_generation_trace(idea_id):
     if not idea:
         return jsonify({"error": "Idea not found"}), 404
 
-    trace = GenerationTrace.query.filter_by(idea_id=idea_id).first()
+    trace = db.session.query(GenerationTrace).filter_by(idea_id=idea_id).first()
     if not trace:
         return jsonify({"error": "Generation trace not found for this idea"}), 404
 
@@ -127,12 +126,12 @@ def admin_get_generation_trace(idea_id):
             "phase_3": {
                 "name": "Problem Framing",
                 "description": "Define problem informed by landscape analysis",
-                "output": trace.phase_2_output
+                "output": trace.phase_3_output
             },
             "phase_4": {
                 "name": "Evidence Validation",
                 "description": "Validate sources support the problem",
-                "output": trace.phase_3_output
+                "output": trace.phase_4_output
             },
             "phase_5": {
                 "name": "Output Synthesis",
@@ -145,7 +144,9 @@ def admin_get_generation_trace(idea_id):
         }
     }), 200
 
+@admin_bp.route("/api/admin/ideas/quality-review", methods=["GET"])
 @jwt_required()
+@db_retry()
 def admin_quality_review():
     """
     Admin review queue for ideas needing governance.
@@ -159,7 +160,13 @@ def admin_quality_review():
     except ValueError:
         return jsonify({"error": "page and limit must be valid integers"}), 400
 
-    query = ProjectIdea.query.filter(
+    query = ProjectIdea.query.options(
+        joinedload(ProjectIdea.domain),
+        selectinload(ProjectIdea.feedbacks),
+        selectinload(ProjectIdea.sources),
+        selectinload(ProjectIdea.reviews),
+        joinedload(ProjectIdea.admin_verdict),
+    ).filter(
         db.or_(
             ProjectIdea.id.in_(
                 db.session.query(IdeaFeedback.idea_id).filter(
@@ -213,7 +220,14 @@ def admin_idea_detail(idea_id):
     if not require_admin():
         return jsonify({"error": "Admin access required"}), 403
 
-    idea = ProjectIdea.query.get(idea_id)
+    idea = ProjectIdea.query.options(
+        joinedload(ProjectIdea.domain),
+        selectinload(ProjectIdea.feedbacks),
+        selectinload(ProjectIdea.sources),
+        selectinload(ProjectIdea.reviews),
+        joinedload(ProjectIdea.admin_verdict),
+        selectinload(ProjectIdea.requests),
+    ).get(idea_id)
     if not idea:
         return jsonify({"error": "Idea not found"}), 404
 
@@ -240,11 +254,13 @@ def admin_idea_detail(idea_id):
         "created_at": idea.created_at.isoformat(),
         "sources": [
             {
+                "id": s.id,
                 "source_type": s.source_type,
                 "title": s.title,
                 "url": s.url,
                 "published_date": s.published_date.isoformat() if s.published_date else None,
                 "summary": s.summary,
+                "is_hallucinated": s.is_hallucinated,
             }
             for s in idea.sources
         ],
@@ -263,6 +279,7 @@ def admin_idea_detail(idea_id):
         "evidence_strength": idea.evidence_strength,
         "hallucination_risk_level": idea.hallucination_risk_level,
         "admin_verdict": idea.admin_verdict.verdict if idea.admin_verdict else None,
+        "is_human_verified": idea.is_human_verified,
         "feedback_history": feedback_history,
     }), 200
 
@@ -288,25 +305,27 @@ def admin_verdict(idea_id):
         return jsonify({"error": "Idea not found"}), 404
 
     if idea.admin_verdict:
-        return jsonify({"error": "Verdict already exists"}), 409
-
-    if verdict == "validated":
-        idea.is_validated = True
+        # Allow verdict update instead of blocking with 409
+        existing = idea.admin_verdict
+        existing.verdict = verdict
+        existing.reason = reason
+        existing.admin_id = get_current_user_id()
     else:
-        idea.is_validated = False
+        db.session.add(AdminVerdict(
+            idea_id=idea_id,
+            admin_id=get_current_user_id(),
+            verdict=verdict,
+            reason=reason,
+        ))
 
-    db.session.add(AdminVerdict(
-        idea_id=idea_id,
-        admin_id=get_current_user_id(),
-        verdict=verdict,
-        reason=reason,
-    ))
+    # Sync validated flag
+    idea.is_validated = (verdict == "validated")
 
     try:
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
-        return jsonify({"error": "Verdict already exists"}), 409
+        return jsonify({"error": "Verdict conflict"}), 409
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "Failed to save verdict. Please try again."}), 500
@@ -316,6 +335,7 @@ def admin_verdict(idea_id):
 
 @admin_bp.route("/api/admin/abuse-events", methods=["GET"])
 @jwt_required()
+@db_retry()
 def admin_list_abuse_events():
     if not require_admin():
         return jsonify({"error": "Admin access required"}), 403
@@ -344,3 +364,107 @@ def admin_list_abuse_events():
     ]
 
     return jsonify({"events": events, "meta": {"page": page, "limit": limit, "total": total}}), 200
+
+
+@admin_bp.route("/api/admin/ideas/<int:idea_id>/rescore", methods=["POST"])
+@jwt_required()
+def admin_rescore_idea(idea_id):
+    """
+    Re-run novelty scoring for an idea and update cached scores.
+    Useful after admin verdicts change the HITL constraint landscape.
+    """
+    if not require_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    idea = ProjectIdea.query.get(idea_id)
+    if not idea:
+        return jsonify({"error": "Idea not found"}), 404
+
+    try:
+        from backend.novelty.service import analyze_novelty
+        result = analyze_novelty(
+            idea.problem_statement or idea.title,
+            idea.domain.name if idea.domain else "generic"
+        )
+
+        old_novelty = idea.novelty_score_cached
+        idea.novelty_score_cached = result.get("novelty_score", old_novelty)
+        idea.novelty_context = result
+        idea.quality_score_cached = idea.quality_score
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "Idea rescored",
+            "old_novelty": old_novelty,
+            "new_novelty": idea.novelty_score_cached,
+            "new_quality": idea.quality_score_cached
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Rescore failed: {str(e)}"}), 500
+
+
+@admin_bp.route("/api/admin/ideas/<int:idea_id>/human-verified", methods=["POST"])
+@jwt_required()
+def admin_toggle_human_verified(idea_id):
+    """
+    Toggle the is_human_verified flag on an idea.
+    Request: { "verified": true/false }
+    """
+    if not require_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    data = request.get_json() or {}
+    verified = data.get("verified")
+    if not isinstance(verified, bool):
+        return jsonify({"error": "'verified' must be a boolean"}), 400
+
+    idea = ProjectIdea.query.get(idea_id)
+    if not idea:
+        return jsonify({"error": "Idea not found"}), 404
+
+    idea.is_human_verified = verified
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Failed to update"}), 500
+
+    return jsonify({
+        "message": f"Idea {'verified' if verified else 'unverified'}",
+        "is_human_verified": idea.is_human_verified
+    }), 200
+
+
+@admin_bp.route("/api/admin/ideas/<int:idea_id>/sources/<int:source_id>/hallucinated", methods=["POST"])
+@jwt_required()
+def admin_flag_hallucinated_source(idea_id, source_id):
+    """
+    Flag a source as hallucinated.
+    Request: { "hallucinated": true/false }
+    """
+    if not require_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    from backend.core.models import IdeaSource
+    source = IdeaSource.query.filter_by(id=source_id, idea_id=idea_id).first()
+    if not source:
+        return jsonify({"error": "Source not found"}), 404
+
+    data = request.get_json() or {}
+    hallucinated = data.get("hallucinated", True)
+    source.is_hallucinated = bool(hallucinated)
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Failed to update"}), 500
+
+    return jsonify({
+        "message": f"Source {'flagged as hallucinated' if source.is_hallucinated else 'unflagged'}",
+        "is_hallucinated": source.is_hallucinated
+    }), 200

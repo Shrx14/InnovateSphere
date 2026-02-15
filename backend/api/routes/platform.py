@@ -3,14 +3,14 @@ Platform-level endpoints (pipeline version, legacy routes)
 """
 from flask import Blueprint, jsonify
 from backend.ai.registry import get_active_ai_pipeline_version
-from backend.api.routes.novelty import analyze_novelty
 
 platform_bp = Blueprint("platform", __name__)
 
 
 @platform_bp.route("/api/check_novelty", methods=["POST"])
 def legacy_novelty():
-    # Forward legacy route to the new novelty analyze endpoint for backward compatibility
+    # Lazy import to avoid crashing app if novelty deps are missing
+    from backend.api.routes.novelty import analyze_novelty
     return analyze_novelty()
 
 

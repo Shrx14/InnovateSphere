@@ -1,4 +1,5 @@
 import Header from "../layout/Header";
+import { PageTransition } from "@/components/PageTransition";
 
 const PublicShell = ({ children }) => {
   return (
@@ -6,7 +7,7 @@ const PublicShell = ({ children }) => {
       <Header />
 
       <main>
-        {children}
+        <PageTransition>{children}</PageTransition>
       </main>
     </div>
   );

@@ -15,12 +15,20 @@ InnovateSphere is an AI-powered full-stack web application for generating and ex
 | Framework | React | 18.2.0 | UI framework |
 | Routing | React Router DOM | 6.22.3 | Client-side routing |
 | HTTP Client | Axios | 1.12.2 | API communication |
-| Icons | React Icons | 5.5.0 | UI icons |
+| Build Tool | Vite | 7.3.1 | Dev server, HMR, production builds |
+| Vite Plugin | @vitejs/plugin-react | 5.1.4 | React Fast Refresh |
 | Styling | Tailwind CSS | 3.3.3 | Utility-first CSS |
 | CSS Processing | PostCSS | 8.4.29 | CSS processing |
 | Prefixing | Autoprefixer | 10.4.15 | Vendor prefixing |
-| Testing | Jest + React Testing Library | - | Unit testing |
-| Build Tool | React Scripts | 5.0.1 | Build & dev server |
+| UI Primitives | Radix UI | (multiple) | Dialog, Dropdown, Select, Tabs, Toast, Tooltip, etc. |
+| Animation | Framer Motion | 12.34.0 | Page transitions (user shell) |
+| Icons | Lucide React | 0.564.0 | Primary icon set |
+| Icons (alt) | React Icons | 5.5.0 | Supplementary icons |
+| Charts | Recharts | 3.7.0 | Admin analytics charts |
+| Toasts | Sonner | 2.0.7 | Toast notifications |
+| Variants | Class Variance Authority | 0.7.1 | Component variant system |
+| Class Utils | clsx + tailwind-merge | 2.1.1 / 3.4.0 | Conditional class merging |
+| String Utils | leven | 4.1.0 | String distance computation |
 
 ### 1.2 Backend Stack
 
@@ -55,12 +63,13 @@ InnovateSphere is an AI-powered full-stack web application for generating and ex
 |-----------|------------|---------|
 | Containerization | Docker | Application containers |
 | Orchestration | Docker Compose | Multi-container setup |
-| Database Hosting | Neon (MCP AI-refactor branch) | Cloud PostgreSQL with pgvector |
-| LLM Backend (Local) | Ollama | Local LLM inference |
-| LLM Backend (Cloud) | OpenAI API | GPT models |
+| Database Hosting | Neon (cloud PostgreSQL) | Cloud PostgreSQL with pgvector + pooler |
+| Build Tool | Vite 7.3.1 | Frontend build, HMR, proxy |
+| LLM Backend (Local) | Ollama | Local LLM inference (qwen2.5:7b) |
+| LLM Backend (Cloud) | OpenAI API | GPT models (with fallback support) |
 | Academic Sources | arXiv API | Research papers |
 | Code Sources | GitHub API | Open source repositories |
-| Embedding Models | HuggingFace | Pre-trained models |
+| Embedding Models | HuggingFace | Pre-trained models (all-MiniLM-L6-v2) |
 
 ---
 
@@ -183,18 +192,21 @@ graph TD
 
 ### 3.2 Frontend Page Structure
 
-| Page | Route | Auth Required | Purpose |
-|------|-------|---------------|---------|
-| Landing | `/` | No | Public overview, signup CTA |
-| Explore | `/explore` | No | Browse public ideas |
-| Login | `/login` | No | User authentication |
-| Register | `/register` | No | User signup |
-| User Dashboard | `/user/dashboard` | Yes | User's ideas & stats |
-| Generate | `/user/generate` | Yes | Create new idea |
-| Idea Detail | `/idea/:id` | Optional | View full details, review |
-| Novelty | `/user/novelty` | Yes | Analyze novelty |
-| Admin Review | `/admin/review` | Admin | Review pending ideas |
-| Admin Analytics | `/admin/analytics` | Admin | Platform analytics |
+| Page | Route | Auth Required | Shell | Purpose |
+|------|-------|---------------|-------|----------|
+| Landing | `/` | No | PublicShell | Public overview, signup CTA |
+| Explore | `/explore` | No | PublicShell | Browse public ideas |
+| Login | `/login` | No | PublicShell | User authentication |
+| Register | `/register` | No | PublicShell | User signup |
+| Idea Detail | `/idea/:id` | No | PublicShell | View full details |
+| User Dashboard | `/user/dashboard` | Yes | UserShell | User's ideas & stats |
+| Generate | `/user/generate` | Yes | UserShell | Create new idea |
+| Novelty | `/user/novelty` | Yes | UserShell | Analyze novelty |
+| My Ideas | `/user/my-ideas` | Yes | UserShell | User's idea collection |
+| Admin Review | `/admin/` or `/admin/review` | Admin | AdminShell | Review pending ideas |
+| Admin Analytics | `/admin/analytics` | Admin | AdminShell | Platform analytics |
+| Admin Abuse | `/admin/abuse` | Admin | AdminShell | Abuse event monitoring |
+| Admin Idea Detail | `/admin/idea/:id` | Admin | AdminShell | Detailed admin idea review |
 
 ---
 
@@ -233,12 +245,45 @@ graph LR
 
 | Endpoint | Method | Auth | Purpose |
 |----------|--------|------|---------|
-| `/api/public/ideas` | GET | No | Browse public ideas |
-| `/api/ideas/generate` | POST | Yes | Generate new idea |
-| `/api/ideas/:id/review` | POST | Yes | Leave review |
+| `/api/health` | GET | No | System health check |
+| `/api/domains` | GET | No | Domain taxonomy |
+| `/api/public/ideas` | GET | No | Browse public ideas (cached) |
+| `/api/public/ideas/<id>` | GET | No | Public idea detail |
+| `/api/public/top-ideas` | GET | No | Top ideas |
+| `/api/public/top-domains` | GET | No | Top domains |
+| `/api/public/stats` | GET | No | Platform statistics |
+| `/api/register` | POST | No | User registration |
+| `/api/login` | POST | No | User login |
+| `/api/refresh` | POST | Refresh token | Token refresh |
+| `/api/logout` | POST | Yes | Logout (revoke token) |
+| `/api/ideas/generate` | POST | Yes | Async idea generation |
+| `/api/ideas/generate/<job_id>` | GET | Yes | Poll generation status |
+| `/api/ideas/generate/<job_id>/stream` | GET | Token param | SSE progress stream |
+| `/api/ideas/mine` | GET | Yes | User's own ideas |
+| `/api/ideas/:id` | GET | Yes | Authenticated idea detail |
+| `/api/ideas/:id/review` | POST | Yes | Submit/upsert review |
+| `/api/ideas/:id/reviews` | GET | Yes | List reviews |
 | `/api/ideas/:id/feedback` | POST | Yes | Submit feedback |
+| `/api/ideas/:id/feedbacks` | GET | Yes | List feedbacks |
+| `/api/ideas/:id/novelty-explanation` | GET | Yes (owner) | Novelty explanation |
 | `/api/retrieval/sources` | POST | Yes | Retrieve sources |
-| `/api/novelty/analyze` | GET | Yes | Analyze novelty |
+| `/api/novelty/analyze` | POST | Yes | Analyze novelty |
+| `/api/admin/ideas/quality-review` | GET | Admin | Review queue |
+| `/api/admin/ideas/:id` | GET | Admin | Admin idea detail |
+| `/api/admin/ideas/:id/verdict` | POST | Admin | Submit verdict |
+| `/api/admin/ideas/:id/human-verified` | POST | Admin | Toggle human-verified |
+| `/api/admin/ideas/:id/sources/:sid/hallucinated` | POST | Admin | Flag hallucination |
+| `/api/admin/ideas/:id/generation-trace` | GET | Admin | View generation trace |
+| `/api/admin/ideas/:id/bias-breakdown` | GET | Admin | Bias/penalty breakdown |
+| `/api/admin/ideas/:id/rescore` | POST | Admin | Re-run novelty scoring |
+| `/api/admin/abuse-events` | GET | Admin | View abuse events |
+| `/api/analytics/admin/kpis` | GET | Admin | KPI dashboard |
+| `/api/admin/domains` | GET | Admin | Domain statistics |
+| `/api/admin/trends` | GET | Admin | 30-day trends |
+| `/api/admin/distributions` | GET | Admin | Score histograms |
+| `/api/admin/user-domains` | GET | Admin | User domain preferences |
+| `/api/analytics/admin/bias-transparency` | GET | Admin | Bias impact analysis |
+| `/api/ai/pipeline-version` | GET | No | Pipeline version |
 | `/api/admin/review` | GET | Admin | Review queue |
 | `/api/admin/idea/:id/verdict` | POST | Admin | Apply verdict |
 | `/api/admin/analytics` | GET | Admin | View analytics |
@@ -255,7 +300,7 @@ graph LR
 graph TD
     Config["Configuration<br/>LLM_PROVIDER: ollama|openai"] --> Router["Provider Router"]
     
-    Router --> Ollama["Ollama Local<br/>- Model: phi3:mini<br/>- Endpoint: localhost:11434<br/>- Temperature: 0.2<br/>- Max Tokens: 1200"]
+    Router --> Ollama["Ollama Local<br/>- Model: qwen2.5:7b<br/>- Endpoint: localhost:11434<br/>- Temperature: 0.2<br/>- Max Tokens: 1200"]
     
     Router --> OpenAI["OpenAI API<br/>- Models: GPT-4/GPT-3.5<br/>- API Key Required<br/>- Enterprise Tier"]
     
@@ -527,21 +572,36 @@ Base: 50
 |----------|---------|-------------|
 | `DATABASE_URL` | - | PostgreSQL connection string |
 | `LLM_PROVIDER` | ollama | LLM backend (ollama/openai) |
-| `LLM_MODEL_NAME` | phi3:mini | Model name for generation |
+| `LLM_MODEL_NAME` | qwen2.5:7b | Model name for generation |
 | `OLLAMA_BASE_URL` | http://localhost:11434 | Local Ollama endpoint |
 | `OPENAI_API_KEY` | - | OpenAI API key |
 | `EMBEDDING_MODEL` | all-MiniLM-L6-v2 | Embedding model name |
 | `EMBEDDING_DIM` | 384 | Embedding dimension |
 | `SECRET_KEY` | dev-secret-key | Flask secret key |
-| `JWT_SECRET` | dev-jwt-secret | JWT signing secret |
+| `JWT_SECRET_KEY` | dev-jwt-secret | JWT signing secret |
 | `JWT_EXP_SECONDS` | 3600 | JWT expiration (1 hour) |
 | `MAX_SOURCES_FOR_LLM` | 8 | Max sources sent to LLM |
 | `MIN_EVIDENCE_REQUIRED` | 3 | Minimum sources for generation |
-| `LLM_TIMEOUT_SECONDS` | 15 | LLM request timeout |
-| `LLM_MAX_RETRIES` | 2 | LLM retry attempts |
-| `CORS_ORIGINS` | http://localhost:3000 | Allowed CORS origins |
+| `LLM_TIMEOUT_SECONDS` | 60 | LLM request timeout |
+| `LLM_MAX_RETRIES` | 4 | LLM retry attempts |
+| `CORS_ORIGINS` | http://localhost:5173 | Allowed CORS origins |
 | `MAX_GENERATION_REQUESTS_PER_MIN` | 6 | Rate limit per minute |
-| `DEFAULT_AI_PIPELINE_VERSION` | v2 | Active pipeline version |
+| **LLM Safety** | | |
+| `LLM_SAFETY_ENABLED` | true | Enable safety guardrails |
+| `LLM_SAFETY_MAX_PROMPT_CHARS` | 5000 | Max prompt length |
+| `LLM_SAFETY_BLOCKED_TOPICS` | weapons,... | Blocked topic list |
+| **Fallback** | | |
+| `LLM_FALLBACK_ENABLED` | true | Enable provider fallback |
+| `LLM_FALLBACK_PROVIDER` | openai | Fallback LLM provider |
+| `LLM_FALLBACK_MODEL` | gpt-4o-mini | Fallback model name |
+| **Hybrid Mode** | | |
+| `HYBRID_MODE_ENABLED` | false | Enable hybrid LLM mode |
+| `HYBRID_LLM_TIMEOUT_SECONDS` | 90 | Hybrid mode timeout |
+| `HYBRID_LLM_MAX_RETRIES` | 2 | Hybrid mode retries |
+| **Demo Mode** | | |
+| `DEMO_MODE_ENABLED` | false | Enable demo mode |
+| `DEMO_LLM_TIMEOUT_SECONDS` | 45 | Demo mode timeout |
+| `DEMO_LLM_MAX_RETRIES` | 1 | Demo mode retries |
 
 ### 8.2 Docker Compose Setup
 
@@ -613,7 +673,7 @@ Services:
 Docker Compose:
 ├── db: PostgreSQL 13 + pgvector (port 5433)
 ├── backend: Flask dev server (port 5000)
-└── frontend: React dev server (port 3000)
+└── frontend: Vite dev server (port 5173)
 
 External:
 ├── Ollama: Local LLM (port 11434)
@@ -624,11 +684,11 @@ External:
 
 ```
 Frontend:
-├── Vercel/Netlify: React build
+├── Vercel/Netlify: Vite production build
 └── CDN: Static assets
 
 Backend:
-├── Gunicorn: ASGI server
+├── Gunicorn: WSGI server
 ├── Nginx: Reverse proxy
 └── Multi-region: Load balancer
 
@@ -654,7 +714,7 @@ LLM:
 | **Admin HITL** | Human review & verdicts | Cascade penalties to similar ideas |
 | **User Engagement** | Reviews, feedback, requests | Full CRUD with analytics |
 | **Semantic Search** | Vector similarity | pgvector + cosine distance |
-| **Rate Limiting** | Abuse prevention | Flask-Limiter with Redis |
+| **Rate Limiting** | Abuse prevention | Flask-Limiter (in-memory) |
 | **Generation Traces** | Complete audit trail | JSON storage of all phases |
 
 ---

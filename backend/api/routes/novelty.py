@@ -2,7 +2,7 @@
 Novelty analysis endpoints
 """
 from flask import Blueprint, request, jsonify
-# novelty endpoints are public-facing (no auth required)
+from flask_jwt_extended import jwt_required
 
 from backend.novelty.router import route_engine
 from backend.novelty.normalization import normalize_score
@@ -13,6 +13,7 @@ novelty_bp = Blueprint("novelty", __name__)
 
 
 @novelty_bp.route("/api/novelty/analyze", methods=["POST"])
+@jwt_required()
 def analyze_novelty():
     payload = request.get_json() or {}
 
@@ -25,13 +26,15 @@ def analyze_novelty():
     if len(description) > 5000:
         return jsonify({"error": "Description too long (maximum 5000 characters)"}), 400
 
-    engine, intent, intent_confidence = route_engine(description)
+    engine, intent, intent_confidence, problem_class, problem_class_confidence = route_engine(description, override_domain=domain)
 
-    result = engine.analyze(description, domain)
+    result = engine.analyze(description, domain, problem_class=problem_class)
 
-    evidence = compute_evidence_score(result.get("debug", {}), intent_confidence)
+    # Pass sources to evidence score computation for relevance-tier weighting
+    evidence = compute_evidence_score(result.get("debug", {}), intent_confidence, sources=result.get("sources", []))
 
-    result = apply_evidence_constraints(result, evidence)
+    # Pass sources to constraint enforcement for domain-only fallback penalty
+    result = apply_evidence_constraints(result, evidence, sources=result.get("sources", []))
 
     normalized_score = normalize_score(result["novelty_score"], result.get("engine", "generic"))
     normalized_score = min(normalized_score, result["novelty_score"])
@@ -42,12 +45,15 @@ def analyze_novelty():
         "confidence": result["confidence"],
         "speculative": result.get("speculative"),
         "evidence_score": result.get("evidence_score"),
+        "evidence_breakdown": result.get("evidence_breakdown", {"supporting": 0, "contextual": 0, "peripheral": 0}),
 
         "similar_projects": result.get("similar_projects", []),
 
         "engine": result["engine"],
         "domain_intent": intent,
         "intent_confidence": intent_confidence,
+        "problem_class": problem_class,
+        "problem_class_confidence": problem_class_confidence,
 
         "trace_id": result.get("trace_id"),
         "insights": result.get("insights", {}),
@@ -56,8 +62,4 @@ def analyze_novelty():
     }), 200
 
 
-# Backwards-compatible alias used by older clients/tests
-@novelty_bp.route("/api/check_novelty", methods=["POST"])
-def check_novelty_alias():
-    # Reuse the analyze_novelty implementation
-    return analyze_novelty()
+# Legacy /api/check_novelty alias is handled by platform_bp in platform.py

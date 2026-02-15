@@ -20,17 +20,75 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle 401/403
+// Track whether a token refresh is already in progress
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+function onRefreshed(newToken) {
+  refreshSubscribers.forEach((cb) => cb(newToken));
+  refreshSubscribers = [];
+}
+
+function addRefreshSubscriber(callback) {
+  refreshSubscribers.push(callback);
+}
+
+// Response interceptor — attempt transparent token refresh on 401
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      console.log('Forced logout due to 401/403 response');
-      // Dispatch event to AuthContext to handle logout
-      window.dispatchEvent(new CustomEvent('auth:logout', { detail: 'API 401/403' }));
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // If 401 and we haven't retried yet, attempt refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      const refreshToken = localStorage.getItem('refresh_token');
+
+      if (refreshToken) {
+        if (isRefreshing) {
+          // Queue the request until refresh completes
+          return new Promise((resolve) => {
+            addRefreshSubscriber((newToken) => {
+              originalRequest.headers.Authorization = `Bearer ${newToken}`;
+              resolve(api(originalRequest));
+            });
+          });
+        }
+
+        originalRequest._retry = true;
+        isRefreshing = true;
+
+        try {
+          const res = await axios.post(
+            `${API_BASE_URL}/refresh`,
+            {},
+            { headers: { Authorization: `Bearer ${refreshToken}` } }
+          );
+          const newToken = res.data.access_token;
+          localStorage.setItem('access_token', newToken);
+          isRefreshing = false;
+          onRefreshed(newToken);
+
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return api(originalRequest);
+        } catch (refreshErr) {
+          isRefreshing = false;
+          refreshSubscribers = [];
+          // Refresh failed — force logout
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          window.dispatchEvent(new CustomEvent('auth:logout', { detail: 'Refresh token expired' }));
+          return Promise.reject(refreshErr);
+        }
+      }
+
+      // No refresh token — force logout
+      window.dispatchEvent(new CustomEvent('auth:logout', { detail: 'API 401' }));
     }
+
+    if (error.response?.status === 403) {
+      console.log('Forbidden (403) — insufficient permissions');
+    }
+
     return Promise.reject(error);
   }
 );

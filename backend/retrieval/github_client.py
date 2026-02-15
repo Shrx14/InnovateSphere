@@ -28,11 +28,11 @@ GENERIC_VERBS = {
 }
 
 
-def _extract_semantic_keywords_with_llm(description: str, domain: str, max_keywords: int = 5) -> list:
+def _extract_semantic_keywords_with_llm(description: str, domain: str, max_keywords: int = 5) -> dict:
     """
-    Extract domain-specific semantic keywords using LLM.
-    This identifies meaningful technical terms relevant to GitHub search,
-    rather than just positional heuristics (e.g., "data-driven" instead of "many").
+    Extract domain-specific semantic keywords using LLM with mixed strategy.
+    Returns both simple technical terms (1-2 words) and compound domain concepts
+    for better GitHub search coverage.
     
     Args:
         description: User's project description
@@ -40,48 +40,83 @@ def _extract_semantic_keywords_with_llm(description: str, domain: str, max_keywo
         max_keywords: Maximum number of keywords to extract (default 5 for better coverage)
         
     Returns:
-        List of semantic keywords, or falls back to heuristic extraction on error
+        Dictionary with 'simple_terms' (3) and 'compound_terms' (2), or falls back to heuristic
     """
     try:
         prompt = f"""You are a technical researcher extracting DISCOVERABLE search keywords from project descriptions.
 
-Given this project description, extract 3-5 keywords that developers would ACTUALLY SEARCH FOR on GitHub.
-Focus on short, specific technical terms that developers use when exploring similar projects.
+Given this project description, extract a MIX of keywords that developers would ACTUALLY SEARCH FOR on GitHub.
+Focus on both short technical terms AND specific compound concepts.
 
 Domain: {domain}
 Description: {description}
 
 Rules:
-- Extract 3-5 keywords (more keywords = better search coverage)
-- Keywords should be SHORT and SPECIFIC:
-  ✓ Good: "personalized", "fitness", "health-recommendation", "nutrition", "community-health"
-  ✗ Bad: "personalized-fitness-system", "community-integrated-health"
-- Include single-word technical terms (high recall): "ai", "analytics", "machine-learning"
-- Include hyphenated domain concepts (specific): "health-tracking", "adaptive-algorithms"
-- Think like a developer searching GitHub: what 2-3 word combos would you type?
+- Return 3 CORE TECHNICAL KEYWORDS (1-2 words each):
+  ✓ Good: "resume", "nlp", "interview", "learning", "analytics", "marketplace", "booking", "scheduling"
+  ✗ Bad: "resume-analysis-platform", "natural-language-processing-system"
+  
+- Return 2 DOMAIN-SPECIFIC COMPOUND TERMS (2-3 words, hyphenated or spaced):
+  ✓ Good: "interview-simulator", "resume-parser", "ml-pipeline", "text-analysis", "event-management", "vendor-system"
+  ✗ Bad: "system", "platform", "solution"
+
+- Simple terms help with BROAD COVERAGE (high recall)
+- Compound terms help with SPECIFIC MATCHES (high precision)
 - Avoid generic verbs (helps, develops, creates, builds)
 - Avoid introductory words (many, some, users, people, individuals)
 - Prioritize the core INNOVATION/DOMAIN of this idea
+- Include domain-specific concepts: if about markets/events/vendors/booths, include "marketplace", "vendor", "booth", "event-management"
 
 Return valid JSON with this exact format:
 {{
-    "keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
-    "search_strategy": "Brief explanation of why these keywords enable finding similar projects"
+    "simple_terms": ["term1", "term2", "term3"],
+    "compound_terms": ["compound-term1", "compound-term2"],
+    "search_strategy": "Brief explanation of why this mix enables finding similar projects"
 }}"""
         
         response = generate_json(prompt, max_tokens=400, temperature=0.1)
+        if isinstance(response, dict):
+            simple_terms = response.get("simple_terms", [])
+            compound_terms = response.get("compound_terms", [])
+            
+            # Validate we got usable results
+            if isinstance(simple_terms, list) and isinstance(compound_terms, list):
+                if simple_terms or compound_terms:
+                    result = {
+                        "simple_terms": simple_terms[:3],  # Max 3 simple terms
+                        "compound_terms": compound_terms[:2],  # Max 2 compound terms
+                        "all_terms": simple_terms[:3] + compound_terms[:2]
+                    }
+                    logger.info("[GitHub] LLM extracted semantic keywords: simple=%s, compound=%s", 
+                               result["simple_terms"], result["compound_terms"])
+                    return result
+        
+        # If response format is unexpected, try legacy format
         if isinstance(response, dict) and "keywords" in response:
             keywords = response.get("keywords", [])
             if isinstance(keywords, list) and keywords:
-                # Take up to max_keywords, but keep all if LLM returned fewer
-                result = keywords[:max_keywords]
-                logger.info("[GitHub] LLM extracted semantic keywords: %s", result)
+                # Split into simple (1-2 words) and compound (3+ words or hyphenated)
+                simple = [k for k in keywords if len(k.split()) <= 2 and '-' not in k][:3]
+                compound = [k for k in keywords if len(k.split()) > 2 or '-' in k][:2]
+                result = {
+                    "simple_terms": simple,
+                    "compound_terms": compound,
+                    "all_terms": keywords[:max_keywords]
+                }
+                logger.info("[GitHub] LLM extracted semantic keywords (legacy format): %s", result["all_terms"])
                 return result
+                
     except Exception as e:
         logger.debug("[GitHub] LLM keyword extraction failed: %s - falling back to heuristic", str(e))
     
     # Fallback to heuristic extraction if LLM fails
-    return _extract_key_terms(description, max_terms=max_keywords)
+    fallback_terms = _extract_key_terms(description, max_terms=max_keywords)
+    return {
+        "simple_terms": fallback_terms[:3],
+        "compound_terms": fallback_terms[3:5],
+        "all_terms": fallback_terms
+    }
+
 
 
 def _extract_key_terms(query, max_terms=5):
@@ -182,70 +217,85 @@ def _generate_query_variations(query, domain):
     else:
         domain_str = str(domain_keywords) if domain_keywords else ""
     
-    # Decide extraction method based on query length
-    # Only use expensive LLM for substantial queries
+    # Decide extraction method based on query length and pipeline mode
+    from backend.core.config import Config
     word_count = len(query.split()) if query else 0
     
-    if word_count > 6:
-        # Substantial detailed query: use LLM semantic extraction (now extracts 5 keywords)
-        key_terms = _extract_semantic_keywords_with_llm(query, domain, max_keywords=5)
+    if Config.HYBRID_MODE or Config.DEMO_MODE:
+        # Hybrid/demo mode: always use fast heuristic — no LLM calls in retrieval
+        all_terms = _extract_key_terms(query, max_terms=5)
+        simple_terms = all_terms[:3]
+        compound_terms = all_terms[3:5]
+        logger.debug("[GitHub] using heuristic extraction (hybrid mode, %d words)", word_count)
+    elif word_count > 6:
+        # Substantial detailed query: use LLM semantic extraction (now extracts mixed keywords)
+        keyword_result = _extract_semantic_keywords_with_llm(query, domain, max_keywords=5)
+        simple_terms = keyword_result.get("simple_terms", [])
+        compound_terms = keyword_result.get("compound_terms", [])
+        all_terms = keyword_result.get("all_terms", [])
         logger.debug("[GitHub] using LLM extraction for long query (%d words)", word_count)
     else:
         # Short vague query: use fast heuristic, skip LLM overhead (now extracts 5 terms)
-        key_terms = _extract_key_terms(query, max_terms=5)
+        all_terms = _extract_key_terms(query, max_terms=5)
+        simple_terms = all_terms[:3]
+        compound_terms = all_terms[3:5]
         logger.debug("[GitHub] using heuristic extraction for short query (%d words)", word_count)
+
     
-    # Variation 1: Key terms (5) + domain keywords (most specific, best coverage)
-    if key_terms and domain_str:
-        combined_query = ' '.join(key_terms) + ' ' + domain_str
-        variations.append((combined_query.strip(), "key terms + domain"))
+    # Variation 1: Simple terms (3) + domain keywords (broad coverage with domain context)
+    if simple_terms and domain_str:
+        combined_query = ' '.join(simple_terms) + ' ' + domain_str
+        variations.append((combined_query.strip(), "simple terms + domain"))
     
-    # Variation 2: Key terms (5) alone (specific to the idea, without domain noise)
-    if key_terms:
-        key_terms_query = ' '.join(key_terms)
-        variations.append((key_terms_query.strip(), "key terms only"))
+    # Variation 2: Simple terms (3) alone (broad technical coverage)
+    if simple_terms:
+        simple_terms_query = ' '.join(simple_terms)
+        variations.append((simple_terms_query.strip(), "simple terms only"))
     
-    # Variation 3: Synonym variations - try replacing top 2 keywords with technical synonyms
-    # IMPORTANT: Only add synonyms if we have multiple key terms to try
-    if key_terms and len(key_terms) >= 2:
-        for term in key_terms[:2]:  # Try synonyms for top 2 keywords
-            if term in TECHNICAL_SYNONYMS:
-                for synonym in TECHNICAL_SYNONYMS[term][:1]:  # Try first synonym only
-                    # Replace top keyword with synonym
-                    variant_terms = [synonym if t == term else t for t in key_terms]
-                    variant_query = ' '.join(variant_terms)
-                    if variant_query and variant_query != key_terms_query:
-                        variations.append((variant_query.strip(), f"synonym variation: {term}→{synonym}"))
-                        break  # Only try one synonym per keyword
+    # Variation 3: Compound terms (2) + domain keywords (specific matches with context)
+    if compound_terms and domain_str:
+        compound_domain_query = ' '.join(compound_terms) + ' ' + domain_str
+        variations.append((compound_domain_query.strip(), "compound terms + domain"))
     
-    # Variation 4: Simplified key terms (try top-2, top-3, top-4)
-    # Try progressively smaller simplified queries before falling back to original.
-    # The previous logic could never add a simplified variant when `len(key_terms) <= 5`
-    # because it compared the simplified join to the full join and they were identical.
-    if key_terms and len(key_terms) >= 2:
-        # Try top-N simplified queries (2..min(4, len(key_terms))) to increase hit-rate
-        max_try = min(4, len(key_terms))
-        seen = set()
-        for n in range(2, max_try + 1):
-            simplified = ' '.join(key_terms[:n]).strip()
-            if not simplified or simplified in seen:
-                continue
-            seen.add(simplified)
-            # Avoid duplicating the exact key_terms query already added as variation 2
-            try:
-                if key_terms_query and simplified == key_terms_query:
-                    continue
-            except NameError:
-                pass
-            variations.append((simplified, f"simplified key terms (top {n})"))
+    # Variation 4: All keywords mixed (full coverage)
+    if all_terms:
+        all_terms_query = ' '.join(all_terms)
+        variations.append((all_terms_query.strip(), "all keywords mixed"))
     
-    # Variation 5: Original full query (preserves full context but may be too long)
+    # Variation 5: LLM-summarized original query (for oversized queries, replaces truncation)
+    if query and len(query) > 200:
+        try:
+            # Import here to avoid circular dependency
+            from backend.retrieval.orchestrator import _summarize_query_with_llm
+            summarized = _summarize_query_with_llm(query, max_chars=120)
+            if summarized and summarized != query and len(summarized) < len(query):
+                variations.append((summarized.strip(), "LLM-summarized query"))
+                logger.info("[GitHub] using LLM summary for oversized query: %s", summarized)
+        except Exception as e:
+            logger.debug("[GitHub] LLM summarization failed: %s", str(e))
+    
+    # Variation 6: Original full query (preserves full context but may be too long)
+    # Only add if not already handled by LLM summary
     if query:
         variations.append((query.strip(), "original query"))
     
-    # Variation 6: Domain keywords alone (fallback, broadest - use as last resort)
+    # Variation 7: Domain keywords alone (fallback, broadest - use as last resort)
     if domain_str:
         variations.append((domain_str.strip(), "domain keywords only"))
+    
+    # Variation 8: Synonym variations - try replacing top 2 simple terms with technical synonyms
+    # IMPORTANT: Only add synonyms if we have multiple key terms to try
+    if simple_terms and len(simple_terms) >= 2:
+        for term in simple_terms[:2]:  # Try synonyms for top 2 keywords
+            if term in TECHNICAL_SYNONYMS:
+                for synonym in TECHNICAL_SYNONYMS[term][:1]:  # Try first synonym only
+                    # Replace top keyword with synonym
+                    variant_terms = [synonym if t == term else t for t in simple_terms]
+                    variant_query = ' '.join(variant_terms)
+                    if variant_query and variant_query != simple_terms_query:
+                        variations.append((variant_query.strip(), f"synonym variation: {term}→{synonym}"))
+                        break  # Only try one synonym per keyword
+
     
     # If we only have one variation, something's wrong - add a generic fallback
     if not variations and query:
@@ -278,7 +328,8 @@ def search_github(query, domain, max_results=5, fetch_limit=20, final_top_n=5):
         final_top_n: How many results to return after star-sorting (default 5)
     
     Returns:
-        A list of normalized source dictionaries, ordered by star count (highest first).
+        A list of normalized source dictionaries, ordered by relevance (variation priority + position first), then stars.
+
     """
     try:
         # Generate query variations, ordered by expected effectiveness
@@ -294,16 +345,21 @@ def search_github(query, domain, max_results=5, fetch_limit=20, final_top_n=5):
         # non-empty variation. Aggregation improves recall across
         # prioritized variations while still respecting per-call `fetch_limit`.
         aggregated = {}
-        for search_query, variation_desc in variations:
-            # GitHub enforces a max q length (~256). Truncate long queries early
-            # to avoid 422 responses. Keep a sane default cap (240 chars).
+        # Track which variation yields the most results
+        variation_effectiveness = {}
+        
+        for variation_index, (search_query, variation_desc) in enumerate(variations):
+
+            # GitHub enforces a max q length (~256). For non-LLM-summarized queries,
+            # truncate long queries to avoid 422 responses. Keep a sane default cap (240 chars).
             MAX_Q_LEN = 240
-            if len(search_query) > MAX_Q_LEN:
+            if len(search_query) > MAX_Q_LEN and "LLM-summarized" not in variation_desc:
                 logger.info("[GitHub] truncating query from %d to %d chars (variation: %s)", 
                            len(search_query), MAX_Q_LEN, variation_desc)
                 search_query = search_query[:MAX_Q_LEN]
             
             logger.info("[GitHub] trying variation: %s | query=%s", variation_desc, search_query)
+
             
             # GitHub API parameters
             # NOTE: Omitting 'sort' param means GitHub returns best-match (relevance-ordered)
@@ -371,14 +427,22 @@ def search_github(query, domain, max_results=5, fetch_limit=20, final_top_n=5):
             if results:
                 # Add unique results to aggregated map keyed by URL
                 added_count = 0
-                for r in results:
+                for position_in_result, r in enumerate(results):
                     url = r.get('url')
                     if not url:
                         continue
                     if url not in aggregated:
+                        # Store metadata for relevance-aware sorting
+                        metadata = r.get('metadata', {})
+                        metadata['variation_index'] = variation_index
+                        metadata['position_in_result'] = position_in_result
+                        r['metadata'] = metadata
                         aggregated[url] = r
                         added_count += 1
 
+
+                # Track effectiveness of this variation
+                variation_effectiveness[variation_desc] = added_count
                 logger.info("[GitHub] variation '%s' returned %d items, %d new aggregated", variation_desc, len(results), added_count)
 
                 # Stop early if we've collected enough unique candidates
@@ -389,17 +453,43 @@ def search_github(query, domain, max_results=5, fetch_limit=20, final_top_n=5):
         
         # After trying variations, return up to final_top_n aggregated results
         if aggregated:
+            # Log which variation was most effective
+            if variation_effectiveness:
+                best_variation = max(variation_effectiveness, key=variation_effectiveness.get)
+                logger.info("[GitHub] most effective variation: '%s' with %d new results", 
+                           best_variation, variation_effectiveness[best_variation])
+            
+            # Sort results: Use variation priority + position as primary (relevance), stars as tiebreaker
+            # Earlier variations = more relevant, earlier position = more relevant
+            # Stars only used to break ties when relevance is equal
+            # This ensures 0-star but highly-relevant repos aren't buried
             sorted_results = sorted(
                 aggregated.values(),
-                key=lambda r: r.get('metadata', {}).get('stars', 0),
-                reverse=True
+                key=lambda r: (
+                    r.get('metadata', {}).get('variation_index', 999),  # Lower index = earlier variation = more relevant
+                    r.get('metadata', {}).get('position_in_result', 999),  # Lower position = more relevant within variation
+                    -r.get('metadata', {}).get('stars', 0)  # Higher stars = better (negative for descending)
+                )
             )
             final_results = sorted_results[:final_top_n]
+            
+            # Log ranking metadata
+            ranking_info = [
+                {
+                    'title': r['title'][:30],
+                    'var_idx': r.get('metadata', {}).get('variation_index', -1),
+                    'pos': r.get('metadata', {}).get('position_in_result', -1),
+                    'stars': r.get('metadata', {}).get('stars', 0)
+                }
+                for r in final_results
+            ]
             logger.info(
-                "[GitHub] aggregated results across variations | total_aggregated=%d | returned=%d",
-                len(aggregated), len(final_results)
+                "[GitHub] aggregated results | total=%d | returned=%d | ranking=(var_idx, pos, stars): %s",
+                len(aggregated), len(final_results), ranking_info
             )
             return final_results
+
+
 
         # No results from any variation
         logger.info("[GitHub] all query variations exhausted, no results found")

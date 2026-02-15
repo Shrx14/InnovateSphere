@@ -8,19 +8,25 @@ from collections import defaultdict, deque
 
 logger = logging.getLogger("novelty.trace")
 
-# Telemetry storage
-_TELEMETRY = defaultdict(list)
+# Telemetry storage (bounded per metric to avoid memory leaks)
+_TELEMETRY = defaultdict(lambda: deque(maxlen=1000))
+_MAX_TELEMETRY_METRICS = 500
 
-# Stability tracking
+# Stability tracking (bounded to avoid memory leaks)
 _HISTORY = {}
+_MAX_HISTORY_KEYS = 10000
 MAX_HISTORY = 5
 MAX_DELTA = 5.0
 
 
 def record_telemetry(metric: str, value: float):
     """
-    Record a telemetry metric.
+    Record a telemetry metric (bounded to prevent memory leaks).
     """
+    if len(_TELEMETRY) >= _MAX_TELEMETRY_METRICS and metric not in _TELEMETRY:
+        # Evict oldest metric key to stay bounded
+        oldest = next(iter(_TELEMETRY))
+        del _TELEMETRY[oldest]
     _TELEMETRY[metric].append(value)
 
 
@@ -59,6 +65,12 @@ def check_stability(key_text: str, score: float, confidence: str) -> float:
     Returns the stabilized score.
     """
     key = _hash(key_text)
+
+    # Evict oldest entries if history map grows too large
+    if len(_HISTORY) >= _MAX_HISTORY_KEYS and key not in _HISTORY:
+        oldest = next(iter(_HISTORY))
+        del _HISTORY[oldest]
+
     history = _HISTORY.setdefault(key, deque(maxlen=MAX_HISTORY))
 
     if history:

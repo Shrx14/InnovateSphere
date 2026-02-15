@@ -1,3 +1,11 @@
+"""
+DEPRECATED: Legacy custom JWT auth module.
+
+All production routes use flask_jwt_extended instead.
+This module is retained only for backward-compat with existing tests.
+Do NOT use these functions in new code — use flask_jwt_extended directly.
+"""
+
 import time
 import jwt
 import logging

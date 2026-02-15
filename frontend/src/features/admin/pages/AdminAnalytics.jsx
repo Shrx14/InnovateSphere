@@ -36,14 +36,16 @@ const AdminAnalytics = () => {
 
     const results = {};
 
-    for (const { key, url } of endpoints) {
-      try {
-        const res = await api.get(url);
-        results[key] = res.data;
-      } catch (error) {
-        console.error(`Failed to fetch ${key}:`, error);
+    // Fetch all endpoints in parallel instead of sequentially
+    const settled = await Promise.allSettled(
+      endpoints.map(({ key, url }) => api.get(url).then(res => ({ key, data: res.data })))
+    );
+
+    for (const result of settled) {
+      if (result.status === 'fulfilled') {
+        results[result.value.key] = result.value.data;
+      } else {
         setPartialError(true);
-        results[key] = key === 'distributions' ? { novelty: [], quality: [] } : [];
       }
     }
 
@@ -51,43 +53,32 @@ const AdminAnalytics = () => {
       domains: results.domains?.domains || [],
       trends: results.trends?.trends || [],
       distributions: results.distributions || { novelty: [], quality: [] },
-      userDomains: results.userDomains?.domains || []
+      userDomains: results.userDomains?.user_domains || []
     });
 
     setLoading(false);
   };
 
-  const createHistogramData = (values, bins = 10) => {
-    if (!values || values.length === 0) return [];
-    const min = 0;
-    const max = 100;
-    const range = max - min;
-    const binSize = range / bins;
-
-    const histogram = new Array(bins).fill(0);
-    values.forEach(value => {
-      const clamped = Math.max(min, Math.min(max, value));
-      const binIndex = Math.min(Math.floor((clamped - min) / binSize), bins - 1);
-      histogram[binIndex]++;
-    });
-
-    return histogram.map((count, index) => ({
-      bin: `${Math.round(min + index * binSize)}-${Math.round(min + (index + 1) * binSize)}`,
-      count
-    }));
-  };
-
   const totalDomains = data.domains.length;
   const totalIdeas = data.trends.reduce((sum, t) => sum + (t.count || 0), 0);
   const avgQuality = data.distributions.quality.length > 0
-    ? Math.round(data.distributions.quality.reduce((sum, q) => sum + q, 0) / data.distributions.quality.length)
+    ? (() => {
+        const totalCount = data.distributions.quality.reduce((sum, b) => sum + (b.count || 0), 0);
+        if (totalCount === 0) return 'No data available';
+        const weightedSum = data.distributions.quality.reduce((sum, b) => {
+          const midpoint = parseInt(b.range) + 5;
+          return sum + midpoint * (b.count || 0);
+        }, 0);
+        return Math.round(weightedSum / totalCount);
+      })()
     : 'No data available';
   const topDomain = data.userDomains.length > 0
-    ? data.userDomains.reduce((max, d) => (d.requests || 0) > (max.requests || 0) ? d : max).domain
+    ? data.userDomains.reduce((max, d) => (d.user_count || 0) > (max.user_count || 0) ? d : max).name
     : 'No data available';
 
-  const noveltyHistogram = createHistogramData(data.distributions.novelty);
-  const qualityHistogram = createHistogramData(data.distributions.quality);
+  // Backend returns pre-bucketed {range, count} objects — use directly as chart data
+  const noveltyHistogram = data.distributions.novelty.map(b => ({ bin: b.range, count: b.count }));
+  const qualityHistogram = data.distributions.quality.map(b => ({ bin: b.range, count: b.count }));
 
   if (loading) {
     return (

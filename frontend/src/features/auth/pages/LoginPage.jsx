@@ -22,8 +22,8 @@ const LoginPage = () => {
 
     try {
       const res = await api.post('/login', form);
-      login(res.data.access_token);
-      navigate('/user/dashboard');
+      login(res.data.access_token, res.data.refresh_token);
+      // login() in AuthContext already navigates based on role
     } catch (err) {
       setError(err.response?.data?.error || 'Unable to sign in. Please check your credentials.');
     } finally {
@@ -62,13 +62,15 @@ const LoginPage = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Email Input */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-neutral-300">
+                <label htmlFor="login-email" className="block text-sm font-medium text-neutral-300">
                   Email
                 </label>
                 <input
+                  id="login-email"
                   name="email"
                   type="email"
                   required
+                  autoComplete="email"
                   value={form.email}
                   onChange={handleChange}
                   placeholder="your@email.com"
@@ -78,14 +80,16 @@ const LoginPage = () => {
 
               {/* Password Input with show/hide */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-neutral-300">
+                <label htmlFor="login-password" className="block text-sm font-medium text-neutral-300">
                   Password
                 </label>
                 <div className="relative">
                   <input
+                    id="login-password"
                     name="password"
                     type={showPassword ? 'text' : 'password'}
                     required
+                    autoComplete="current-password"
                     value={form.password}
                     onChange={handleChange}
                     placeholder="••••••••"

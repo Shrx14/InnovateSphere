@@ -6,9 +6,10 @@ from flask import Blueprint, request, jsonify, session
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload, selectinload
 from backend.core.db import db
 from backend.core.models import (
-    ProjectIdea, IdeaRequest, IdeaFeedback, IdeaView, AdminVerdict, Domain, GenerationTrace, ViewEvent
+    ProjectIdea, IdeaRequest, IdeaFeedback, IdeaReview, IdeaView, AdminVerdict, Domain, GenerationTrace, ViewEvent
 )
 from backend.novelty.explain import generate_detailed_explanation
 
@@ -19,8 +20,6 @@ logger = logging.getLogger(__name__)
 
 ideas_bp = Blueprint("ideas", __name__)
 
-
-@ideas_bp.route("/api/ideas/<int:idea_id>/feedback", methods=["POST"])
 
 @ideas_bp.route("/api/ideas/<int:idea_id>/novelty-explanation", methods=["GET"])
 @jwt_required()
@@ -46,7 +45,7 @@ def get_novelty_explanation(idea_id):
         return jsonify({"error": "Access denied. You can only view explanations for your own ideas."}), 403
 
     # Get generation trace
-    trace = GenerationTrace.query.filter_by(idea_id=idea_id).first()
+    trace = db.session.query(GenerationTrace).filter_by(idea_id=idea_id).first()
     
     # Extract comprehensive signal breakdown
     signal_breakdown = {}
@@ -131,6 +130,7 @@ def get_novelty_explanation(idea_id):
         "trace_available": trace is not None
     }), 200
 
+@ideas_bp.route("/api/ideas/<int:idea_id>/feedback", methods=["POST"])
 @jwt_required()
 def submit_idea_feedback(idea_id):
     """
@@ -198,6 +198,10 @@ def my_ideas():
 
     query = (
         db.session.query(ProjectIdea)
+        .options(
+            joinedload(ProjectIdea.domain),
+            joinedload(ProjectIdea.admin_verdict),
+        )
         .join(IdeaRequest, IdeaRequest.idea_id == ProjectIdea.id)
         .join(Domain, Domain.id == ProjectIdea.domain_id)
         .outerjoin(AdminVerdict)
@@ -247,7 +251,14 @@ def authenticated_idea_detail(idea_id):
     if not user_id:
         return jsonify({"error": "Authentication required"}), 401
 
-    idea = ProjectIdea.query.get(idea_id)
+    idea = ProjectIdea.query.options(
+        joinedload(ProjectIdea.domain),
+        selectinload(ProjectIdea.sources),
+        selectinload(ProjectIdea.feedbacks),
+        selectinload(ProjectIdea.reviews),
+        joinedload(ProjectIdea.admin_verdict),
+        selectinload(ProjectIdea.requests),
+    ).get(idea_id)
     if not idea:
         return jsonify({"error": "Idea not found"}), 404
 
@@ -289,4 +300,142 @@ def authenticated_idea_detail(idea_id):
 
     return jsonify({
         "idea": serialize_full_idea(idea)
+    }), 200
+
+
+# ============================================================================
+# Reviews (star-rating + optional comment)
+# ============================================================================
+
+@ideas_bp.route("/api/ideas/<int:idea_id>/review", methods=["POST"])
+@jwt_required()
+def submit_idea_review(idea_id):
+    """
+    Submit or update a star-rating review for an idea.
+    Request: { "rating": 1-5, "comment": "optional" }
+    One review per user per idea (upsert).
+    """
+    data = request.get_json() or {}
+    rating = data.get("rating")
+    comment = data.get("comment", "").strip()
+
+    # Validate rating
+    if not isinstance(rating, int) or rating < 1 or rating > 5:
+        return jsonify({"error": "Rating must be an integer between 1 and 5"}), 400
+
+    if len(comment) > 5000:
+        return jsonify({"error": "Comment too long (maximum 5000 characters)"}), 400
+
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    idea = ProjectIdea.query.get(idea_id)
+    if not idea:
+        return jsonify({"error": "Idea not found"}), 404
+
+    # Upsert: update existing review or create new
+    existing = IdeaReview.query.filter_by(user_id=user_id, idea_id=idea_id).first()
+    if existing:
+        existing.rating = rating
+        existing.comment = comment if comment else existing.comment
+    else:
+        review = IdeaReview(
+            user_id=user_id,
+            idea_id=idea_id,
+            rating=rating,
+            comment=comment if comment else None
+        )
+        db.session.add(review)
+
+    # Update cached quality score
+    try:
+        db.session.flush()
+        idea.quality_score_cached = idea.quality_score
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Review submission failed (duplicate)"}), 409
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Review submission error: {e}")
+        return jsonify({"error": "Failed to submit review"}), 500
+
+    return jsonify({
+        "message": "Review submitted",
+        "updated": existing is not None
+    }), 201
+
+
+@ideas_bp.route("/api/ideas/<int:idea_id>/reviews", methods=["GET"])
+@jwt_required()
+def list_idea_reviews(idea_id):
+    """
+    List all reviews for an idea.
+    """
+    idea = ProjectIdea.query.get(idea_id)
+    if not idea:
+        return jsonify({"error": "Idea not found"}), 404
+
+    reviews = IdeaReview.query.filter_by(idea_id=idea_id).order_by(
+        IdeaReview.created_at.desc()
+    ).all()
+
+    return jsonify({
+        "reviews": [
+            {
+                "id": r.id,
+                "user_id": r.user_id,
+                "rating": r.rating,
+                "comment": r.comment,
+                "created_at": r.created_at.isoformat()
+            }
+            for r in reviews
+        ],
+        "average_rating": round(
+            sum(r.rating for r in reviews) / len(reviews), 1
+        ) if reviews else None,
+        "total_reviews": len(reviews)
+    }), 200
+
+
+@ideas_bp.route("/api/ideas/<int:idea_id>/feedbacks", methods=["GET"])
+@jwt_required()
+def list_idea_feedbacks(idea_id):
+    """
+    List all feedback entries for an idea (grouped by type).
+    """
+    idea = ProjectIdea.query.get(idea_id)
+    if not idea:
+        return jsonify({"error": "Idea not found"}), 404
+
+    feedbacks = IdeaFeedback.query.filter_by(idea_id=idea_id).order_by(
+        IdeaFeedback.created_at.desc()
+    ).all()
+
+    # Group by type
+    by_type = {}
+    for fb in feedbacks:
+        if fb.feedback_type not in by_type:
+            by_type[fb.feedback_type] = []
+        by_type[fb.feedback_type].append({
+            "id": fb.id,
+            "user_id": fb.user_id,
+            "comment": fb.comment,
+            "created_at": fb.created_at.isoformat()
+        })
+
+    return jsonify({
+        "feedbacks": [
+            {
+                "id": fb.id,
+                "feedback_type": fb.feedback_type,
+                "comment": fb.comment,
+                "user_id": fb.user_id,
+                "created_at": fb.created_at.isoformat()
+            }
+            for fb in feedbacks
+        ],
+        "by_type": by_type,
+        "total": len(feedbacks)
     }), 200

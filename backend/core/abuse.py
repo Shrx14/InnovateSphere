@@ -65,17 +65,17 @@ def count_recent_events(user_id: Optional[int], event_type: str, window_seconds:
     cutoff = datetime.utcnow() - timedelta(seconds=window_seconds)
     q = AbuseEvent.query.filter(AbuseEvent.event_type == event_type, AbuseEvent.created_at >= cutoff)
     if user_id is not None:
-        # Some events for non-existing users are stored with `user_id` NULL and
-        # the supplied id preserved in details['_anon_user_id']. We therefore
-        # fetch a superset and count in Python to support both cases.
-        events = q.all()
-        cnt = 0
-        for ev in events:
-            if ev.user_id == user_id:
-                cnt += 1
-            elif isinstance(ev.details, dict) and ev.details.get("_anon_user_id") == user_id:
-                cnt += 1
-        return cnt
+        # Count events for this user: either by FK user_id or by anon user_id stored in details.
+        # Use SQL COUNT for the FK match, then add a bounded scan only for anon events.
+        fk_count = q.filter(AbuseEvent.user_id == user_id).count()
+        # For anon events (user_id IS NULL), we must check the JSON details column.
+        # This is a smaller subset since we filter to NULL user_id only.
+        anon_events = q.filter(AbuseEvent.user_id.is_(None)).all()
+        anon_count = sum(
+            1 for ev in anon_events
+            if isinstance(ev.details, dict) and ev.details.get("_anon_user_id") == user_id
+        )
+        return fk_count + anon_count
     return q.count()
 
 

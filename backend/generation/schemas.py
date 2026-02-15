@@ -89,6 +89,18 @@ class EvidenceSource(BaseModel):
     url: str
     source_type: str
     used_for: str
+    relevance_tier: str = Field(
+        default="contextual",
+        description="supporting | contextual | peripheral"
+    )
+    relevance_explanation: str = Field(
+        default="",
+        description="Why this source is relevant to the user's query"
+    )
+    problem_type_match: str = Field(
+        default="indirect",
+        description="direct | indirect | tangential - how well problem type matches"
+    )
 
     @field_validator("source_type")
     def validate_source_type(cls, v):
@@ -96,6 +108,21 @@ class EvidenceSource(BaseModel):
         if v not in allowed:
             raise ValueError(f"Invalid source_type: {v}")
         return v
+
+    @field_validator("relevance_tier")
+    def validate_relevance_tier(cls, v):
+        allowed = {"supporting", "contextual", "peripheral"}
+        if v not in allowed:
+            return "contextual"  # safe default
+        return v
+
+    @field_validator("problem_type_match")
+    def validate_problem_type_match(cls, v):
+        allowed = {"direct", "indirect", "tangential"}
+        if v not in allowed:
+            return "indirect"  # safe default
+        return v
+
 
 
 
@@ -113,6 +140,11 @@ class GeneratedIdea(BaseModel):
     novelty_positioning: NoveltyPositioning
     limitations_and_risks: List[str]
     evidence_sources: List[EvidenceSource]
+    evidence_breakdown: dict = Field(
+        default_factory=lambda: {"supporting": 0, "contextual": 0, "peripheral": 0},
+        description="Count of sources by relevance tier"
+    )
+
 
     @field_validator("evidence_sources")
     def validate_sources(cls, v):
@@ -146,3 +178,54 @@ class GeneratedIdea(BaseModel):
 
 def validate_generated_idea(data: Dict[str, Any]) -> GeneratedIdea:
     return GeneratedIdea(**data)
+
+
+# ----------------------------
+# Hybrid Mode Schema (2-pass, relaxed grounding)
+# ----------------------------
+
+class HybridModule(BaseModel):
+    name: str = Field(..., min_length=2)
+    responsibility: str = Field(..., min_length=5)
+
+
+class HybridTechComponent(BaseModel):
+    component: str = Field(..., min_length=2)
+    technologies: List[str] = Field(default_factory=list)
+    rationale: str = Field(default="")
+
+
+class HybridSourceReference(BaseModel):
+    title: str = Field(default="")
+    url: str = Field(default="")
+    relevance: str = Field(default="")
+
+
+class HybridGeneratedIdea(BaseModel):
+    """
+    Relaxed schema for the 2-pass hybrid pipeline.
+    Same spirit as GeneratedIdea but without multi-pass evidence
+    cross-referencing requirements.
+    """
+    title: str = Field(..., min_length=5)
+    problem_statement: str = Field(..., min_length=10)
+    novelty_reason: str = Field(default="")
+    modules: List[HybridModule] = Field(default_factory=list, min_length=1)
+    tech_stack: List[HybridTechComponent] = Field(default_factory=list)
+    key_innovations: List[str] = Field(default_factory=list)
+    implementation_complexity: str = Field(default="medium")
+    estimated_timeline_weeks: Any = Field(default=8)
+    risks: List[str] = Field(default_factory=list)
+    source_references: List[HybridSourceReference] = Field(default_factory=list)
+
+    @field_validator("implementation_complexity")
+    def valid_complexity(cls, v):
+        allowed = {"low", "medium", "high"}
+        if v.lower() not in allowed:
+            return "medium"
+        return v.lower()
+
+
+def validate_hybrid_idea(data: Dict[str, Any]) -> HybridGeneratedIdea:
+    """Validate LLM output against the relaxed hybrid schema."""
+    return HybridGeneratedIdea(**data)

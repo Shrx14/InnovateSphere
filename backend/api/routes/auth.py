@@ -1,12 +1,18 @@
 """
-Authentication endpoints (login, register, etc.)
+Authentication endpoints (login, register, token refresh, logout with blocklist)
 """
+from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import (
+    create_access_token, create_refresh_token,
+    jwt_required, get_jwt_identity, get_jwt
+)
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from backend.core.db import db
-from backend.core.app import User
+from backend.core.models import User, TokenBlocklist
+from backend.core.config import Config
+from backend.core.app import limiter
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -32,28 +38,45 @@ def login():
     user = User.query.filter_by(email=email.lower()).first()
 
     # Verify user exists and password is correct
-    if not user or not check_password_hash(user.password_hash, password):
+    try:
+        password_valid = user and check_password_hash(user.password_hash, password)
+    except (ValueError, TypeError):
+        password_valid = False
+    if not password_valid:
         return jsonify({
             "error": "Invalid email or password"
         }), 401
 
-    # Determine user role - for now, default to "user" unless it's the admin account
-    user_role = "user"
-    if user.email == "admin@example.com":
+    # Determine user role from the database role column
+    user_role = user.role or "user"
+    # Legacy fallback: if no role column yet, check known admin email
+    if user_role == "user" and user.email == "admin@example.com":
         user_role = "admin"
 
+    import logging as _logging
+    _logging.getLogger(__name__).info(
+        "[LOGIN] user_id=%s email=%s db_role=%r resolved_role=%s",
+        user.id, user.email, user.role, user_role
+    )
+
     # Generate JWT token with user ID and role
+    additional_claims = {
+        "role": user_role,
+        "email": user.email,
+        "preferred_domain_id": user.preferred_domain_id
+    }
     token = create_access_token(
-        identity=user.id,
-        additional_claims={
-            "role": user_role,
-            "email": user.email,
-            "preferred_domain_id": user.preferred_domain_id
-        }
+        identity=str(user.id),
+        additional_claims=additional_claims
+    )
+    refresh_token = create_refresh_token(
+        identity=str(user.id),
+        additional_claims={"role": user_role}
     )
 
     return jsonify({
         "access_token": token,
+        "refresh_token": refresh_token,
         "user": {
             "id": user.id,
             "email": user.email,
@@ -63,16 +86,41 @@ def login():
 
 
 @auth_bp.route("/api/logout", methods=["POST"])
+@jwt_required()
 def logout():
     """
-    Logout endpoint (optional).
-    In practice, frontend just clears localStorage.
-    This can be used for token blacklisting if needed.
+    Real logout: adds current token JTI to blocklist so it cannot be reused.
     """
+    jti = get_jwt()["jti"]
+    db.session.add(TokenBlocklist(jti=jti, created_at=datetime.now(timezone.utc)))
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
     return jsonify({"message": "Logged out successfully"}), 200
 
 
+@auth_bp.route("/api/refresh", methods=["POST"])
+@jwt_required(refresh=True)
+def refresh():
+    """
+    Token refresh endpoint.
+    Request: Authorization header with refresh token.
+    Response: { "access_token": "new_jwt" }
+    """
+    identity = get_jwt_identity()
+    claims = get_jwt()
+    user_role = claims.get("role", "user")
+
+    new_token = create_access_token(
+        identity=identity,
+        additional_claims={"role": user_role}
+    )
+    return jsonify({"access_token": new_token}), 200
+
+
 @auth_bp.route("/api/register", methods=["POST"])
+@limiter.limit("5 per minute")
 def register():
     """
     User registration endpoint.
@@ -136,16 +184,21 @@ def register():
 
         # Generate JWT token
         token = create_access_token(
-            identity=new_user.id,
+            identity=str(new_user.id),
             additional_claims={
                 "role": "user",
                 "email": new_user.email,
                 "preferred_domain_id": new_user.preferred_domain_id
             }
         )
+        refresh_token = create_refresh_token(
+            identity=str(new_user.id),
+            additional_claims={"role": "user"}
+        )
 
         return jsonify({
             "access_token": token,
+            "refresh_token": refresh_token,
             "user": {
                 "id": new_user.id,
                 "email": new_user.email,
