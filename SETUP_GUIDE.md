@@ -23,16 +23,19 @@
 
 ## Project Overview
 
-**InnovateSphere** is a full-stack web application that helps users generate innovative project ideas using AI, manage their profiles, and collaborate on creative endeavors.
+**InnovateSphere** is an AI-powered full-stack web application for generating and exploring innovative research ideas. It combines multi-pass LLM pipelines, evidence retrieval (arXiv + GitHub), semantic novelty analysis, and human-in-the-loop (HITL) validation.
 
 ### Key Features
--  Secure user authentication with JWT tokens
--  AI-powered project idea generation with LLM (supports Ollama & OpenAI)
--  Evidence-grounded novelty scoring with GitHub/arXiv integration
--  Modern React frontend with Tailwind CSS
--  RESTful Flask API backend
--  Rate limiting and abuse detection
--  Comprehensive test suite (unit, integration, end-to-end)
+- Secure JWT authentication with access + refresh tokens and real logout (token blocklist)
+- AI-powered multi-pass idea generation pipeline (Demo / Hybrid / Production modes)
+- Async generation with SSE real-time progress streaming
+- Evidence-grounded novelty scoring with GitHub/arXiv integration
+- HITL governance: admin verdicts, human-verified toggle, hallucination flagging
+- 3-shell frontend (Admin / User / Public) built with React + Vite + Tailwind CSS
+- Feature-based frontend architecture with Radix UI primitives
+- RESTful Flask API backend (~38 endpoints across 10 blueprints)
+- Rate limiting and abuse detection with auto-block
+- Comprehensive test suite (40+ test files: backend, integration, scripts)
 
 ---
 
@@ -176,7 +179,7 @@ Use in \.env\: \DATABASE_URL=sqlite:///innovatesphere.db\
 cd frontend
 npm install
 \\\
-
+> **Note:** InnovateSphere uses **Vite** (not Create React App) as the build tool.
 ---
 
 ## Environment Configuration
@@ -230,10 +233,11 @@ AUTO_BLOCK_AFTER_INFRACTIONS=5
 ### frontend/.env.local
 
 \\\
-REACT_APP_API_URL=http://localhost:5000
-REACT_APP_API_TIMEOUT=30000
+VITE_API_URL=http://localhost:5000/api
 NODE_ENV=development
 \\\
+
+> **Note:** Vite uses `VITE_` prefix for environment variables (not `REACT_APP_`). The frontend also has a proxy in `vite.config.js` that forwards `/api` requests to `http://localhost:5000`.
 
 ### Generate Secure Secrets
 
@@ -251,7 +255,7 @@ python -c "import secrets; print(f'JWT_SECRET={secrets.token_hex(32)}')"
 **Terminal 1: Ollama**
 \\\ash
 ollama serve
-# First run: ollama pull phi3:mini  (~2-3GB download)
+# First run: ollama pull qwen2.5:7b  (~4GB download)
 \\\
 
 **Terminal 2: Backend**
@@ -264,7 +268,7 @@ python -m flask run --port 5000
 **Terminal 3: Frontend**
 \\\ash
 cd frontend
-npm start
+npm run dev
 \\\
 
 **Verify it works:**
@@ -370,7 +374,13 @@ npm start
 \\\
 LLM_PROVIDER=openai
 OPENAI_API_KEY=sk-...your-key...
-LLM_MODEL_NAME=gpt-3.5-turbo
+LLM_MODEL_NAME=gpt-4o-mini
+\\\n
+### Enable LLM Fallback
+
+\\\
+LLM_FALLBACK_ENABLED=true
+LLM_FALLBACK_PROVIDER=openai
 \\\
 
 ### Use PostgreSQL
@@ -428,8 +438,8 @@ source backend/venv/bin/activate
 
 # Start services (3 terminals)
 ollama serve
-flask run
-npm start  # from frontend/
+python run.py
+npm run dev  # from frontend/
 
 # Install deps
 pip install -r backend/requirements.txt
@@ -457,11 +467,10 @@ flask db upgrade
 -  Frontend dependencies installed
 -  Tests pass: \pytest tests/ -v\
 -  Ollama running (if using)
--  Backend starts: \lask run\
--  Frontend starts: \
-pm start\
+-  Backend starts: \python run.py\
+-  Frontend starts: \npm run dev\
 -  App loads at http://localhost:3000
--  API responds at http://localhost:5000/health
+-  API responds at http://localhost:5000/api/health
 
 ---
 
@@ -476,106 +485,177 @@ InnovateSphere/
 │   ├── venv/                     # Python virtual environment (git-ignored)
 │   ├── core/
 │   │   ├── app.py               # Flask app factory & entry point
-│   │   ├── config.py            # Configuration management
-│   │   ├── db.py                # Database setup
-│   │   ├── models.py            # SQLAlchemy ORM models
+│   │   ├── config.py            # Configuration management (50+ env vars)
+│   │   ├── db.py                # Database setup (SQLAlchemy)
+│   │   ├── models.py            # 20 SQLAlchemy ORM models
 │   │   ├── auth.py              # JWT authentication
-│   │   └── __init__.py
+│   │   └── abuse.py             # Abuse detection & auto-block
 │   ├── api/
-│   │   ├── routes/              # API endpoint blueprints
-│   │   │   ├── generation.py    # POST /api/generate
-│   │   │   ├── novelty.py       # POST /api/novelty/analyze
-│   │   │   ├── ideas.py         # GET/POST /api/ideas
-│   │   │   └── auth.py          # POST /api/login, /register
-│   │   └── __init__.py
+│   │   └── routes/              # 10 API blueprint modules
+│   │       ├── admin.py         # Admin review, verdicts, hallucination flagging
+│   │       ├── analytics.py     # KPIs, trends, distributions, bias transparency
+│   │       ├── auth.py          # POST /api/login, /register, /logout, /refresh
+│   │       ├── domains.py       # GET /api/domains
+│   │       ├── generation.py    # POST /api/ideas/generate (async + SSE stream)
+│   │       ├── health.py        # GET /api/health
+│   │       ├── ideas.py         # Ideas CRUD, reviews, feedback, novelty explanation
+│   │       ├── novelty.py       # POST /api/novelty/analyze
+│   │       ├── platform.py      # Legacy endpoints, pipeline version
+│   │       ├── public.py        # Public browsing (cached), top ideas/domains, stats
+│   │       └── retrieval.py     # POST /api/retrieval/sources
 │   ├── generation/              # Idea generation engine
-│   │   ├── generator.py         # Core generation logic
-│   │   └── constraints.py
+│   │   ├── generator.py         # Multi-pass generation pipeline
+│   │   ├── constraints.py       # HITL constraint engine
+│   │   ├── job_queue.py         # Async job management
+│   │   └── schemas.py           # Pydantic output validation
 │   ├── novelty/                 # Novelty scoring system
-│   │   ├── analyzer.py          # Scoring algorithm
-│   │   └── __init__.py
+│   │   ├── analyzer.py          # Main novelty scorer
+│   │   ├── service.py           # High-level novelty API
+│   │   ├── explain.py           # Human-readable explanations
+│   │   ├── normalization.py     # Score-to-level mapping
+│   │   ├── router.py            # Engine routing
+│   │   ├── config.py            # Novelty config
+│   │   ├── domain_intent.py     # Domain intent analysis
+│   │   ├── engines/             # Novelty engine implementations
+│   │   ├── scoring/             # base, bonuses, penalties, blending
+│   │   └── utils/               # signals, calibration, observability
 │   ├── retrieval/               # External data retrieval
-│   │   ├── github_client.py     # GitHub API integration
+│   │   ├── orchestrator.py      # Multi-source orchestration
 │   │   ├── arxiv_client.py      # arXiv API integration
-│   │   └── __init__.py
+│   │   ├── github_client.py     # GitHub API integration
+│   │   ├── source_reputation.py # Admin feedback aggregation
+│   │   └── cached_retrieval.py  # Retrieval caching
 │   ├── ai/                      # LLM integration
-│   │   ├── llm_client.py        # Ollama/OpenAI wrapper
-│   │   ├── prompts.py           # Prompt templates
-│   │   └── registry.py          # Model registry
-│   ├── tests/                   # Test suite (restructured)
-│   │   ├── backend/             # Backend unit tests
-│   │   ├── integration/         # Integration tests
-│   │   ├── scripts/             # Script tests
-│   │   └── unit/                # Unit tests
-│   ├── requirements.txt         # Python package dependencies
-│   ├── app.py                   # Compatibility shim for imports
+│   │   ├── llm_client.py        # Ollama/OpenAI provider-agnostic client
+│   │   ├── prompts.py           # Multi-pass prompt templates
+│   │   └── registry.py          # Pipeline, bias, prompt version registry
+│   ├── semantic/                # Semantic processing
+│   │   ├── cached_embedder.py   # LRU-cached SentenceTransformer
+│   │   ├── embedder.py          # Embedding generation
+│   │   ├── filter.py            # Semantic similarity filter
+│   │   └── ranker.py            # Multi-factor source ranking
+│   ├── utils/                   # Shared utilities
+│   │   ├── auth.py              # Auth helpers
+│   │   ├── common.py            # Common utilities
+│   │   ├── health_checks.py     # Health check logic
+│   │   └── serializers.py       # Response serialization
+│   ├── scripts/                 # Database & maintenance scripts
+│   │   ├── migrations.py        # DB migrations
+│   │   ├── seed_data.py         # Test data seeding
+│   │   ├── optimize_database.py # DB optimization
+│   │   └── migrate_*.py         # Specific migration scripts
+│   ├── requirements.txt         # Python dependencies (18 packages)
+│   ├── app.py                   # Compatibility shim
 │   ├── run.py                   # Development entry point
 │   └── .env                     # Environment variables (git-ignored)
 │
-├── frontend/                     # React frontend application
-│   ├── public/                  # Static files, favicon, manifest
+├── frontend/                     # React frontend (Vite)
+│   ├── public/                  # Static files (index.html, manifest.json, robots.txt)
 │   ├── src/
-│   │   ├── components/          # Reusable React components
-│   │   │   ├── LoginForm.jsx
-│   │   │   ├── IdeaGenerator.jsx
-│   │   │   ├── IdeaCard.jsx
-│   │   │   └── ...
-│   │   ├── pages/               # Page-level components
-│   │   │   ├── HomePage.jsx
-│   │   │   ├── LoginPage.jsx
-│   │   │   ├── Dashboard.jsx
-│   │   │   └── ...
-│   │   ├── hooks/               # Custom React hooks
-│   │   │   ├── useAuth.js
-│   │   │   ├── useIdeas.js
-│   │   │   └── ...
-│   │   ├── context/             # React Context for state
-│   │   │   └── AuthContext.jsx
-│   │   ├── config/              # Frontend configuration
-│   │   │   └── api.js
-│   │   ├── App.jsx              # Root component
-│   │   ├── index.js             # Entry point
-│   │   └── index.css            # Global styles
-│   ├── package.json             # Node.js dependencies
-│   ├── tailwind.config.js       # Tailwind CSS configuration
-│   ├── postcss.config.js        # PostCSS configuration
-│   ├── .env.local               # Frontend environment (git-ignored)
-│   └── build/                   # Production build (git-ignored)
+│   │   ├── App.jsx              # Root router (React.lazy code splitting)
+│   │   ├── index.jsx            # Entry point
+│   │   ├── index.css            # Global styles (Tailwind directives)
+│   │   ├── config/
+│   │   │   └── config.js        # Runtime config (VITE_API_URL)
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx  # Auth state provider (JWT + refresh)
+│   │   ├── hooks/
+│   │   │   ├── useDebounce.js   # Debounce hook
+│   │   │   ├── useGeneration.js # Generation workflow hook
+│   │   │   ├── useIdeas.js      # Ideas data hook
+│   │   │   └── useJob.js        # Async job polling hook
+│   │   ├── lib/
+│   │   │   ├── api.js           # Axios instance with token interceptor
+│   │   │   ├── formatScore.js   # Score formatting
+│   │   │   ├── motion.js        # Framer Motion presets
+│   │   │   ├── phaseLabels.js   # Generation phase labels
+│   │   │   └── utils.js         # clsx + tailwind-merge utility
+│   │   ├── components/          # Route guards + shared UI
+│   │   │   ├── ProtectedRoute.jsx
+│   │   │   ├── AdminProtectedRoute.jsx
+│   │   │   ├── ErrorBoundary.jsx
+│   │   │   ├── PageTransition.jsx
+│   │   │   └── ui/              # 13 UI primitives (Badge, Button, Card,
+│   │   │                        #   Dialog, EmptyState, Input, ProgressBar,
+│   │   │                        #   ScoreDisplay, Skeleton, StatusBadge,
+│   │   │                        #   Tabs, Textarea, Toaster)
+│   │   └── features/            # Feature-based architecture
+│   │       ├── admin/
+│   │       │   ├── components/  # AdminNav, AdminShell
+│   │       │   └── pages/       # AdminReviewQueue, AdminAnalytics,
+│   │       │                    #   AdminAbuseEvents, AdminIdeaDetail
+│   │       ├── auth/
+│   │       │   └── pages/       # LoginPage, RegisterPage
+│   │       ├── dashboard/
+│   │       │   └── pages/       # UserDashboard
+│   │       ├── explore/
+│   │       │   └── pages/       # ExplorePage
+│   │       ├── generate/
+│   │       │   └── pages/       # GeneratePage
+│   │       ├── idea/
+│   │       │   └── pages/       # IdeaDetail (public view)
+│   │       ├── landing/
+│   │       │   └── pages/       # LandingPage
+│   │       ├── novelty/
+│   │       │   ├── components/  # SourcesList
+│   │       │   └── pages/       # NoveltyPage, MyIdeasPage
+│   │       ├── shared/
+│   │       │   ├── components/  # PublicShell
+│   │       │   └── layout/      # Header
+│   │       └── user/
+│   │           └── components/  # UserShell, UserNav
+│   ├── build/                   # Production build output
+│   ├── vite.config.js           # Vite config (proxy, aliases, port)
+│   ├── package.json             # Node.js dependencies (Vite + React)
+│   ├── tailwind.config.js       # Tailwind CSS config
+│   └── postcss.config.js        # PostCSS config
+│
+├── tests/                       # Test suite (40+ test files)
+│   ├── backend/                 # Backend unit tests (15 files)
+│   │   ├── test_auth.py         # Auth & JWT tokens
+│   │   ├── test_config.py       # Configuration
+│   │   ├── test_abuse.py        # Abuse detection
+│   │   ├── test_admin_routes.py # Admin endpoints
+│   │   ├── test_auth_endpoints.py
+│   │   ├── test_constraints.py  # HITL constraints
+│   │   ├── test_endpoint_contracts.py
+│   │   ├── test_generation_schemas.py
+│   │   ├── test_ideas_routes.py # Ideas endpoints
+│   │   ├── test_imports.py
+│   │   ├── test_job_queue.py    # Async jobs
+│   │   ├── test_llm_client.py   # LLM client
+│   │   ├── test_model_enhancements.py
+│   │   ├── test_novelty_endpoint.py
+│   │   └── test_novelty_service.py
+│   ├── integration/             # Integration tests (15 files)
+│   │   ├── test_api_integration.py
+│   │   ├── test_ollama_health.py
+│   │   ├── test_orchestrator_integration.py
+│   │   ├── test_github_queries.py
+│   │   ├── test_novelty_fixes.py
+│   │   └── ... (10 more)
+│   ├── scripts/                 # Script tests (10 files)
+│   │   ├── test_components.py
+│   │   ├── test_novelty_scoring.py
+│   │   ├── test_payload_formats.py
+│   │   └── ... (7 more)
+│   └── unit/                    # Additional unit tests
 │
 ├── docs/                        # Documentation
-│   ├── AI_ARCHITECTURE.md       # LLM integration details
-│   ├── FRONTEND_DESIGN.md       # Frontend architecture
-│   ├── API_REFERENCE.md         # API endpoint documentation
-│   ├── PROJECT_ANALYSIS.md      # Project analysis
-│   ├── DIAGRAMS_MERMAID.md      # Architecture diagrams
-│   ├── TODO.md                  # Development TODO items
-│   └── ...
+│   ├── ai_architecture.md       # AI pipeline architecture
+│   ├── DIAGRAMS_MERMAID.md      # System architecture diagrams (Mermaid)
+│   ├── frontend_design_admin.md # Admin UI design rules
+│   ├── frontend_design_user.md  # User UI design rules
+│   ├── PROJECT_ANALYSIS.md      # Comprehensive project analysis
+│   └── PROJECT_EVALUATION_CONTEXT.md # Full evaluation context
 │
-├── tests/                       # Consolidated test suite (restructured)
-│   ├── backend/                 # Backend unit tests
-│   │   ├── test_auth.py
-│   │   ├── test_config.py
-│   │   ├── test_abuse.py
-│   │   └── __init__.py
-│   ├── integration/             # Integration & E2E tests
-│   │   ├── test_api_integration.py
-│   │   ├── test_github_queries.py
-│   │   ├── test_orchestrator_integration.py
-│   │   └── __init__.py
-│   ├── scripts/                 # Script-based tests
-│   │   ├── test_components.py
-│   │   ├── test_novelty_direct.py
-│   │   └── __init__.py
-│   ├── unit/                    # Additional unit tests
-│   └── __init__.py
-│
-├── SETUP_GUIDE.md              # This file - comprehensive setup guide
-├── README.md                   # Project overview
-├── package.json               # Root package.json (Tailwind/PostCSS config)
-├── postcss.config.js          # PostCSS configuration (root level)
-├── tailwind.config.js         # Tailwind CSS configuration (root level)
-├── .gitignore                 # Git ignore rules
-└── instance/                  # Instance-specific files (git-ignored)
+├── scripts/                     # Standalone test/utility scripts
+├── SETUP_GUIDE.md               # This file
+├── README.md                    # Project overview
+├── package.json                 # Root package.json
+├── postcss.config.js            # Root PostCSS config
+├── tailwind.config.js           # Root Tailwind config
+└── instance/                    # Instance-specific files (git-ignored)
 ```
 
 ---
@@ -609,26 +689,31 @@ InnovateSphere/
 
 ### Making Frontend Changes
 
-1. **Start React dev server:**
+1. **Start Vite dev server:**
    ```bash
    cd frontend
-   npm start
+   npm run dev
    ```
 
 2. **Edit files in frontend/src/:**
-   - `components/` - Reusable UI components
-   - `pages/` - Full-page components
-   - `hooks/` - Custom React hooks
-   - `config/` - Application configuration
+   - `features/` - Feature-based modules (admin/, auth/, dashboard/, explore/, generate/, idea/, landing/, novelty/, user/)
+   - `components/` - Route guards (ProtectedRoute, AdminProtectedRoute) + ui/ primitives
+   - `hooks/` - Custom React hooks (useDebounce, useGeneration, useIdeas, useJob)
+   - `lib/` - API client, utilities, motion presets
+   - `config/` - Runtime configuration
+   - `context/` - Auth context provider
 
-3. **React hot-reloads changes:**
-   - Browser auto-refreshes on file save
+3. **Vite hot-reloads changes:**
+   - Browser auto-refreshes via HMR on file save
    - No need to restart dev server
 
-4. **Test your changes:**
+4. **Build for production:**
    ```bash
-   npm test  # Run React test suite
+   npm run build     # Output to build/
+   npm run preview   # Preview production build
    ```
+
+> **Note:** There are currently no frontend tests configured. All tests are Python backend tests.
 
 ### Database Changes
 
@@ -659,22 +744,40 @@ InnovateSphere/
 
 ```
 tests/
-├── backend/                    # Unit tests for backend modules
+├── backend/                    # Backend unit tests (15 files)
 │   ├── test_auth.py           # Authentication & JWT tokens
 │   ├── test_config.py         # Configuration validation
 │   ├── test_abuse.py          # Abuse detection & rate limiting
-│   └── test_novelty_endpoint.py
+│   ├── test_admin_routes.py   # Admin endpoints
+│   ├── test_auth_endpoints.py # Auth endpoint contracts
+│   ├── test_constraints.py    # HITL constraints
+│   ├── test_endpoint_contracts.py
+│   ├── test_generation_schemas.py
+│   ├── test_ideas_routes.py   # Ideas endpoints
+│   ├── test_imports.py        # Import validation
+│   ├── test_job_queue.py      # Async job queue
+│   ├── test_llm_client.py     # LLM client
+│   ├── test_model_enhancements.py
+│   ├── test_novelty_endpoint.py
+│   └── test_novelty_service.py
 │
-├── integration/               # Integration & end-to-end tests
+├── integration/               # Integration tests (15 files)
 │   ├── test_api_integration.py
+│   ├── test_ollama_health.py
+│   ├── test_orchestrator_integration.py
 │   ├── test_github_queries.py
+│   ├── test_github_star_ranking.py
 │   ├── test_novelty_fixes.py
-│   └── test_orchestrator_integration.py
+│   ├── test_novelty_sources.py
+│   ├── test_novelty_validation.py
+│   └── ... (more integration tests)
 │
-├── scripts/                   # Script-based component tests
+├── scripts/                   # Script-based component tests (10 files)
 │   ├── test_components.py
-│   ├── test_novelty_direct.py
-│   └── test_payload_formats.py
+│   ├── test_domain_mappings.py
+│   ├── test_novelty_scoring.py
+│   ├── test_payload_formats.py
+│   └── ... (more script tests)
 │
 └── unit/                      # Additional unit tests
 ```
@@ -882,37 +985,50 @@ CORS_ORIGINS=*
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | `sqlite:///innovatesphere.db` | Database connection string |
+| `DATABASE_URL` | `""` | Database connection string (Neon PostgreSQL or SQLite) |
 | `SECRET_KEY` | `dev-secret-key` | Flask secret key - **change in production** |
 | `JWT_SECRET` | `dev-jwt-secret` | JWT signing secret - **change in production** |
 | `JWT_ALGO` | `HS256` | JWT algorithm |
-| `JWT_EXP_SECONDS` | `3600` | JWT token expiration time (seconds) |
-| `FLASK_APP` | `backend.core.app` | Flask app module |
-| `FLASK_ENV` | `development` | Flask environment (development/production) |
-| `FLASK_DEBUG` | `1` | Enable Flask debug mode (auto-reload) |
-| `LLM_PROVIDER` | `ollama` | LLM provider (ollama/openai) |
-| `LLM_MODEL_NAME` | `phi3:mini` | Model name to use |
+| `JWT_EXP_SECONDS` | `3600` | Access token expiration (seconds) |
+| `JWT_REFRESH_EXP_SECONDS` | `604800` | Refresh token expiration (7 days) |
+| `LLM_PROVIDER` | `ollama` | LLM provider (`ollama` or `openai`) |
+| `LLM_MODEL_NAME` | `qwen2.5:7b` | Model name to use |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
-| `OPENAI_API_KEY` | `` | OpenAI API key (if using OpenAI) |
+| `OPENAI_API_KEY` | `""` | OpenAI API key (if using OpenAI) |
+| `LLM_TIMEOUT_SECONDS` | `60` | LLM request timeout |
+| `LLM_MAX_RETRIES` | `4` | LLM retry attempts |
+| `LLM_BACKOFF_BASE_SECONDS` | `0.5` | Exponential backoff base |
+| `LLM_BACKOFF_MAX_SECONDS` | `30.0` | Max backoff duration |
+| `LLM_STARTUP_HARD_FAIL` | `true` | Fail app startup if LLM unavailable |
+| `LLM_FALLBACK_ENABLED` | `false` | Enable automatic LLM fallback |
+| `LLM_FALLBACK_PROVIDER` | `openai` | Fallback LLM provider |
+| `HYBRID_MODE` | `true` | Enable 2-pass hybrid pipeline |
+| `HYBRID_LLM_TIMEOUT_SECONDS` | `90` | Hybrid mode LLM timeout |
+| `HYBRID_MAX_SOURCES_FOR_PROMPT` | `5` | Max sources in hybrid mode |
+| `DEMO_MODE` | `false` | Enable 1-pass demo pipeline |
+| `DEMO_LLM_TIMEOUT_SECONDS` | `45` | Demo mode LLM timeout |
 | `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Model for embeddings |
 | `EMBEDDING_DIM` | `384` | Embedding dimensionality |
-| `MAX_SOURCES_FOR_LLM` | `8` | Max sources shown to LLM |
-| `MIN_EVIDENCE_REQUIRED` | `3` | Minimum sources for validation |
+| `MAX_SOURCES_FOR_LLM` | `8` | Max sources sent to LLM |
+| `MIN_EVIDENCE_REQUIRED` | `3` | Minimum sources for generation |
+| `MIN_NOVELTY_SCORE` | `25` | Minimum novelty score to pass |
 | `MAX_GENERATION_REQUESTS_PER_MIN` | `6` | Rate limit (requests/minute) |
 | `ABUSE_WINDOW_SECONDS` | `60` | Abuse detection window |
 | `AUTO_BLOCK_AFTER_INFRACTIONS` | `5` | Auto-block after N violations |
 | `CORS_ORIGINS` | `http://localhost:3000` | Allowed CORS origins |
 | `LOG_LEVEL` | `INFO` | Logging level (DEBUG/INFO/WARNING/ERROR) |
-| `GITHUB_TOKEN` | `` | GitHub API token (optional) |
-| `LLM_STARTUP_HARD_FAIL` | `true` | Fail app startup if LLM unavailable |
+| `DEFAULT_AI_PIPELINE_VERSION` | `v2` | Active pipeline version |
+| `ENABLE_AI_PIPELINES` | `v2` | Enabled pipeline versions |
+| `GITHUB_TOKEN` | `""` | GitHub API token (optional) |
 
 ### Frontend (.env.local)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `REACT_APP_API_URL` | `http://localhost:5000` | Backend API URL |
-| `REACT_APP_API_TIMEOUT` | `30000` | API request timeout (ms) |
+| `VITE_API_URL` | `http://localhost:5000/api` | Backend API URL |
 | `NODE_ENV` | `development` | Node environment |
+
+> **Note:** Vite uses the `VITE_` prefix for environment variables, accessed via `import.meta.env.VITE_*`. The frontend also proxies `/api` requests to `http://localhost:5000` via `vite.config.js`.
 
 ---
 

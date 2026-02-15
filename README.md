@@ -4,10 +4,10 @@ AI-powered research idea generation platform with evidence-grounded pipelines, h
 
 ## Architecture
 
-**3-shell frontend** (Admin / User / Public) built with React + Tailwind CSS.  
+**3-shell frontend** (Admin / User / Public) built with React + Vite + Tailwind CSS.  
 **3-mode backend** (Demo / Hybrid / Production) built with Flask + SQLAlchemy.  
-**Database**: Neon PostgreSQL (cloud-native serverless Postgres).  
-**LLM**: Ollama (qwen2.5:7b) or OpenAI (gpt-4o-mini) with automatic fallback.
+**Database**: Neon PostgreSQL (cloud-native serverless Postgres) with pgvector.  
+**LLM**: Ollama (qwen2.5:7b) or OpenAI with automatic fallback.
 
 ### Generation Pipeline
 
@@ -20,52 +20,73 @@ AI-powered research idea generation platform with evidence-grounded pipelines, h
 ## Features
 
 - **Evidence-Grounded Generation**: Multi-pass LLM pipeline with live source retrieval from arXiv and GitHub
+- **Async Generation with SSE**: Job-based async generation with Server-Sent Events for real-time progress streaming
 - **Novelty Analysis**: Multi-engine novelty scoring (semantic, structural, temporal, cross-domain)
 - **HITL Governance**: Admin verdict system (validate/downgrade/reject), human-verified toggle, hallucination flagging
-- **Generation Traces**: Full audit trail of every pipeline phase for transparency
+- **Generation Traces**: Full audit trail of every pipeline phase (Phase 0–4) for transparency
 - **Bias Transparency**: Configurable bias profiles with penalty breakdowns visible to admins
 - **Abuse Detection**: Application-level rate limiting with auto-block after repeated infractions
 - **JWT Auth**: Access + refresh tokens with real logout (token blocklist)
-- **3-Shell Frontend**: Separate Admin, User, and Public interfaces
+- **3-Shell Frontend**: Separate Admin, User, and Public interfaces with feature-based architecture
+- **Component Library**: Radix UI primitives + custom UI components (Badge, Card, Dialog, ScoreDisplay, etc.)
 
 ## Tech Stack
 
 ### Backend
-- **Flask 2.3** + Flask-SQLAlchemy, Flask-JWT-Extended, Flask-Caching, Flask-Limiter
+- **Flask 2.3.3** + Flask-SQLAlchemy 3.0.5, Flask-JWT-Extended, Flask-Caching, Flask-Limiter, Flask-Migrate
 - **Pydantic v2** schema validation for LLM outputs
 - **Sentence-Transformers** (all-MiniLM-L6-v2) for semantic embeddings
-- **PostgreSQL** on Neon (pooler-safe connection handling)
+- **PostgreSQL** on Neon with pgvector extension (pooler-safe connection handling)
+- **OpenAI SDK** (>=1.0.0) for cloud LLM integration
 
 ### Frontend
-- **React** (Create React App) + React Router v6
-- **Tailwind CSS** (dark theme, neutral palette)
-- **Recharts** for admin analytics charts
-- **Axios** with automatic token refresh interceptor
+- **React 18.2** + Vite 7.3.1 (build tool) + React Router v6.22.3
+- **Tailwind CSS 3.3.3** (dark-first design system with neutral palette)
+- **Radix UI** primitives (Dialog, Dropdown, Select, Tabs, Toast, Tooltip, etc.)
+- **Recharts 3.7** for admin analytics charts
+- **Framer Motion** for user-shell page transitions
+- **Lucide React** + React Icons for iconography
+- **Axios 1.12** with automatic token refresh interceptor
+- **Sonner** for toast notifications
 
 ## Project Structure
 
 ```
 ├── backend/
-│   ├── core/           # App factory, config, models, DB
-│   ├── api/routes/     # REST endpoints (admin, analytics, auth, generation, ideas, novelty, public)
-│   ├── ai/             # LLM client, prompts, bias registry
+│   ├── core/           # App factory, config, models (20 models), DB, auth
+│   ├── api/routes/     # 10 blueprints (~38 endpoints): admin, analytics, auth,
+│   │                   #   domains, generation, health, ideas, novelty, platform, public, retrieval
+│   ├── ai/             # LLM client (Ollama/OpenAI), prompts, bias registry
 │   ├── generation/     # Pipeline (generator, constraints, job_queue, schemas)
-│   ├── novelty/        # Multi-engine novelty analysis
-│   ├── retrieval/      # arXiv + GitHub live retrieval, source reputation
-│   ├── semantic/       # Embedding, filtering, ranking
+│   ├── novelty/        # Multi-engine novelty analysis (engines/, scoring/, utils/)
+│   ├── retrieval/      # arXiv + GitHub live retrieval, source reputation, caching
+│   ├── semantic/       # Embedding (cached), filtering, ranking
 │   ├── scripts/        # DB migrations, seed data, optimization
 │   └── utils/          # Auth helpers, serializers, health checks
 ├── frontend/
 │   └── src/
-│       ├── features/   # Admin, User, Public shells + pages
-│       ├── context/    # Auth context (JWT + refresh)
-│       ├── hooks/      # Custom React hooks
-│       └── lib/        # API client with interceptors
+│       ├── features/   # Feature-based architecture:
+│       │   ├── admin/      # AdminShell, ReviewQueue, Analytics, AbuseEvents, IdeaDetail
+│       │   ├── auth/       # LoginPage, RegisterPage
+│       │   ├── dashboard/  # UserDashboard
+│       │   ├── explore/    # ExplorePage (public browsing)
+│       │   ├── generate/   # GeneratePage (idea creation)
+│       │   ├── idea/       # IdeaDetail (public idea view)
+│       │   ├── landing/    # LandingPage
+│       │   ├── novelty/    # NoveltyPage, MyIdeasPage, SourcesList
+│       │   ├── shared/     # PublicShell, Header
+│       │   └── user/       # UserShell, UserNav
+│       ├── components/ # ProtectedRoute, AdminProtectedRoute, ErrorBoundary, ui/ primitives
+│       ├── context/    # AuthContext (JWT + refresh)
+│       ├── hooks/      # useDebounce, useGeneration, useIdeas, useJob
+│       ├── lib/        # API client, formatScore, motion presets, phaseLabels, utils
+│       └── config/     # Runtime config (VITE_API_URL)
 ├── tests/
-│   ├── backend/        # Unit tests (16 test files)
-│   ├── integration/    # Integration tests
+│   ├── backend/        # Backend unit tests (15 test files)
+│   ├── integration/    # Integration tests (15 test files)
+│   ├── scripts/        # Script-based component tests (10 test files)
 │   └── unit/           # Additional unit tests
-└── docs/               # Architecture docs, diagrams
+└── docs/               # Architecture docs, diagrams, design rules
 ```
 
 ## Getting Started
@@ -98,8 +119,9 @@ python run.py
 ```bash
 cd frontend
 npm install
-npm start                      # Dev server on http://localhost:3000
-npm run build                  # Production build
+npm run dev                    # Vite dev server on http://localhost:3000
+npm run build                  # Production build to build/
+npm run preview                # Preview production build
 ```
 
 ### Environment Variables
@@ -107,47 +129,92 @@ npm run build                  # Production build
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_URL` | — | Neon PostgreSQL connection string |
-| `SECRET_KEY` | — | Flask secret key |
+| `SECRET_KEY` | `dev-secret-key` | Flask secret key |
+| `JWT_SECRET` | `dev-jwt-secret` | JWT signing secret |
+| `JWT_EXP_SECONDS` | `3600` | Access token expiry (seconds) |
+| `JWT_REFRESH_EXP_SECONDS` | `604800` | Refresh token expiry (7 days) |
 | `LLM_PROVIDER` | `ollama` | `ollama` or `openai` |
 | `LLM_MODEL_NAME` | `qwen2.5:7b` | Model name |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
 | `OPENAI_API_KEY` | — | Required if provider is `openai` |
+| `LLM_TIMEOUT_SECONDS` | `60` | LLM request timeout |
+| `LLM_MAX_RETRIES` | `4` | LLM retry attempts |
+| `LLM_STARTUP_HARD_FAIL` | `true` | Fail app startup if LLM unavailable |
+| `LLM_FALLBACK_ENABLED` | `false` | Enable automatic LLM fallback |
+| `LLM_FALLBACK_PROVIDER` | `openai` | Fallback LLM provider |
 | `DEMO_MODE` | `false` | Enable 1-pass demo pipeline |
 | `HYBRID_MODE` | `true` | Enable 2-pass hybrid pipeline |
 | `MIN_EVIDENCE_REQUIRED` | `3` | Min sources before LLM generation |
 | `MIN_NOVELTY_SCORE` | `25` | Min novelty to pass evidence gate |
+| `MAX_SOURCES_FOR_LLM` | `8` | Max sources sent to LLM prompt |
+| `MAX_GENERATION_REQUESTS_PER_MIN` | `6` | Rate limit for generation |
+| `ABUSE_WINDOW_SECONDS` | `60` | Abuse detection window |
+| `AUTO_BLOCK_AFTER_INFRACTIONS` | `5` | Auto-block threshold |
+| `CORS_ORIGINS` | `http://localhost:3000` | Allowed CORS origins |
+| `DEFAULT_AI_PIPELINE_VERSION` | `v2` | Active pipeline version |
+| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Sentence-Transformers model |
+| `EMBEDDING_DIM` | `384` | Embedding dimensionality |
 
-## API Overview
+## API Overview (~38 endpoints across 10 blueprints)
+
+### Health
+- `GET /api/health` — System health check
 
 ### Public
-- `GET /api/public/ideas` — Browse public ideas
-- `GET /api/public/stats` — Platform statistics
-- `GET /api/public/domains` — Available domains
+- `GET /api/public/ideas` — Browse public ideas (cached 5min, supports `domain`, `q`, pagination)
+- `GET /api/public/ideas/<id>` — Public idea detail with view tracking
+- `GET /api/public/top-ideas` — Top 10 ideas by quality + views
+- `GET /api/public/top-domains` — Top 10 domains by idea count
+- `GET /api/public/stats` — Platform statistics (total ideas, domains, users)
+
+### Domains
+- `GET /api/domains` — List all domains with categories
 
 ### Auth
-- `POST /api/auth/register` — Register
-- `POST /api/auth/login` — Login (returns access + refresh tokens)
-- `POST /api/auth/refresh` — Refresh access token
-- `POST /api/auth/logout` — Logout (revokes tokens)
+- `POST /api/register` — Register (rate-limited: 5/min)
+- `POST /api/login` — Login (returns access + refresh tokens)
+- `POST /api/refresh` — Refresh access token
+- `POST /api/logout` — Logout (adds JTI to blocklist)
 
 ### User (JWT required)
-- `POST /api/generate` — Generate idea (async, returns job_id)
-- `GET /api/generate/status/<job_id>` — Poll generation progress
-- `POST /api/ideas/<id>/feedback` — Submit feedback
-- `POST /api/ideas/<id>/review` — Submit review
+- `POST /api/ideas/generate` — Async idea generation (returns `job_id`, 202)
+- `GET /api/ideas/generate/<job_id>` — Poll generation status
+- `GET /api/ideas/generate/<job_id>/stream` — SSE real-time progress stream
+- `GET /api/ideas/mine` — User's own ideas (paginated)
+- `GET /api/ideas/<id>` — Authenticated idea detail + view tracking
+- `POST /api/ideas/<id>/feedback` — Submit structured feedback (6 types)
+- `POST /api/ideas/<id>/review` — Submit/upsert star rating (1–5)
+- `GET /api/ideas/<id>/reviews` — List reviews for an idea
+- `GET /api/ideas/<id>/feedbacks` — List feedbacks grouped by type
+- `GET /api/ideas/<id>/novelty-explanation` — Detailed novelty score explanation (owner only)
+
+### Retrieval & Novelty (JWT required)
+- `POST /api/retrieval/sources` — Retrieve sources for a query + domain
+- `POST /api/novelty/analyze` — Run novelty analysis on a description
 
 ### Admin (JWT + admin role)
-- `GET /api/admin/ideas/quality-review` — Review queue
-- `POST /api/admin/ideas/<id>/verdict` — Submit verdict
-- `POST /api/admin/ideas/<id>/human-verified` — Toggle human-verified
-- `POST /api/admin/ideas/<id>/sources/<sid>/hallucinated` — Flag hallucination
-- `GET /api/admin/ideas/<id>/generation-trace` — View generation trace
-- `POST /api/admin/ideas/<id>/rescore` — Recalculate scores
-- `GET /api/admin/abuse-events` — View abuse events
+- `GET /api/admin/ideas/quality-review` — Review queue (flagged/low-evidence ideas)
+- `GET /api/admin/ideas/<id>` — Full admin idea detail
+- `POST /api/admin/ideas/<id>/verdict` — Submit verdict (validated/downgraded/rejected)
+- `POST /api/admin/ideas/<id>/human-verified` — Toggle human-verified flag
+- `POST /api/admin/ideas/<id>/sources/<sid>/hallucinated` — Flag/unflag source as hallucinated
+- `GET /api/admin/ideas/<id>/generation-trace` — View generation trace (Phase 0–5)
+- `GET /api/admin/ideas/<id>/bias-breakdown` — Bias/penalty breakdown
+- `POST /api/admin/ideas/<id>/rescore` — Re-run novelty scoring
+- `GET /api/admin/abuse-events` — List abuse events (paginated)
 
 ### Analytics (JWT + admin role)
+- `GET /api/analytics/admin/kpis` — Admin KPI dashboard
 - `GET /api/admin/domains` — Domain statistics
-- `GET /api/admin/trends` — Generation trends
-- `GET /api/admin/distributions` — Score distributions
+- `GET /api/admin/trends` — 30-day idea creation trends
+- `GET /api/admin/distributions` — Novelty & quality score histograms
+- `GET /api/admin/user-domains` — User domain preference counts
+- `GET /api/analytics/admin/bias-transparency` — Bias impact analysis
+
+### Legacy / Platform
+- `GET /api/ai/pipeline-version` — Current AI pipeline version
+- `POST /api/check_novelty` — Legacy novelty alias
+- `POST /api/generate-idea` — Deprecated (returns 410)
 - `GET /api/admin/user-domains` — User domain preferences
 
 ## Testing

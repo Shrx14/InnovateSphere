@@ -11,37 +11,49 @@ InnovateSphere is an AI-powered full-stack web application for generating and ex
 ### 1.1 Frontend Stack
 
 **Framework & Libraries:**
-- React 18+ (UI framework)
-- React Router DOM v7.13.0 (client-side routing)
+- React 18.2.0 (UI framework)
+- React Router DOM v6.22.3 (client-side routing)
 - Recharts v3.7.0 (data visualization & analytics)
+
+**UI Components:**
+- Radix UI (Dialog, Dropdown Menu, Label, Select, Separator, Slot, Tabs, Toast, Tooltip)
+- Framer Motion v12.34.0 (page transitions for user shell)
+- Lucide React v0.564.0 (primary icons)
+- React Icons v5.5.0 (supplementary icons)
+- Sonner v2.0.7 (toast notifications)
 
 **Styling & CSS:**
 - Tailwind CSS v3.3.3 (utility-first CSS framework)
 - PostCSS v8.4.29 (CSS processing)
 - Autoprefixer v10.4.15 (vendor prefixing)
+- Class Variance Authority v0.7.1 (component variants)
+- clsx v2.1.1 + tailwind-merge v3.4.0 (class merging)
 
 **HTTP & API:**
-- Axios (implied integration, API client for backend communication)
+- Axios v1.12.2 (API client with JWT interceptor)
 
-**Development:**
+**Build & Development:**
+- Vite v7.3.1 (build tool, dev server with HMR)
+- @vitejs/plugin-react v5.1.4 (React Fast Refresh)
 - Node.js (runtime)
 - npm (package manager)
 
 ### 1.2 Backend Stack
 
 **Framework & Runtime:**
-- Python 3.9+ (primary language)
+- Python 3.10+ (primary language)
 - Flask v2.3.3 (web framework)
-- Gunicorn (ASGI/WSGI server for production)
+- Gunicorn (WSGI server for production)
 
 **Database & ORM:**
 - PostgreSQL 13+ (primary database, hosted on Neon for production)
-- SQLAlchemy v3.0.5 (ORM)
+- Flask-SQLAlchemy v3.0.5 (ORM)
+- Flask-Migrate v4.0.0+ (database migrations)
 - psycopg2-binary v2.9.7 (PostgreSQL adapter)
 - pgvector v0.3.4 (vector similarity search support)
 
 **Authentication & Security:**
-- Flask-JWT-Extended v4.5.0 (JWT token management)
+- Flask-JWT-Extended v4.5.0+ (JWT / access + refresh tokens)
 - bcrypt v4.0.1 (password hashing)
 - PyJWT v2.8.0 (JWT encoding/decoding)
 
@@ -51,26 +63,22 @@ InnovateSphere is an AI-powered full-stack web application for generating and ex
 - Flask-Limiter v4.1.0+ (rate limiting)
 
 **Machine Learning & NLP:**
-- Sentence Transformers v2.2.2 (embedding models)
-- Transformers v4.33.3 (NLP pipeline)
-- HuggingFace Hub v0.20.3 (model registry access)
-- Torch v2.2.1 (deep learning framework)
-- Accelerate v0.27.2 (distributed training)
+- Sentence Transformers v2.2.2+ (embedding models — all-MiniLM-L6-v2)
+- HuggingFace Hub v0.20.3+ (model registry access)
+- NumPy v2.0.0+ (numerical computing)
 
 **LLM Integration:**
-- LangChain v0.1.16 (LLM orchestration)
-- LangChain Community v0.0.32 (providers & tools)
-- Ollama integration (local LLM support)
-- OpenAI API support
+- OpenAI SDK v1.0.0+ (OpenAI API provider)
+- Ollama integration via HTTP (local LLM support)
+- Provider-agnostic LLM client (no LangChain dependency)
 
 **External API Integration:**
-- arxiv v1.4.4 (academic paper retrieval)
-- requests v2.28.0+ (HTTP client)
+- requests v2.28.0+ (HTTP client for arXiv & GitHub APIs)
 
 **Configuration & Environment:**
 - python-dotenv v1.0.0 (.env file support)
 - pydantic v2.0.0+ (data validation)
-- numpy v1.26.4 (numerical computing)
+- cachetools v5.3.0+ (in-memory caching)
 
 ### 1.3 Infrastructure
 
@@ -80,9 +88,10 @@ InnovateSphere is an AI-powered full-stack web application for generating and ex
 
 **Database:**
 - PostgreSQL 13+ with pgvector extension
-- Neon (platform, PostgreSQL hosting)
+- Neon (platform, cloud PostgreSQL hosting with pooler)
 
-**LocalStorage:**
+**Build Tooling:**
+- Vite 7.3.1 (frontend build tool, HMR dev server, proxy)
 - Docker volumes (persistent data)
 
 ---
@@ -335,18 +344,21 @@ Admin User
 - Rate limits & timeouts
 - Evidence thresholds
 
-#### **API Routes (backend/api/routes/)**
+#### **API Routes (backend/api/routes/) — 10 Blueprints, ~38 Endpoints**
 
 | Module | Responsibility |
 |--------|-----------------|
-| `generation.py` | POST /api/ideas/generate - Multi-pass generation pipeline |
-| `retrieval.py` | POST /api/retrieval/sources - Source discovery & ranking |
-| `novelty.py` | GET /api/novelty/analyze - Novelty scoring & explanation |
-| `ideas.py` | GET/POST /api/ideas/* - Idea CRUD, reviews, feedback |
-| `admin.py` | GET/POST /api/admin/* - Admin review, verdicts, analytics |
-| `public.py` | GET /api/public/ideas - Anonymous browsing |
-| `domains.py` | GET /api/domains - Domain taxonomy |
-| `health.py` | GET /api/health - System health check |
+| `health.py` | GET /api/health — System health check |
+| `auth.py` | POST /api/login, /register, /logout, /refresh — JWT auth with token blocklist |
+| `domains.py` | GET /api/domains — Domain taxonomy with categories |
+| `public.py` | GET /api/public/ideas, /top-ideas, /top-domains, /stats — Public browsing (cached) |
+| `ideas.py` | GET/POST /api/ideas/* — Idea CRUD, reviews, feedback, novelty explanation |
+| `generation.py` | POST /api/ideas/generate (async + SSE stream + status polling) |
+| `retrieval.py` | POST /api/retrieval/sources — Source discovery & ranking |
+| `novelty.py` | POST /api/novelty/analyze — Novelty scoring |
+| `admin.py` | GET/POST /api/admin/* — Admin review, verdicts, hallucination flags, traces, rescore |
+| `analytics.py` | GET /api/analytics/admin/kpis, /admin/domains, /trends, /distributions, /bias-transparency |
+| `platform.py` | GET /api/ai/pipeline-version, legacy endpoints (check_novelty, generate-idea) |
 
 #### **AI Module (backend/ai/)**
 
@@ -792,76 +804,159 @@ Admin Portal         API Layer           Service Layer        Database
 ### 7.1 Public Endpoints (No Auth Required)
 
 ```
-GET  /api/public/ideas
-     Query: q (search), domain_id (filter), limit, offset
-     Response: [{id, title, domain_name, requires_login, ...}]
-
-GET  /api/ideas/<id>
-     Response: {id, title, ..., requires_login: true, signup_message}
-     (Limited fields for anonymous)
+GET  /api/health
+     Response: {status: 'healthy', timestamp}
 
 GET  /api/domains
      Response: [{id, name, categories: []}]
 
-GET  /api/health
-     Response: {status: 'healthy', timestamp}
+GET  /api/public/ideas
+     Query: q (search), domain (filter), limit, offset
+     Response: [{id, title, domain_name, ...}] (cached 5 min)
+
+GET  /api/public/ideas/<id>
+     Response: {id, title, ..., view_count} with view tracking
+
+GET  /api/public/top-ideas
+     Response: Top 10 ideas by quality + views (cached)
+
+GET  /api/public/top-domains
+     Response: Top 10 domains by idea count (cached)
+
+GET  /api/public/stats
+     Response: {total_ideas, total_domains, total_users} (cached)
+
+GET  /api/ai/pipeline-version
+     Response: {version: 'v2'}
 ```
 
-### 7.2 User Endpoints (JWT Required)
+### 7.2 Auth Endpoints
+
+```
+POST /api/register
+     Body: {email, username, password}
+     Response: {user_id, email, role}
+     Rate-limited: 5/min
+
+POST /api/login
+     Body: {email, password}
+     Response: {access_token, refresh_token, user: {id, email, role}}
+
+POST /api/refresh
+     Headers: Authorization: Bearer <refresh_token>
+     Response: {access_token}
+
+POST /api/logout
+     Headers: Authorization: Bearer <access_token>
+     Response: {message} (adds JTI to blocklist)
+```
+
+### 7.3 User Endpoints (JWT Required)
 
 ```
 POST /api/ideas/generate
      Body: {subject, domain_id, parameters?}
-     Response: {idea_id, novelty_score, quality_score, ...}
+     Response: 202 {job_id}
+     Rate-limited: 20/hour (admin bypass)
 
-POST /api/ideas/<id>/request
-     Body: {context?}
-     Response: {request_id, tracked_at}
+GET  /api/ideas/generate/<job_id>
+     Response: {status, progress, result?}
+
+GET  /api/ideas/generate/<job_id>/stream
+     Query: token=<jwt>
+     Response: SSE stream (real-time progress updates)
+
+GET  /api/ideas/mine
+     Query: limit, offset
+     Response: [{id, title, novelty_score, quality_score, ...}]
+
+GET  /api/ideas/<id>
+     Response: {full idea details + view tracking}
 
 POST /api/ideas/<id>/review
-     Body: {rating: 1-5, comment?}
-     Response: {review_id, ...}
+     Body: {rating: 1-5}
+     Response: {review_id, ...} (upsert per user)
+
+GET  /api/ideas/<id>/reviews
+     Response: [{user_id, rating, comment, created_at}]
 
 POST /api/ideas/<id>/feedback
      Body: {feedback_type, comment}
-     Feedback types: high_quality, factual_error, hallucinated_source, weak_novelty, etc.
+     Types: high_quality, factual_error, hallucinated_source,
+            weak_novelty, poor_justification, unclear_scope
      Response: {feedback_id, ...}
 
+GET  /api/ideas/<id>/feedbacks
+     Response: Feedbacks grouped by type
+
 GET  /api/ideas/<id>/novelty-explanation
-     Response: {novelty_score, explanation, signals_breakdown, penalties, sources}
+     Response: {novelty_score, explanation, signals, penalties, sources}
+     (Owner only)
 
-GET  /api/user/dashboard
-     Response: {stats: {ideas_generated, avg_novelty, ...}, recent_ideas: []}
+POST /api/retrieval/sources
+     Body: {query, domain_id}
+     Response: {sources: [{title, url, source_type, metadata}]}
 
-GET  /api/retrieval/sources
-     Body: {query, domain_id, similarity_threshold}
-     Response: {sources: [{title, url, source_type, metadata}], retrieved_at}
+POST /api/novelty/analyze
+     Body: {description, domain?}
+     Response: {novelty_score, level, signals, explanation}
 ```
 
-### 7.3 Admin Endpoints (Admin JWT + Verification)
+### 7.4 Admin Endpoints (Admin JWT Required)
 
 ```
-GET  /api/admin/review
-     Query: status (pending/flagged), limit, offset
-     Response: [{idea_id, title, feedback_count, user_feedback, ...}]
+GET  /api/admin/ideas/quality-review
+     Response: [{idea_id, title, feedback_count, flags, ...}]
 
-GET  /api/admin/idea/<id>
-     Response: {idea: {...full details...}, trace: {...}, feedbacks: [...], verdict: {...}}
+GET  /api/admin/ideas/<id>
+     Response: {idea: {...full}, feedbacks: [...], verdict: {...}}
 
-POST /api/admin/idea/<id>/verdict
+POST /api/admin/ideas/<id>/verdict
      Body: {verdict: 'validated'|'downgraded'|'rejected', reason}
-     Response: {verdict_id, cascaded_updates: N}
+     Response: {verdict_id, ...}
 
-GET  /api/admin/analytics
-     Query: domain_id?, start_date?, end_date?
-     Response: {quality_trends, novelty_distribution, user_engagement, domain_performance}
+POST /api/admin/ideas/<id>/human-verified
+     Body: {verified: true|false}
+     Response: {updated}
 
-POST /api/admin/bias-profile
-     Body: {name, version, rules}
-     Response: {profile_id, ...}
+POST /api/admin/ideas/<id>/sources/<sid>/hallucinated
+     Body: {hallucinated: true|false}
+     Response: {updated}
 
-GET  /api/admin/prompt-versions
-     Response: [{id, name, version, is_active}]
+GET  /api/admin/ideas/<id>/generation-trace
+     Response: {phases: [{name, data, timing}], constraints, bias_penalties}
+
+GET  /api/admin/ideas/<id>/bias-breakdown
+     Response: {penalties, bias_profile, constraints}
+
+POST /api/admin/ideas/<id>/rescore
+     Response: {new_novelty_score, new_quality_score}
+
+GET  /api/admin/abuse-events
+     Query: limit, offset
+     Response: [{user_id, event_type, details, created_at}]
+```
+
+### 7.5 Analytics Endpoints (Admin JWT Required)
+
+```
+GET  /api/analytics/admin/kpis
+     Response: {total_ideas, avg_novelty, avg_quality, ...}
+
+GET  /api/admin/domains
+     Response: [{domain, idea_count, avg_score, ...}]
+
+GET  /api/admin/trends
+     Response: [{date, count}] (30-day trends)
+
+GET  /api/admin/distributions
+     Response: {novelty_histogram, quality_histogram}
+
+GET  /api/admin/user-domains
+     Response: [{domain, user_count}]
+
+GET  /api/analytics/admin/bias-transparency
+     Response: {bias_impact, penalty_breakdown}
 ```
 
 ---
@@ -1366,30 +1461,54 @@ Traces:
 
 ```python
 # Database
-DATABASE_URL = "postgresql://user:pass@host:5432/innovate_db"
+DATABASE_URL = ""  # Neon PostgreSQL or SQLite
 
 # LLM
-LLM_PROVIDER = "ollama"  # or "openai"
-LLM_MODEL_NAME = "neural-chat"  # or "gpt-4"
+LLM_PROVIDER = "ollama"          # or "openai"
+LLM_MODEL_NAME = "qwen2.5:7b"   # Primary model
 OLLAMA_BASE_URL = "http://localhost:11434"
 LLM_TIMEOUT_SECONDS = 60
-LLM_MAX_RETRIES = 3
+LLM_MAX_RETRIES = 4
+LLM_BACKOFF_BASE_SECONDS = 0.5
+LLM_BACKOFF_MAX_SECONDS = 30.0
+LLM_STARTUP_HARD_FAIL = "true"
+LLM_FALLBACK_ENABLED = "false"
+LLM_FALLBACK_PROVIDER = "openai"
+
+# Pipeline Modes
+HYBRID_MODE = "true"             # 2-pass mode
+HYBRID_LLM_TIMEOUT_SECONDS = 90
+HYBRID_MAX_SOURCES_FOR_PROMPT = 5
+DEMO_MODE = "false"              # 1-pass mode
+DEMO_LLM_TIMEOUT_SECONDS = 45
 
 # Embedding
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+EMBEDDING_DIM = 384
 
-# API
-SECRET_KEY = "your-secret-key"
-JWT_EXPIRATION_HOURS = 24
-RATE_LIMIT_GENERATION = "20/hour"
+# Security
+SECRET_KEY = "dev-secret-key"
+JWT_SECRET = "dev-jwt-secret"
+JWT_EXP_SECONDS = 3600
+JWT_REFRESH_EXP_SECONDS = 604800  # 7 days
 
 # Evidence
 MIN_EVIDENCE_REQUIRED = 3
+MIN_NOVELTY_SCORE = 25
+MAX_SOURCES_FOR_LLM = 8
 
-# Features
-ENABLE_SEMANTIC_FILTER = True
-ENABLE_NOVELTY_ANALYSIS = True
-ENABLE_ADMIN_CASCADE = True
+# Rate Limiting & Abuse
+MAX_GENERATION_REQUESTS_PER_MIN = 6
+ABUSE_WINDOW_SECONDS = 60
+AUTO_BLOCK_AFTER_INFRACTIONS = 5
+
+# Observability
+LOG_LEVEL = "INFO"
+CORS_ORIGINS = "http://localhost:3000"
+
+# Pipeline Versioning
+DEFAULT_AI_PIPELINE_VERSION = "v2"
+ENABLE_AI_PIPELINES = "v2"
 ```
 
 ---
