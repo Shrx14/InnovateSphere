@@ -171,8 +171,12 @@ def admin_quality_review():
             ProjectIdea.id.in_(
                 db.session.query(IdeaFeedback.idea_id).filter(
                     db.or_(
+                        IdeaFeedback.feedback_type == "downvote",
+                        IdeaFeedback.feedback_type == "report",
+                        IdeaFeedback.feedback_type == "not_helpful",
                         IdeaFeedback.feedback_type == "hallucinated_source",
-                        IdeaFeedback.feedback_type == "weak_novelty"
+                        IdeaFeedback.feedback_type == "weak_novelty",
+                        IdeaFeedback.feedback_type == "factual_error"
                     )
                 ).group_by(IdeaFeedback.idea_id).having(func.count() >= 1)
             ),
@@ -342,7 +346,8 @@ def admin_list_abuse_events():
 
     try:
         page = max(int(request.args.get("page", 1)), 1)
-        limit = min(int(request.args.get("limit", 50)), 200)
+        # Accept both 'limit' and 'per_page' (frontend sends per_page)
+        limit = min(int(request.args.get("limit", request.args.get("per_page", 50))), 200)
     except ValueError:
         return jsonify({"error": "page and limit must be valid integers"}), 400
 
@@ -398,7 +403,9 @@ def admin_rescore_idea(idea_id):
             "message": "Idea rescored",
             "old_novelty": old_novelty,
             "new_novelty": idea.novelty_score_cached,
-            "new_quality": idea.quality_score_cached
+            "new_quality": idea.quality_score_cached,
+            "new_novelty_score": idea.novelty_score_cached,
+            "new_quality_score": idea.quality_score_cached
         }), 200
 
     except Exception as e:
@@ -417,9 +424,10 @@ def admin_toggle_human_verified(idea_id):
         return jsonify({"error": "Admin access required"}), 403
 
     data = request.get_json() or {}
-    verified = data.get("verified")
+    # Accept both 'verified' (backend convention) and 'is_human_verified' (frontend convention)
+    verified = data.get("verified", data.get("is_human_verified"))
     if not isinstance(verified, bool):
-        return jsonify({"error": "'verified' must be a boolean"}), 400
+        return jsonify({"error": "'verified' or 'is_human_verified' must be a boolean"}), 400
 
     idea = ProjectIdea.query.get(idea_id)
     if not idea:
@@ -455,7 +463,8 @@ def admin_flag_hallucinated_source(idea_id, source_id):
         return jsonify({"error": "Source not found"}), 404
 
     data = request.get_json() or {}
-    hallucinated = data.get("hallucinated", True)
+    # Accept both 'hallucinated' (backend convention) and 'is_hallucinated' (frontend convention)
+    hallucinated = data.get("hallucinated", data.get("is_hallucinated", True))
     source.is_hallucinated = bool(hallucinated)
 
     try:

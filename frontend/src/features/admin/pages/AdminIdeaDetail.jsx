@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../../lib/api';
+import { formatScore } from '@/lib/formatScore';
 
 const AdminIdeaDetail = () => {
   const { id } = useParams();
@@ -8,6 +9,7 @@ const AdminIdeaDetail = () => {
   const [idea, setIdea] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [validationError, setValidationError] = useState(null);
   const [verdict, setVerdict] = useState('');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -51,12 +53,12 @@ const AdminIdeaDetail = () => {
   const handleVerdict = async () => {
     if (!verdict) return;
     if (verdict === 'rejected' && !reason.trim()) {
-      setError('Reason is required for rejection.');
+      setValidationError('Reason is required for rejection.');
       return;
     }
 
     setSubmitting(true);
-    setError(null);
+    setValidationError(null);
     try {
       await api.post(`/admin/ideas/${id}/verdict`, { verdict, reason: reason.trim() || 'Admin verdict' });
       await fetchIdea();
@@ -98,13 +100,11 @@ const AdminIdeaDetail = () => {
   const handleRescore = async () => {
     try {
       setActionMsg({ type: 'info', text: 'Rescoring...' });
-      const res = await api.post(`/admin/ideas/${id}/rescore`);
-      setIdea(prev => ({
-        ...prev,
-        quality_score: res.data.new_quality_score,
-        novelty_score_cached: res.data.new_novelty_score
-      }));
-      setActionMsg({ type: 'success', text: `Rescored: quality=${res.data.new_quality_score}, novelty=${res.data.new_novelty_score}` });
+      await api.post(`/admin/ideas/${id}/rescore`);
+      // Re-fetch fresh data instead of optimistic update
+      const ideaRes = await api.get(`/admin/ideas/${id}`);
+      setIdea(ideaRes.data);
+      setActionMsg({ type: 'success', text: 'Idea rescored successfully.' });
     } catch {
       setActionMsg({ type: 'error', text: 'Failed to rescore idea.' });
     }
@@ -319,7 +319,7 @@ const AdminIdeaDetail = () => {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-neutral-300">Quality Score</span>
-                <span className="text-white font-medium">{typeof idea.quality_score === 'number' ? (idea.quality_score / 10).toFixed(1) : 'N/A'}/10</span>
+                <span className="text-white font-medium">{formatScore(idea.quality_score)}/10</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-300">Novelty Confidence</span>
@@ -381,9 +381,9 @@ const AdminIdeaDetail = () => {
               {idea.admin_verdict ? 'Update Verdict' : 'Admin Verdict'}
             </h2>
 
-            {error && (
+            {(error || validationError) && (
               <div className="mb-4 text-sm text-red-400">
-                {error}
+                {validationError || error}
               </div>
             )}
 

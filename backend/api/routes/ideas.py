@@ -140,7 +140,14 @@ def submit_idea_feedback(idea_id):
     feedback_type = data.get("feedback_type")
     comment = data.get("comment", "").strip()
 
-    if feedback_type not in ["factual_error", "hallucinated_source", "weak_novelty", "poor_justification", "unclear_scope", "high_quality"]:
+    VALID_FEEDBACK_TYPES = [
+        # Reaction types
+        "upvote", "downvote", "bookmark", "report", "helpful", "not_helpful",
+        # Quality-review types
+        "factual_error", "hallucinated_source", "weak_novelty",
+        "poor_justification", "unclear_scope", "high_quality"
+    ]
+    if feedback_type not in VALID_FEEDBACK_TYPES:
         return jsonify({"error": "Invalid feedback_type"}), 400
 
     if len(comment) > 5000:
@@ -219,6 +226,7 @@ def my_ideas():
             {
                 "id": idea.id,
                 "title": idea.title,
+                "problem_statement": idea.problem_statement,
                 "domain": idea.domain.name if idea.domain else None,
                 "novelty_score": idea.novelty_score_cached,
                 "quality_score": idea.quality_score_cached,

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../../lib/api';
+import { formatScore } from '@/lib/formatScore';
 
 const AdminReviewQueue = () => {
   const [ideas, setIdeas] = useState([]);
@@ -31,14 +32,20 @@ const AdminReviewQueue = () => {
   }, [fetchIdeas]);
 
   const handleVerdict = async (ideaId, verdict) => {
+    let reason = 'Admin verdict';
+    if (verdict === 'rejected') {
+      reason = window.prompt('Please provide a reason for rejection:');
+      if (!reason || !reason.trim()) return; // User cancelled or empty reason
+      reason = reason.trim();
+    }
     setProcessing(prev => new Set(prev).add(ideaId));
     try {
       setError(null);
-      await api.post(`/admin/ideas/${ideaId}/verdict`, { verdict });
+      await api.post(`/admin/ideas/${ideaId}/verdict`, { verdict, reason });
       // Optimistically remove from list
       setIdeas(prev => prev.filter(idea => idea.id !== ideaId));
-    } catch (error) {
-      console.error('Failed to submit verdict:', error);
+    } catch (err) {
+      console.error('Failed to submit verdict:', err);
       setError('Failed to submit verdict. Please try again.');
     } finally {
       setProcessing(prev => {
@@ -50,11 +57,10 @@ const AdminReviewQueue = () => {
   };
 
   const formatFeedbackFlags = (feedback) => {
-    const flags = [];
-    if (feedback.hallucinated_source > 0) flags.push(`Hallucinated source: ${feedback.hallucinated_source}`);
-    if (feedback.weak_novelty > 0) flags.push(`Weak novelty: ${feedback.weak_novelty}`);
-    if (feedback.hallucinated_source >= 3) flags.push('High hallucination risk');
-    if (feedback.weak_novelty >= 2) flags.push('High novelty weakness'); // Assuming similar threshold
+    if (!feedback || typeof feedback !== 'object') return 'None';
+    const flags = Object.entries(feedback)
+      .filter(([, count]) => count > 0)
+      .map(([type, count]) => `${type.replace(/_/g, ' ')}: ${count}`);
     return flags.length > 0 ? flags.join(', ') : 'None';
   };
 
@@ -111,14 +117,14 @@ const AdminReviewQueue = () => {
           <table className="w-full">
             <thead className="bg-neutral-800">
               <tr>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Title</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Domain</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Novelty</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Quality</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Risk</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Flags</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Details</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Actions</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Title</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Domain</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Novelty</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Quality</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Risk</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Flags</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Details</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-800">
@@ -126,8 +132,8 @@ const AdminReviewQueue = () => {
                 <tr key={idea.id} className="hover:bg-neutral-800/50">
                   <td className="px-6 py-4 text-sm text-white">{idea.title}</td>
                   <td className="px-6 py-4 text-sm text-neutral-300">{idea.domain}</td>
-                  <td className="px-6 py-4 text-sm text-neutral-300">{typeof idea.novelty_score === 'number' ? (idea.novelty_score / 10).toFixed(1) : 'N/A'}</td>
-                  <td className="px-6 py-4 text-sm text-neutral-300">{typeof idea.quality_score === 'number' ? (idea.quality_score / 10).toFixed(1) : 'N/A'}</td>
+                  <td className="px-6 py-4 text-sm text-neutral-300">{formatScore(idea.novelty_score)}</td>
+                  <td className="px-6 py-4 text-sm text-neutral-300">{formatScore(idea.quality_score)}</td>
                   <td className={`px-6 py-4 text-sm ${getRiskColor(idea.hallucination_risk_level)}`}>{idea.hallucination_risk_level}</td>
                   <td className="px-6 py-4 text-sm text-neutral-300">{formatFeedbackFlags(idea.feedback_summary)}</td>
                   <td className="px-6 py-4">

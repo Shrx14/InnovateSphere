@@ -1,12 +1,11 @@
 // src/features/auth/pages/RegisterPage.jsx
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../lib/api';
 
 const RegisterPage = () => {
   const { login } = useAuth();
-  const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', username: '', password: '', confirmPassword: '', skillLevel: 'beginner' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);

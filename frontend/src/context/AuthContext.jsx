@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '@/config/config';
 
 const AuthContext = createContext();
 
@@ -36,15 +37,12 @@ export const AuthProvider = ({ children }) => {
     // Use Math.floor to get integer seconds for proper comparison with JWT exp (which is in seconds)
     const now = Math.floor(Date.now() / 1000);
     if (!payload || !payload.exp || payload.exp < now) {
-      console.log('Auth hydration failed: invalid or expired token');
       return null;
     }
 
     if (!payload.role) {
-      console.log('Auth hydration failed: missing role in token');
       return null;
     }
-    console.log('Auth hydration success');
     return {
       id: payload.sub || payload.id,
       email: payload.email,
@@ -79,12 +77,11 @@ export const AuthProvider = ({ children }) => {
 
   // Logout function
   const logout = useCallback(async (reason = 'User logout') => {
-    console.log('Logout triggered:', reason);
     // Call backend logout endpoint (best-effort)
     try {
       const storedToken = localStorage.getItem('access_token');
       if (storedToken) {
-        await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000/api') + '/logout', {
+        await fetch(API_BASE_URL + '/logout', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${storedToken}` },
         });
@@ -106,7 +103,6 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
 
     const handleAuthLogout = (event) => {
-      console.log('Auth logout event received:', event.detail);
       logout('API authentication error');
     };
 
@@ -117,8 +113,7 @@ export const AuthProvider = ({ children }) => {
   }, [logout]);
 
   // Login function
-
-  const login = (newToken, refreshToken) => {
+  const login = useCallback((newToken, refreshToken) => {
     localStorage.setItem('access_token', newToken);
     if (refreshToken) {
       localStorage.setItem('refresh_token', refreshToken);
@@ -136,10 +131,9 @@ export const AuthProvider = ({ children }) => {
         navigate('/user/dashboard');
       }
     } else {
-      console.error('Login failed: invalid token received');
       logout('Invalid token received');
     }
-  };
+  }, [hydrateUserFromToken, navigate, logout]);
 
   const value = {
 

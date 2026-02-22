@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../../../context/AuthContext';
-import api from '../../../lib/api';
+import { useAuth } from '@/context/AuthContext';
+import api from '@/lib/api';
+import { formatScore } from '@/lib/formatScore';
 import SourcesList from '../components/SourcesList';
 
 const NoveltyPage = () => {
@@ -219,7 +220,7 @@ const NoveltyPage = () => {
                   </p>
                   <div className="flex items-end gap-4 mb-4">
                     <div className="text-5xl font-bold text-indigo-300">
-                      {typeof result.novelty_score === 'number' ? (result.novelty_score / 10).toFixed(1) : 'N/A'}
+                      {formatScore(result.novelty_score)}
                     </div>
                     <div className="flex-1">
                       <div className={`inline-block px-3 py-1 rounded-full border text-sm font-semibold ${getNoveltyStyling(result.novelty_level)}`}>

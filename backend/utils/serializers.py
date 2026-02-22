@@ -33,6 +33,7 @@ def serialize_full_idea(idea):
             "view_count": idea.view_count,
             "sources": [
                 {
+                    "id": s.id,
                     "source_type": s.source_type,
                     "title": s.title,
                     "url": s.url,
@@ -40,6 +41,8 @@ def serialize_full_idea(idea):
                     if s.published_date
                     else None,
                     "summary": s.summary,
+                    "is_hallucinated": s.is_hallucinated,
+                    "relevance_tier": "supporting",
                 }
                 for s in idea.sources
             ],
@@ -59,6 +62,8 @@ def serialize_full_idea(idea):
             "requested_count": len(idea.requests),
             # Segment 3.2: Trust signals for authenticated users only
             "quality_score": idea.quality_score_cached,
+            "novelty_score": idea.novelty_score_cached,
+            "status": idea.admin_verdict.verdict if idea.admin_verdict else "pending",
             "novelty_confidence": idea.novelty_confidence,
             "evidence_strength": idea.evidence_strength,
             "hallucination_risk_level": idea.hallucination_risk_level,

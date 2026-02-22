@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, useInView } from "framer-motion";
 import { ArrowRight, ExternalLink } from "lucide-react";
@@ -16,10 +16,11 @@ import { SkeletonCard } from "@/components/ui/Skeleton";
 
 const AnimatedCounter = ({ target, label, sub }) => {
   const [count, setCount] = useState(0);
-  const ref = useState(null);
+  const ref = React.useRef(null);
+  const isInView = useInView(ref, { once: true });
 
   useEffect(() => {
-    if (!target) return;
+    if (!target || !isInView) return;
     let current = 0;
     const increment = Math.ceil(target / 50);
     const timer = setInterval(() => {
@@ -31,10 +32,10 @@ const AnimatedCounter = ({ target, label, sub }) => {
       setCount(current);
     }, 20);
     return () => clearInterval(timer);
-  }, [target]);
+  }, [target, isInView]);
 
   return (
-    <Card className="p-8 md:p-12 text-center">
+    <Card className="p-8 md:p-12 text-center" ref={ref}>
       <div className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent mb-4">
         {count.toLocaleString()}
       </div>
@@ -49,6 +50,7 @@ const LandingPage = () => {
   const [topDomains, setTopDomains] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
@@ -63,11 +65,19 @@ const LandingPage = () => {
         setStats(statsData || {});
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setError('Failed to load data. Please try again later.');
+        setLoading(false);
+      });
   }, []);
 
   return (
     <div className="bg-neutral-950 min-h-screen">
+      {error && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 text-white px-6 py-3 rounded-lg shadow-lg">
+          {error}
+        </div>
+      )}
       {/* ===== HERO ===== */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         {/* Animated background */}
@@ -195,8 +205,8 @@ const LandingPage = () => {
               viewport={{ once: true, margin: "-100px" }}
               className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
             >
-              {topDomains.map((d, i) => (
-                <motion.div key={i} variants={fadeIn}>
+              {topDomains.map((d) => (
+                <motion.div key={d.domain || d.id} variants={fadeIn}>
                   <Card className="p-8 hover:bg-neutral-800/50 transition-colors cursor-pointer group">
                     <h3 className="text-xl md:text-2xl font-semibold text-white group-hover:text-indigo-300 transition mb-4">
                       {d.domain}

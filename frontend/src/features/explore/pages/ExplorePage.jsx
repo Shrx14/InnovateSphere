@@ -32,21 +32,24 @@ const ExplorePage = () => {
 
   const debouncedSearchQuery = useDebounce(filters.q, 300);
 
+  // Fetch domains once on mount
+  useEffect(() => {
+    api.get("/domains")
+      .then((res) => setDomains(res.data.domains))
+      .catch(() => {});
+  }, []);
+
+  // Fetch ideas on filter/search/page change
   useEffect(() => {
     setLoading(true);
     const searchFilters = { ...filters, q: debouncedSearchQuery };
 
-    Promise.all([
-      api.get("/public/ideas", { params: searchFilters }),
-      api.get("/domains"),
-    ])
-      .then(([ideasRes, domainsRes]) => {
-        setIdeas(ideasRes.data.ideas);
-        setMeta(ideasRes.data.meta);
-        setDomains(domainsRes.data.domains);
+    api.get("/public/ideas", { params: searchFilters })
+      .then((res) => {
+        setIdeas(res.data.ideas);
+        setMeta(res.data.meta);
       })
-      .catch((err) => {
-        console.error("Failed to fetch ideas:", err);
+      .catch(() => {
         setIdeas([]);
         setMeta(null);
       })

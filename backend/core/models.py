@@ -335,8 +335,8 @@ class IdeaFeedback(db.Model):
         db.Index("idx_idea_feedbacks_idea_id", "idea_id"),
         db.Index("idx_idea_feedbacks_user_id", "user_id"),
         db.CheckConstraint(
-            "feedback_type IN ('high_quality', 'factual_error', 'hallucinated_source', 'weak_novelty', 'poor_justification', 'unclear_scope')",
-            name="check_feedback_type_valid"
+            "feedback_type IN ('upvote', 'downvote', 'bookmark', 'report', 'helpful', 'not_helpful', 'factual_error', 'hallucinated_source', 'weak_novelty', 'poor_justification', 'unclear_scope', 'high_quality')",
+            name="ck_idea_feedbacks_type_valid"
         ),
     )
 

@@ -357,7 +357,40 @@ const IdeaDetail = () => {
                 </motion.div>
               )}
 
-              {/* Feedback Section */}
+              {/* Quick Reactions */}
+              <motion.div variants={fadeIn}>
+                <Card className="p-6">
+                  <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-widest mb-4">
+                    Quick Reactions
+                  </h2>
+                  <div className="flex flex-wrap gap-3">
+                    {[
+                      { type: 'upvote', label: '👍 Upvote', color: 'bg-emerald-600 hover:bg-emerald-500' },
+                      { type: 'downvote', label: '👎 Downvote', color: 'bg-red-600 hover:bg-red-500' },
+                      { type: 'bookmark', label: '🔖 Bookmark', color: 'bg-indigo-600 hover:bg-indigo-500' },
+                      { type: 'helpful', label: '✅ Helpful', color: 'bg-blue-600 hover:bg-blue-500' },
+                      { type: 'not_helpful', label: '❌ Not Helpful', color: 'bg-neutral-600 hover:bg-neutral-500' },
+                    ].map(({ type, label, color }) => (
+                      <button
+                        key={type}
+                        onClick={async () => {
+                          try {
+                            await api.post(`/ideas/${id}/feedback`, { feedback_type: type });
+                            toast.success(`${label.split(' ').slice(1).join(' ')} recorded!`);
+                          } catch (err) {
+                            toast.error(err.response?.data?.error || 'Failed');
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${color}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </Card>
+              </motion.div>
+
+              {/* Detailed Feedback Section */}
               <motion.div variants={fadeIn}>
                 <Card className="p-8">
                   <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-widest mb-6">

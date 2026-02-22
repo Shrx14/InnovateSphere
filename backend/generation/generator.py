@@ -831,7 +831,7 @@ def generate_direct_to_llm(
         # Update job if tracking - mark complete
         if job_id:
             jq = get_job_queue()
-            jq.update_job_status(job_id, "running", 100, 5)
+            jq.update_job_status(job_id, "running", 5, 100)
             # Store intermediate novelty for polling
             jq.set_intermediate_result(job_id, "novelty", novelty)
         

@@ -86,7 +86,7 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 403) {
-      console.log('Forbidden (403) — insufficient permissions');
+      // Forbidden — insufficient permissions
     }
 
     return Promise.reject(error);

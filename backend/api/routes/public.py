@@ -110,6 +110,8 @@ def public_ideas():
                 "problem_statement": i.problem_statement,
                 "tech_stack": i.tech_stack,
                 "domain": i.domain.name if i.domain else None,
+                "novelty_score": i.novelty_score_cached,
+                "quality_score": i.quality_score_cached,
                 "created_at": i.created_at.isoformat(),
             }
             for i in ideas
@@ -222,6 +224,7 @@ def public_idea_detail(idea_id):
                     "title": s.title,
                     "url": s.url,
                     "summary": s.summary,
+                    "relevance_tier": s.relevance_tier if hasattr(s, 'relevance_tier') else "supporting",
                 }
                 for s in idea.sources
             ],
@@ -265,6 +268,8 @@ def public_top_ideas():
                 "problem_statement": i.problem_statement,
                 "tech_stack": i.tech_stack,
                 "domain": i.domain.name if i.domain else None,
+                "novelty_score": i.novelty_score_cached,
+                "quality_score": i.quality_score_cached,
                 "view_count": i.view_count,
             }
             for i in ideas

@@ -38,7 +38,7 @@ const SourcesList = ({ sources, evidenceBreakdown }) => {
 
   const renderSourceCard = (source) => (
     <div
-      key={source.url}
+      key={source.id || source.url}
       className={`p-3 rounded border ${tierConfig[source.relevance_tier]?.bgColor || 'bg-neutral-500/10'} ${tierConfig[source.relevance_tier]?.borderColor || 'border-neutral-500/30'}`}
     >
       <div className="flex items-start justify-between gap-2">

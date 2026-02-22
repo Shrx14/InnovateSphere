@@ -1,10 +1,10 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Sparkles, ArrowRight, ChevronRight } from 'lucide-react';
 
 import { useIdeas } from '@/hooks/useIdeas';
-import { formatScore } from '@/lib/formatScore';
+
 import { fadeIn, staggerContainer } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
@@ -38,7 +38,7 @@ function sortIdeas(ideas, sortBy) {
 }
 
 export default function UserDashboard() {
-  const { ideas, loading, grouped } = useIdeas();
+  const { ideas, loading, grouped, error } = useIdeas();
   const [sortBy, setSortBy] = useState('recent');
 
   // Loading state with skeletons
@@ -57,6 +57,23 @@ export default function UserDashboard() {
             {[0, 1, 2].map(i => <SkeletonCard key={i} />)}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center px-6">
+        <EmptyState
+          title="Failed to load ideas"
+          description={error}
+          action={
+            <Button onClick={() => window.location.reload()}>
+              Try Again
+            </Button>
+          }
+        />
       </div>
     );
   }
