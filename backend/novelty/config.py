@@ -14,29 +14,20 @@ COMMODITY_PATTERNS = GENERIC_IDEAS + [
     "landing page", "admin panel", "authentication"
 ]
 
-# Updated to match the 10-domain model
-# Keys are stored in original case - lookups should match case
+# Per-domain similarity thresholds for novelty comparison.
+# Used by compute_similarity_distribution() to calibrate domain-specific
+# thresholds for counting "high-similarity" sources.
 SIMILARITY_THRESHOLDS = {
     "AI & Machine Learning": 0.45,
-    "ai & machine learning": 0.45,
     "Web & Mobile Development": 0.35,
-    "web & mobile development": 0.35,
     "Data Science & Analytics": 0.42,
-    "data science & analytics": 0.42,
     "Cybersecurity & Privacy": 0.50,
-    "cybersecurity & privacy": 0.50,
     "Cloud & DevOps": 0.48,
-    "cloud & devops": 0.48,
     "Blockchain & Web3": 0.52,
-    "blockchain & web3": 0.52,
     "IoT & Hardware": 0.40,
-    "iot & hardware": 0.40,
     "Healthcare & Biotech": 0.55,
-    "healthcare & biotech": 0.55,
     "Education & E-Learning": 0.45,
-    "education & e-learning": 0.45,
     "Business & Productivity Tools": 0.50,
-    "business & productivity tools": 0.50,
 }
 
 DOMAIN_NOVELTY_WEIGHT = {

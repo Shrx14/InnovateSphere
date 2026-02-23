@@ -215,6 +215,7 @@ def public_idea_detail(idea_id):
             "title": idea.title,
             "problem_statement": idea.problem_statement,
             "tech_stack": idea.tech_stack,
+            "tech_stack_json": idea.tech_stack_json,
             "domain": idea.domain.name if idea.domain else None,
             "view_count": idea.view_count,
             "created_at": idea.created_at.isoformat(),

@@ -2,14 +2,15 @@ import math
 
 def compute_saturation_penalty(source_count: int, max_sources: int = 15) -> float:
     """
-    Penalize both zero sources and high saturation.
+    Compute saturation signal from source count.
     
-    With 0 sources: returns ~0.95 (strong penalty)
-    With 15+ sources: returns ~1.0 (max saturation penalty)
+    Used as (1 - saturation) in base score, so:
+    - 0 sources → 0.0 → base gets full 20 pts (no prior art = potentially novel)
+    - 15+ sources → ~1.0 → base gets ~0 pts (saturated topic)
     """
     if source_count == 0:
-        # Zero sources = maximum penalty in saturation term
-        return 0.95
+        # No sources: unknown territory, not saturated
+        return 0.0
     
     norm = min(source_count / max_sources, 1.0)
     return math.log(1 + norm * 9) / math.log(10)

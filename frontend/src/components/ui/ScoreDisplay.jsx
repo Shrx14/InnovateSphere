@@ -1,6 +1,16 @@
 import { cn } from '@/lib/utils';
 import { formatScore, scoreColor, scoreBgColor } from '@/lib/formatScore';
 
+function scoreInterpretation(raw) {
+  if (raw == null || isNaN(raw)) return 'No score available';
+  const n = Number(raw);
+  if (n >= 80) return 'Excellent — highly novel or high quality';
+  if (n >= 70) return 'Very good — strong originality';
+  if (n >= 50) return 'Moderate — some existing overlap';
+  if (n >= 30) return 'Low — significant overlap with existing work';
+  return 'Very low — closely resembles existing solutions';
+}
+
 /**
  * Reusable score display badge.
  * @param {number} value - Raw score (0–100 scale)
@@ -23,6 +33,7 @@ export function ScoreDisplay({ value, label, size = 'md', className }) {
         scoreBgColor(value),
         className
       )}
+      title={scoreInterpretation(value)}
     >
       {label && (
         <span className={cn('text-neutral-400', s.label)}>{label}</span>

@@ -261,6 +261,7 @@ class NoveltyAnalyzer:
 
         total_adjustments = bonus + hitl_penalty + admin_penalty + commodity_penalty + reuse_penalty + maturity_bonus
         score = blend(base * 0.9, base + total_adjustments)
+        score = min(score, 100.0)  # Cap before domain weight to prevent overflow
 
         # Penalize if too many peripheral sources
         confidence_override = None

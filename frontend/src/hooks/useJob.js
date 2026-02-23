@@ -117,6 +117,10 @@ export function useJob(jobId) {
     fallbackActivated.current = false;
 
     // Try SSE first
+    // NOTE: EventSource API does not support custom headers, so JWT is passed
+    // via query param. The backend validates it with decode_token(). This is the
+    // standard workaround — the token is short-lived (JWT_EXP_SECONDS) and the
+    // connection is over HTTPS in production, mitigating URL-logging risk.
     const token = localStorage.getItem('access_token');
     const sseUrl = `${API_BASE_URL}/ideas/generate/${jobId}/stream${token ? `?token=${token}` : ''}`;
 

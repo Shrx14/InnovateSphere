@@ -35,14 +35,24 @@ class Config:
         if not Config.DEMO_MODE:
             if Config.SECRET_KEY in insecure_defaults:
                 logger.critical("SECURITY: SECRET_KEY is using insecure default! Set a strong SECRET_KEY in .env")
-                if not Config.HYBRID_MODE:  # Hard fail in production only
+                if Config.HYBRID_MODE:
+                    logger.warning(
+                        "SECURITY: Running hybrid mode with default SECRET_KEY. "
+                        "Set a strong SECRET_KEY in .env before any public deployment."
+                    )
+                else:
                     raise RuntimeError(
                         "SECRET_KEY is set to the insecure default 'dev-secret-key'. "
                         "Set a strong SECRET_KEY in your .env file before running in production."
                     )
             if Config.JWT_SECRET in insecure_defaults:
                 logger.critical("SECURITY: JWT_SECRET is using insecure default! Set a strong JWT_SECRET in .env")
-                if not Config.HYBRID_MODE:
+                if Config.HYBRID_MODE:
+                    logger.warning(
+                        "SECURITY: Running hybrid mode with default JWT_SECRET. "
+                        "Set a strong JWT_SECRET in .env before any public deployment."
+                    )
+                else:
                     raise RuntimeError(
                         "JWT_SECRET is set to the insecure default 'dev-jwt-secret'. "
                         "Set a strong JWT_SECRET in your .env file before running in production."

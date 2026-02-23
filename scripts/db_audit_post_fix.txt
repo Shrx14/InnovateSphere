@@ -1,0 +1,521 @@
+﻿================================================================================
+1. PROJECT IDEAS - tech_stack and novelty_score_cached
+================================================================================
+
+ID=1 | DOMAIN_ID=6
+  TITLE: Cross-Platform AI Code Review Assistant
+  TECH_STACK: Backend (Node.js, Express): Provides a robust and scalable backend infrastructure for handling real-time data processing and API requests.; Frontend (...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 49
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=3 | DOMAIN_ID=6
+  TITLE: CloudIDE: Real-time AI-assisted Pull Request Review
+  TECH_STACK: Backend (Node.js, Express.js): Provides a robust, scalable backend for handling API requests and integrating with cloud services.; Frontend (React.js,...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 49
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=4 | DOMAIN_ID=6
+  TITLE: Edge-Aware Cross-Platform AI Code Review Tool
+  TECH_STACK: Backend (Node.js, Express.js): Provides robust server-side processing capabilities with efficient routing and middleware support.; Frontend (React.js,...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 49
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=5 | DOMAIN_ID=6
+  TITLE: DiverseAI CodeCollab: Real-time, Multi-provider Code Review for Pull Requests
+  TECH_STACK: Backend (Node.js, Express.js): Provides a robust framework for handling real-time data processing and API management.; Frontend (React.js, Next.js): E...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 49
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=10 | DOMAIN_ID=6
+  TITLE: Emotion Synchronized Virtual Storytelling
+  TECH_STACK: Emotion Recognition ù Detecting user's emotional state from voice or text. (Critical for real-time synchronization.); Natural Language Processing ù Ge...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 58
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=11 | DOMAIN_ID=7
+  TITLE: Voice-Guided Real-Time Sign Language Translation
+  TECH_STACK: WebRTC ù Enables real-time communication between users and devices. (Critical for real-time interaction); TensorFlow.js ù Trains and runs machine lear...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 71
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=12 | DOMAIN_ID=7
+  TITLE: SupplyChainSage
+  TECH_STACK: Blockchain ù Secure and transparent ledger for transactions (Ensures immutability and transparency); IoT ù Real-time data collection from sensors (Ena...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 80
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=13 | DOMAIN_ID=7
+  TITLE: EcoTrack: Real-time Carbon Footprint Monitoring
+  TECH_STACK: React Native ù Cross-platform mobile app development (Flexible and performant for both iOS and Android); Node.js ù Backend server (High-performance, s...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 73
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=14 | DOMAIN_ID=7
+  TITLE: EcoTrack: Real-Time Carbon Footprint Monitoring
+  TECH_STACK: Firebase ù Backend database and authentication (Provides robust backend services with easy integration); WebRTC ù Real-time data transmission between ...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 77
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=15 | DOMAIN_ID=7
+  TITLE: VoicePrint: Personalized Health Analytics
+  TECH_STACK: ML models ù Analyzing voice patterns for health insights (Provides personalized and accurate health data); Microphone API ù Capturing user voice input...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 28
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=16 | DOMAIN_ID=7
+  TITLE: AR Home Tour
+  TECH_STACK: React.js ù Frontend framework for building interactive UIs (Flexible and widely adopted); Three.js ù Library for creating 3D graphics in the browser (...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 72
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=18 | DOMAIN_ID=8
+  TITLE: Smart Water Pipeline Leak Detection
+  TECH_STACK: Machine learning ù Analyze sensor data for anomalies (Advanced algorithms can predict leaks before they occur); IoT devices ù Collect real-time pipeli...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 21
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=19 | DOMAIN_ID=8
+  TITLE: Epidemic Early Warning System
+  TECH_STACK: Python ù Main programming language for model development and automation (Flexible and widely used in data science); Scikit-learn ù Machine learning al...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 90
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=20 | DOMAIN_ID=8
+  TITLE: Smart City Traffic Flow Visualization
+  TECH_STACK: Python ù Backend scripting and data handling (Flexible for complex algorithm development); D3.js ù Data visualization (Advanced interactive visualizat...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 80
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=21 | DOMAIN_ID=8
+  TITLE: Predictive Maintenance for Underwater Pipelines
+  TECH_STACK: Machine Learning ù Analyzing acoustic patterns for predictive models (Best suited for pattern recognition in complex data); Acoustic Sensors ù Collect...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 67
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=22 | DOMAIN_ID=8
+  TITLE: Predictive Market Sentiment Analysis
+  TECH_STACK: Natural Language Processing ù Extracting sentiment from text (Handles unstructured data like social media); Machine Learning ù Training models for pre...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 72
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=23 | DOMAIN_ID=9
+  TITLE: Zero-Trust Application Firewall
+  TECH_STACK: Machine learning ù Identifying and classifying anomalies (Enables real-time threat detection); API gateway ù Centralizes application access control (S...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 44
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=24 | DOMAIN_ID=9
+  TITLE: Dynamic Threat Graph Engine
+  TECH_STACK: Machine Learning ù Analyzing network traffic patterns to identify anomalies (Allows dynamic threat detection); Graph Database ù Storing and querying r...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 43
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=25 | DOMAIN_ID=9
+  TITLE: Dynamic Privacy Masking for Real-Time Data Streams
+  TECH_STACK: Machine learning ù Adapting to new threats in real-time. (For context-aware dynamic masking); Blockchain ù Ensuring transparency and auditability of p...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 41
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=26 | DOMAIN_ID=9
+  TITLE: AI-Powered Quantum Anomaly Detection
+  TECH_STACK: AI ù Analyzing network traffic for anomalies (Efficient pattern recognition); Quantum Computing ù Simulating and testing quantum attacks (Handling com...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 34
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=27 | DOMAIN_ID=9
+  TITLE: Privacy Shield Verifier
+  TECH_STACK: AI ù Automating policy analysis (Efficient and scalable); Natural Language Processing ù Parsing policies (Accurate text understanding); Blockchain ù E...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 55
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=28 | DOMAIN_ID=9
+  TITLE: Zero-Trust API Shield
+  TECH_STACK: Machine learning ù Analyze and predict user behavior for anomaly detection (Advanced pattern recognition); API gateways ù Manage API traffic and enfor...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 60
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=29 | DOMAIN_ID=10
+  TITLE: Cloud-Based Dynamic Resource Allocation for Edge Devices
+  TECH_STACK: Kubernetes ù Orchestration and management of containerized applications (Flexible and scalable for dynamic workloads); TensorFlow Lite ù Machine learn...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 76
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=30 | DOMAIN_ID=10
+  TITLE: Autonomic Containerized Microservices Mesh
+  TECH_STACK: Kubernetes ù Orchestrates containerized applications (Industry standard for container orchestration); Prometheus ù Gathers real-time metrics (Real-tim...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 40
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=31 | DOMAIN_ID=10
+  TITLE: Dynamic CI/CD Policy Adaptation
+  TECH_STACK: Kubernetes ù Orchestrates CI/CD pipelines (Flexible and scalable); OpenTelemetry ù Gathers real-time telemetry data (Comprehensive monitoring); Elasti...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 59
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=32 | DOMAIN_ID=10
+  TITLE: CI/CD for Quantum Computing
+  TECH_STACK: Qiskit ù Quantum algorithm development and simulation (Provides quantum computing framework); Docker ù Containerization of quantum applications (Ensur...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 32
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=33 | DOMAIN_ID=10
+  TITLE: Dynamic Service Dependency Mapping
+  TECH_STACK: AI ù Analyzing log data to detect service dependencies (Automates the process and minimizes errors); Kubernetes ù Orchestrating containerized services...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 22
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=34 | DOMAIN_ID=10
+  TITLE: Automated Quantum Cloud Resource Optimization
+  TECH_STACK: Python ù Primary programming language for the project. (Flexible and widely used in scientific computing.); TensorFlow ù Machine learning model traini...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 76
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=35 | DOMAIN_ID=11
+  TITLE: Supply Chain Transparency Platform
+  TECH_STACK: Solidity ù Writing smart contracts for supply chain tracking (Industry-standard language for blockchain applications); IPFS ù Storing immutable produc...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 68
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=36 | DOMAIN_ID=11
+  TITLE: Decentralized Sustainable Farming Marketplace
+  TECH_STACK: Solidity ù Smart contract development (Secure and reliable for financial transactions); IPFS ù Data storage and sharing (Decentralized file storage en...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 36
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=37 | DOMAIN_ID=11
+  TITLE: EcoCert: Carbon Credit Tokenization for Sustainable Businesses
+  TECH_STACK: Blockchain ù Ensures secure and transparent transactions (Provides a decentralized ledger for trustless operations); Smart Contracts ù Automate carbon...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 50
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=38 | DOMAIN_ID=11
+  TITLE: EcoProof: Carbon Offset Tokenization
+  TECH_STACK: Ethereum ù Blockchain platform for tokenization and smart contracts execution (Secure, established blockchain with a large developer community); Solid...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 52
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=39 | DOMAIN_ID=11
+  TITLE: Decentralized Disaster Relief Coordination
+  TECH_STACK: Blockchain ù Enabling secure and transparent transactions (Decentralized ledger ensures tamper-proof records); Smart Contracts ù Automating aid distri...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 92
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=40 | DOMAIN_ID=11
+  TITLE: Decentralized Renewable Energy Marketplace
+  TECH_STACK: Blockchain ù Enabling decentralized transactions (Provides transparency and security); Smart Contracts ù Automating market rules (Ensures trustless, a...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 22
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=41 | DOMAIN_ID=12
+  TITLE: Smart Crop Monitoring Sensor
+  TECH_STACK: Arduino ù Microcontroller for sensor interfacing (Cost-effective and widely used in embedded systems.); Raspberry Pi ù Central processing unit for dat...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 68
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=42 | DOMAIN_ID=12
+  TITLE: Smart Urban Beehives Monitoring
+  TECH_STACK: LoRaWAN ù Secure long-range communication (Low power consumption for continuous monitoring); AI & ML ù Analyze sensor data for predictive insights (Au...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 56
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=43 | DOMAIN_ID=12
+  TITLE: EcoGuard: Smart Home Water Monitoring & Conservation
+  TECH_STACK: IoT ù Interconnects devices and sensors (Enables seamless data collection and transmission); AI ù Analyzes usage patterns for leaks (Improves accuracy...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 53
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=44 | DOMAIN_ID=12
+  TITLE: Smart Urban Gardening Drone
+  TECH_STACK: Drones ù Delivery of water, nutrients, and monitoring (Flexible and precise application); AI ù Data analysis for optimized gardening (Automates decisi...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 43
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=46 | DOMAIN_ID=12
+  TITLE: Smart Crop Health Monitor
+  TECH_STACK: IoT sensors ù Collecting plant health data (Affordable and easy to deploy); Raspberry Pi ù Processing sensor data locally (Low cost, reliable computin...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 44
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=47 | DOMAIN_ID=13
+  TITLE: Wearable Nano-Sensor Network
+  TECH_STACK: Nanotechnology ù Enables invisible and flexible sensors (Innovative and reduces user discomfort); Flexible Electronics ù Supports real-time data trans...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 50
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=48 | DOMAIN_ID=13
+  TITLE: Virtual Health Navigators
+  TECH_STACK: AI ù Personalized health guidance (Handles complex medical knowledge and tailors advice.); NLP ù Interacting with users (Understanding natural languag...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 54
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=49 | DOMAIN_ID=13
+  TITLE: PathogenEvolve Prediction System
+  TECH_STACK: Machine Learning ù Training predictive models for pathogen evolution. (Flexible and adaptable to new data); Genomics ù Analyzing genomic sequences of ...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 32
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=50 | DOMAIN_ID=13
+  TITLE: Personalized Cancer Vaccine Engine
+  TECH_STACK: Machine learning ù Analyzing patient data to predict vaccine responses (Enables personalized vaccine design); CRISPR gene editing ù Tailoring vaccines...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 46
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=51 | DOMAIN_ID=13
+  TITLE: Wearable Biohacker
+  TECH_STACK: AI ù Analyze genetic and lifestyle data for predictive analytics (Provides personalized insights based on individual user data); IoT ù Connect various...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 57
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=52 | DOMAIN_ID=13
+  TITLE: Wearable Nano-Detector for Real-Time Cancer Biomarker Monitoring
+  TECH_STACK: Wearable tech ù Platform for device (User-friendly and long-term wearability); Nanotechnology ù Detection of biomarkers (High sensitivity and selectiv...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 63
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=53 | DOMAIN_ID=14
+  TITLE: Skill Atlas
+  TECH_STACK: Machine Learning ù Personalized skill recommendation and path optimization (For dynamic content generation based on user behavior.); Node.js ù Backend...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 90
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=54 | DOMAIN_ID=14
+  TITLE: SkillPath Pro
+  TECH_STACK: AI ù Personalizing learning paths based on student performance and emotional state. (Best for adaptive learning.); ML ù Analyzing student progress and...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 62
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=55 | DOMAIN_ID=14
+  TITLE: SkillScout: Personalized Skill Assessment Ecosystem
+  TECH_STACK: Machine Learning ù Analyzing user performance and providing personalized feedback (Tailors assessments to individual needs); AI ù Automating content g...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 45
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=56 | DOMAIN_ID=14
+  TITLE: Virtual Collaborative Dreamscapes
+  TECH_STACK: VR/AR ù Creating immersive virtual environments (Enhances user engagement and presence); AI ù Facilitating natural language processing for real-time i...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 44
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=57 | DOMAIN_ID=14
+  TITLE: Skillful Quest
+  TECH_STACK: AR (Augmented Reality) ù Provides real-world context for scientific concepts (Enhances learning through visual aids); VR (Virtual Reality) ù Creates i...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 42
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=58 | DOMAIN_ID=14
+  TITLE: SkillSync: Personalized Learning Pathway
+  TECH_STACK: Machine learning ù Analyzing user data to personalize paths (Precisely tailors content based on behavior and goals); AI ù Automating path recommendati...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 63
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=59 | DOMAIN_ID=15
+  TITLE: TaskDNA: DNA-based Task Synchronization
+  TECH_STACK: Blockchain ù Secure, immutable task logs (Ensures data integrity and traceability); AI ù Predictive analytics for team performance (Improves resource ...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 43
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=60 | DOMAIN_ID=15
+  TITLE: Customer Journey Mapping Platform
+  TECH_STACK: AI ù Analyze customer data (Advanced pattern recognition for insights); Machine Learning ù Predictive journey modeling (Improves accuracy and personal...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 53
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=61 | DOMAIN_ID=15
+  TITLE: Smart Meeting Scheduling Assistant
+  TECH_STACK: AI ù Generating personalized meeting suggestions (Provides context-aware recommendations); NLP ù Understanding user intent and preferences (Improves p...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 92
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=62 | DOMAIN_ID=15
+  TITLE: Smart Supply Chain Analytics
+  TECH_STACK: AI & ML ù Predictive analytics and pattern recognition (For accurate demand forecasting); IoT ù Real-time data collection from sensors (To ensure up-t...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 28
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=63 | DOMAIN_ID=15
+  TITLE: Real-Time Collaborative Scenario Building
+  TECH_STACK: WebGL ù Rendering complex visual scenarios (Best for real-time rendering of large datasets); React ù Frontend framework (Flexible and efficient for bu...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 67
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+ID=64 | DOMAIN_ID=15
+  TITLE: SmartTask: Real-Time Collaborative Brainstorming
+  TECH_STACK: WebSocket ù Enables real-time communication between users and the server. (Efficient for immediate feedback); React.js ù Frontend framework for buildi...
+  TECH_STACK_JSON type: list, keys: N/A
+  NOVELTY_SCORE_CACHED: 33
+  NOVELTY_CONTEXT keys: ['debug', 'engine', 'routing', 'sources', 'insights', 'trace_id', 'confidence', 'speculative', 'explanations', 'evidence_note', 'novelty_level', 'novelty_score', 'evidence_score', 'signal_breakdown', 'evidence_breakdown', 'detailed_explanation']
+
+================================================================================
+2. DOMAINS
+================================================================================
+  ID=6 | NAME=AI & Machine Learning
+  ID=7 | NAME=Web & Mobile Development
+  ID=8 | NAME=Data Science & Analytics
+  ID=9 | NAME=Cybersecurity & Privacy
+  ID=10 | NAME=Cloud & DevOps
+  ID=11 | NAME=Blockchain & Web3
+  ID=12 | NAME=IoT & Hardware
+  ID=13 | NAME=Healthcare & Biotech
+  ID=14 | NAME=Education & E-Learning
+  ID=15 | NAME=Business & Productivity Tools
+
+================================================================================
+3. DOMAIN CATEGORIES
+================================================================================
+  ID=1 | NAME=Natural Language Processing | DOMAIN_ID=6
+  ID=2 | NAME=Computer Vision | DOMAIN_ID=6
+  ID=3 | NAME=Reinforcement Learning | DOMAIN_ID=6
+  ID=4 | NAME=Generative AI | DOMAIN_ID=6
+  ID=5 | NAME=AI Tools | DOMAIN_ID=6
+  ID=6 | NAME=Frontend | DOMAIN_ID=7
+  ID=7 | NAME=Backend | DOMAIN_ID=7
+  ID=8 | NAME=Full Stack | DOMAIN_ID=7
+  ID=9 | NAME=Progressive Web Apps | DOMAIN_ID=7
+  ID=10 | NAME=Mobile Apps | DOMAIN_ID=7
+  ID=11 | NAME=Business Intelligence | DOMAIN_ID=8
+  ID=12 | NAME=Data Engineering | DOMAIN_ID=8
+  ID=13 | NAME=Predictive Analytics | DOMAIN_ID=8
+  ID=14 | NAME=Data Visualization | DOMAIN_ID=8
+  ID=15 | NAME=Statistical Analysis | DOMAIN_ID=8
+  ID=16 | NAME=Application Security | DOMAIN_ID=9
+  ID=17 | NAME=Network Security | DOMAIN_ID=9
+  ID=18 | NAME=Privacy Engineering | DOMAIN_ID=9
+  ID=19 | NAME=Threat Detection | DOMAIN_ID=9
+  ID=20 | NAME=Compliance | DOMAIN_ID=9
+  ID=21 | NAME=Cloud Infrastructure | DOMAIN_ID=10
+  ID=22 | NAME=Containerization | DOMAIN_ID=10
+  ID=23 | NAME=CI/CD Pipelines | DOMAIN_ID=10
+  ID=24 | NAME=Infrastructure as Code | DOMAIN_ID=10
+  ID=25 | NAME=Monitoring | DOMAIN_ID=10
+  ID=26 | NAME=Smart Contracts | DOMAIN_ID=11
+  ID=27 | NAME=DeFi | DOMAIN_ID=11
+  ID=28 | NAME=NFTs | DOMAIN_ID=11
+  ID=29 | NAME=Cryptocurrency | DOMAIN_ID=11
+  ID=30 | NAME=Consensus Mechanisms | DOMAIN_ID=11
+  ID=31 | NAME=Embedded Systems | DOMAIN_ID=12
+  ID=32 | NAME=Sensor Networks | DOMAIN_ID=12
+  ID=33 | NAME=Smart Devices | DOMAIN_ID=12
+  ID=34 | NAME=Robotics | DOMAIN_ID=12
+  ID=35 | NAME=Microcontrollers | DOMAIN_ID=12
+  ID=36 | NAME=Medical Devices | DOMAIN_ID=13
+  ID=37 | NAME=Telemedicine | DOMAIN_ID=13
+  ID=38 | NAME=Bioinformatics | DOMAIN_ID=13
+  ID=39 | NAME=Drug Discovery | DOMAIN_ID=13
+  ID=40 | NAME=Health Tech | DOMAIN_ID=13
+  ID=41 | NAME=Online Learning Platforms | DOMAIN_ID=14
+  ID=42 | NAME=Adaptive Learning | DOMAIN_ID=14
+  ID=43 | NAME=Skill Assessment | DOMAIN_ID=14
+  ID=44 | NAME=Collaborative Tools | DOMAIN_ID=14
+  ID=45 | NAME=Gamification | DOMAIN_ID=14
+  ID=46 | NAME=Project Management | DOMAIN_ID=15
+  ID=47 | NAME=CRM Systems | DOMAIN_ID=15
+  ID=48 | NAME=Automation | DOMAIN_ID=15
+  ID=49 | NAME=Analytics Platforms | DOMAIN_ID=15
+  ID=50 | NAME=Collaboration Tools | DOMAIN_ID=15
+
+================================================================================
+4. IDEA SOURCES (first 20)
+================================================================================
+  ID=1 | IDEA_ID=1 | TYPE=github | TITLE=Neverdecel/CodeRAG | HALLUCINATED=False
+  ID=2 | IDEA_ID=1 | TYPE=github | TITLE=cruzyjapan/Claude-Code-Kanban-Automator | HALLUCINATED=False
+  ID=3 | IDEA_ID=1 | TYPE=github | TITLE=Aestheticsuraj234/vibecode-playground | HALLUCINATED=False
+  ID=4 | IDEA_ID=1 | TYPE=arxiv | TITLE=Towards Understanding the Impact of Real-Time AI-P | HALLUCINATED=False
+  ID=9 | IDEA_ID=3 | TYPE=github | TITLE=Neverdecel/CodeRAG | HALLUCINATED=False
+  ID=10 | IDEA_ID=3 | TYPE=github | TITLE=cruzyjapan/Claude-Code-Kanban-Automator | HALLUCINATED=False
+  ID=11 | IDEA_ID=3 | TYPE=github | TITLE=Aestheticsuraj234/vibecode-playground | HALLUCINATED=False
+  ID=12 | IDEA_ID=3 | TYPE=arxiv | TITLE=Towards Understanding the Impact of Real-Time AI-P | HALLUCINATED=False
+  ID=13 | IDEA_ID=4 | TYPE=github | TITLE=Neverdecel/CodeRAG | HALLUCINATED=False
+  ID=14 | IDEA_ID=4 | TYPE=github | TITLE=cruzyjapan/Claude-Code-Kanban-Automator | HALLUCINATED=False
+  ID=15 | IDEA_ID=4 | TYPE=github | TITLE=Aestheticsuraj234/vibecode-playground | HALLUCINATED=False
+  ID=16 | IDEA_ID=4 | TYPE=arxiv | TITLE=Towards Understanding the Impact of Real-Time AI-P | HALLUCINATED=False
+  ID=17 | IDEA_ID=5 | TYPE=github | TITLE=Neverdecel/CodeRAG | HALLUCINATED=False
+  ID=18 | IDEA_ID=5 | TYPE=github | TITLE=cruzyjapan/Claude-Code-Kanban-Automator | HALLUCINATED=False
+  ID=19 | IDEA_ID=5 | TYPE=github | TITLE=Aestheticsuraj234/vibecode-playground | HALLUCINATED=False
+  ID=20 | IDEA_ID=5 | TYPE=arxiv | TITLE=Towards Understanding the Impact of Real-Time AI-P | HALLUCINATED=False
+  ID=21 | IDEA_ID=10 | TYPE=arxiv | TITLE=Real-Time Emotion Recognition for Virtual Storytel | HALLUCINATED=False
+  ID=22 | IDEA_ID=10 | TYPE=arxiv | TITLE=Natural Language Processing Techniques for Enhanci | HALLUCINATED=False
+  ID=23 | IDEA_ID=10 | TYPE=github | TITLE=EmotionSynth: A Python Library for Emotion-Synchro | HALLUCINATED=False
+  ID=24 | IDEA_ID=10 | TYPE=arxiv | TITLE=Machine Learning Models for Emotion-Synchronized V | HALLUCINATED=False
+
+================================================================================
+5. USERS
+================================================================================
+  ID=1 | USERNAME=testuser | ROLE=admin
+  ID=2 | USERNAME=test1 | ROLE=user
+  ID=4 | USERNAME=test_03 | ROLE=user
+  ID=5 | USERNAME=innovate | ROLE=user
+  ID=6 | USERNAME=test500 | ROLE=user
+  ID=7 | USERNAME=admin1 | ROLE=admin
+  ID=8 | USERNAME=TestUser1 | ROLE=user
+
+================================================================================
+6. IDEA COUNT BY DOMAIN
+================================================================================
+  Blockchain & Web3: 6 ideas
+  Web & Mobile Development: 6 ideas
+  Education & E-Learning: 6 ideas
+  Business & Productivity Tools: 6 ideas
+  Cybersecurity & Privacy: 6 ideas
+  Cloud & DevOps: 6 ideas
+  Healthcare & Biotech: 6 ideas
+  IoT & Hardware: 5 ideas
+  Data Science & Analytics: 5 ideas
+  AI & Machine Learning: 5 ideas
+
+Done!

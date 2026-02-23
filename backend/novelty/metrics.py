@@ -1,9 +1,15 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 
 def compute_similarity_distribution(
-    similarities: List[float], threshold: float = 0.7
+    similarities: List[float], threshold: float = 0.7, domain: Optional[str] = None
 ) -> Dict[str, float]:
+    # Use domain-specific threshold when available
+    if domain:
+        from backend.novelty.config import SIMILARITY_THRESHOLDS
+        threshold = SIMILARITY_THRESHOLDS.get(
+            domain, SIMILARITY_THRESHOLDS.get(domain.lower(), threshold)
+        )
     if not similarities:
         return {
             "mean_similarity": 0.0,

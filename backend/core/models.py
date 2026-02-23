@@ -282,6 +282,7 @@ class IdeaSource(db.Model):
     url = db.Column(db.String(1024), nullable=False)
     summary = db.Column(db.Text)
     published_date = db.Column(db.Date)
+    relevance_tier = db.Column(db.String(20), default="supporting")
     is_hallucinated = db.Column(db.Boolean, default=False, nullable=False)
 
     idea = db.relationship("ProjectIdea", back_populates="sources")
@@ -559,6 +560,39 @@ class User(db.Model):
 # ====================================================
 # JWT TOKEN BLOCKLIST (for real logout)
 # ====================================================
+
+class NoveltyBreakdown(db.Model):
+    """
+    Persisted novelty signal breakdown for audit trail and admin transparency.
+    One record per idea, written during novelty analysis.
+    """
+    __tablename__ = "novelty_breakdowns"
+
+    id = db.Column(db.Integer, primary_key=True)
+    idea_id = db.Column(db.Integer, db.ForeignKey("project_ideas.id", ondelete="CASCADE"), nullable=True)
+
+    mean_similarity = db.Column(db.Float)
+    similarity_variance = db.Column(db.Float)
+    specificity_score = db.Column(db.Float)
+    temporal_score = db.Column(db.Float)
+    saturation_penalty = db.Column(db.Float)
+    base_score = db.Column(db.Float)
+    bonus_score = db.Column(db.Float)
+    weighted_score = db.Column(db.Float)
+    stabilized_score = db.Column(db.Float)
+    retrieved_sources_count = db.Column(db.Integer)
+    referenced_ideas_count = db.Column(db.Integer)
+    domain = db.Column(db.String(100))
+    engine = db.Column(db.String(50))
+    algorithm_version = db.Column(db.String(50))
+    created_at = db.Column(db.DateTime, default=_utcnow)
+
+    idea = db.relationship("ProjectIdea", foreign_keys=[idea_id])
+
+    __table_args__ = (
+        db.Index("idx_novelty_breakdowns_idea", "idea_id"),
+    )
+
 
 class TokenBlocklist(db.Model):
     __tablename__ = "token_blocklist"

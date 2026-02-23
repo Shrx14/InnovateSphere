@@ -177,6 +177,9 @@ def submit_idea_feedback(idea_id):
 
     try:
         db.session.commit()
+        # Refresh quality_score_cached after feedback (mirrors review endpoint behavior)
+        idea.quality_score_cached = idea.quality_score
+        db.session.commit()
     except IntegrityError:
         db.session.rollback()
         return jsonify({"error": "Feedback already submitted for this type"}), 409

@@ -74,7 +74,7 @@ const IdeaDetail = () => {
       api
         .get(`/ideas/${id}/novelty-explanation`)
         .then((res) => setNoveltyBreakdown(res.data))
-        .catch(() => {}); // non-critical
+        .catch(() => { }); // non-critical
     }
   }, [id, user]);
 
@@ -190,7 +190,40 @@ const IdeaDetail = () => {
               <h2 className="text-sm font-semibold text-purple-400 uppercase tracking-widest mb-4">
                 Suggested Tech Stack
               </h2>
-              <p className="text-base text-neutral-300 leading-relaxed">{idea.tech_stack}</p>
+              {idea.tech_stack_json && Array.isArray(idea.tech_stack_json) && idea.tech_stack_json.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {idea.tech_stack_json.map((item, idx) => {
+                    // Handle two schemas: { component, technologies[], rationale } and { name, role, justification }
+                    const name = item.component || item.name || "Technology";
+                    const techs = item.technologies;
+                    const desc = item.rationale || item.role || "";
+                    const extra = item.justification || "";
+                    return (
+                      <div
+                        key={idx}
+                        className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 hover:border-purple-500/30 transition"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm font-semibold text-purple-300">{name}</span>
+                          {techs && techs.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {techs.map((t, i) => (
+                                <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {desc && <p className="text-sm text-neutral-400 leading-relaxed">{desc}</p>}
+                        {extra && <p className="text-xs text-neutral-500 mt-1 italic">{extra}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-base text-neutral-300 leading-relaxed">{idea.tech_stack}</p>
+              )}
             </Card>
           </motion.div>
 
@@ -241,8 +274,10 @@ const IdeaDetail = () => {
                     </h2>
                     <div className="grid md:grid-cols-2 gap-6">
                       <div>
-                        <p className="text-neutral-300 leading-relaxed mb-4">
-                          {noveltyBreakdown.explanation}
+                        <p className="text-neutral-300 leading-relaxed mb-4 whitespace-pre-line">
+                          {typeof noveltyBreakdown.explanation === 'object'
+                            ? (noveltyBreakdown.explanation.full_narrative || noveltyBreakdown.explanation.summary || JSON.stringify(noveltyBreakdown.explanation))
+                            : noveltyBreakdown.explanation}
                         </p>
                         <div className="space-y-2">
                           {noveltyBreakdown.signal_breakdown?.signals &&
@@ -279,8 +314,8 @@ const IdeaDetail = () => {
                               noveltyBreakdown.hallucination_risk === "low"
                                 ? "text-emerald-400"
                                 : noveltyBreakdown.hallucination_risk === "medium"
-                                ? "text-yellow-400"
-                                : "text-red-400"
+                                  ? "text-yellow-400"
+                                  : "text-red-400"
                             )}
                           >
                             {noveltyBreakdown.hallucination_risk}
@@ -323,7 +358,11 @@ const IdeaDetail = () => {
                     <h2 className="text-sm font-semibold text-indigo-400 uppercase tracking-widest mb-4">
                       Why This Is Novel
                     </h2>
-                    <p className="text-base text-neutral-300 leading-relaxed">{idea.novelty_explanation}</p>
+                    <p className="text-base text-neutral-300 leading-relaxed whitespace-pre-line">
+                      {typeof idea.novelty_explanation === 'object'
+                        ? (idea.novelty_explanation.full_narrative || idea.novelty_explanation.summary || '')
+                        : idea.novelty_explanation}
+                    </p>
                   </Card>
                 </motion.div>
               )}
@@ -341,7 +380,7 @@ const IdeaDetail = () => {
                           <span className="text-neutral-400 flex items-center gap-2">
                             <AlertTriangle className="w-4 h-4" /> Hallucination Risk
                           </span>
-                          <span className="font-medium text-neutral-300">{idea.hallucination_risk_level}</span>
+                          <span className="font-medium text-neutral-300">{typeof idea.hallucination_risk_level === 'object' ? JSON.stringify(idea.hallucination_risk_level) : idea.hallucination_risk_level}</span>
                         </div>
                       )}
                       {idea.evidence_strength && (
@@ -349,7 +388,7 @@ const IdeaDetail = () => {
                           <span className="text-neutral-400 flex items-center gap-2">
                             <ShieldCheck className="w-4 h-4" /> Evidence Strength
                           </span>
-                          <span className="font-medium text-neutral-300">{idea.evidence_strength}</span>
+                          <span className="font-medium text-neutral-300">{typeof idea.evidence_strength === 'object' ? JSON.stringify(idea.evidence_strength) : idea.evidence_strength}</span>
                         </div>
                       )}
                     </div>

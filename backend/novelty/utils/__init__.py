@@ -5,7 +5,6 @@ Novelty utilities - merged from calibration/, observability/, and signals/.
 from .calibration import (
     compute_evidence_score,
     apply_evidence_constraints,
-    enforce_evidence_constraints,
 )
 
 from .observability import (
@@ -26,7 +25,6 @@ __all__ = [
     # Calibration
     "compute_evidence_score",
     "apply_evidence_constraints",
-    "enforce_evidence_constraints",
     # Observability
     "record_telemetry",
     "get_telemetry_summary",

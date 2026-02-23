@@ -48,6 +48,21 @@ const Header = () => {
                   </Link>
                 </li>
                 <li>
+                  <Link to="/user/generate" className="hover:text-neutral-200 transition">
+                    Generate
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/user/novelty" className="hover:text-neutral-200 transition">
+                    Novelty
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/user/my-ideas" className="hover:text-neutral-200 transition">
+                    My Ideas
+                  </Link>
+                </li>
+                <li>
                   <button
                     onClick={logout}
                     className="hover:text-neutral-200 transition"
@@ -85,6 +100,9 @@ const Header = () => {
             {isAuthenticated ? (
               <>
                 <li><Link to="/user/dashboard" onClick={() => setMobileOpen(false)} className="block py-2 hover:text-neutral-200 transition">Dashboard</Link></li>
+                <li><Link to="/user/generate" onClick={() => setMobileOpen(false)} className="block py-2 hover:text-neutral-200 transition">Generate</Link></li>
+                <li><Link to="/user/novelty" onClick={() => setMobileOpen(false)} className="block py-2 hover:text-neutral-200 transition">Novelty</Link></li>
+                <li><Link to="/user/my-ideas" onClick={() => setMobileOpen(false)} className="block py-2 hover:text-neutral-200 transition">My Ideas</Link></li>
                 <li><button onClick={() => { logout(); setMobileOpen(false); }} className="block py-2 hover:text-neutral-200 transition w-full text-left">Sign out</button></li>
               </>
             ) : (

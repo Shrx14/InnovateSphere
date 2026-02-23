@@ -89,7 +89,7 @@ from backend.ai.prompts import (
     HYBRID_PASS2_PROMPT_TEMPLATE,
 )
 from .schemas import validate_generated_idea, validate_hybrid_idea
-from .constraints import build_hitl_constraints, is_rejected_pattern
+from .constraints import build_hitl_constraints, is_rejected_pattern, filter_hallucinated_sources
 
 
 # Module-level feasibility estimator (used to populate Phase 0 bounds)
@@ -406,7 +406,9 @@ def generate_hybrid(
 
         retrieved = retrieve_sources(query=query, domain=domain.name)
         raw_sources = retrieved.get("sources", []) if retrieved else []
-        logger.info("[HYBRID] Retrieved %d raw sources", len(raw_sources))
+        # Filter out sources previously flagged as hallucinated
+        raw_sources = filter_hallucinated_sources(raw_sources)
+        logger.info("[HYBRID] Retrieved %d raw sources (post-hallucination filter)", len(raw_sources))
 
         if not raw_sources:
             logger.warning("[HYBRID] No sources for query='%s'", query[:60])
@@ -461,7 +463,7 @@ def generate_hybrid(
         try:
             constraints = build_hitl_constraints(domain.name, ranked)
         except Exception:
-            constraints = {"source_penalties": {}, "domain_constraints": {}, "domain_strictness": 1.0}
+            constraints = {"source_penalties": {}, "pattern_penalties": [], "domain_strictness": 1.0}
 
         # Prepare truncated sources for prompt
         top_sources = ranked[: Config.HYBRID_MAX_SOURCES_FOR_PROMPT]
@@ -624,10 +626,37 @@ def generate_hybrid(
                         title=src.get("title", "Untitled"),
                         url=src.get("url", ""),
                         summary=src.get("summary", src.get("relevance_explanation", "")),
+                        relevance_tier=src.get("relevance_tier", "supporting"),
                     )
                 )
 
         db.session.add(IdeaRequest(user_id=user_id, idea_id=idea.id))
+
+        # Persist novelty breakdown for audit trail
+        try:
+            from backend.core.models import NoveltyBreakdown
+            sig = novelty.get("signal_breakdown", {})
+            dbg = novelty.get("debug", {})
+            nb = NoveltyBreakdown(
+                idea_id=idea.id,
+                mean_similarity=novelty.get("routing", {}).get("domain_confidence", 0),
+                similarity_variance=dbg.get("similarity_variance", 0),
+                specificity_score=sig.get("base_score", 0),
+                temporal_score=sig.get("maturity_bonus", 0),
+                saturation_penalty=sig.get("commodity_penalty", 0),
+                base_score=sig.get("base_score", 0),
+                bonus_score=sig.get("bonus", 0),
+                weighted_score=novelty.get("novelty_score", 0),
+                stabilized_score=novelty.get("novelty_score", 0),
+                retrieved_sources_count=dbg.get("retrieved_sources", len(ranked)),
+                referenced_ideas_count=0,
+                domain=domain.name,
+                engine=novelty.get("engine", "software"),
+                algorithm_version="hybrid_v2",
+            )
+            db.session.add(nb)
+        except Exception as e:
+            logger.warning("Failed to persist NoveltyBreakdown: %s", e)
 
         # Audit trace (2-phase) with retrieval metadata
         active_bias = get_active_bias_profile()
@@ -934,6 +963,8 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
         threshold = _get_domain_threshold(domain.name, cap=0.4)
         
         raw_sources = retrieved.get("sources", [])
+        # Filter out sources previously flagged as hallucinated
+        raw_sources = filter_hallucinated_sources(raw_sources)
         
         # In demo mode, skip semantic filtering for speed
         if Config.DEMO_MODE:
@@ -995,7 +1026,7 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
         constraints = build_hitl_constraints(domain.name, ranked)
     except Exception as e:
         logger.warning(f"HITL constraint building failed: {e}. Using empty constraints.")
-        constraints = {"source_penalties": {}, "domain_constraints": {}, "domain_strictness": 1.0}
+        constraints = {"source_penalties": {}, "pattern_penalties": [], "domain_strictness": 1.0}
 
     # Wrap LLM generation in try-except
     try:
@@ -1041,7 +1072,7 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
         return {"error": f"Generation failed unexpectedly: {str(e)}"}
 
     try:
-        parsed = validate_generated_idea(final).dict()
+        parsed = validate_generated_idea(final).model_dump()
     except Exception as e:
         logger.exception("Schema validation failed")
         return {"error": f"Response validation failed: {str(e)}"}
@@ -1098,10 +1129,32 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
                         title=src.get("title", "Untitled"),
                         url=src.get("url", ""),
                         summary=src.get("used_for", ""),
+                        relevance_tier=src.get("relevance_tier", "supporting"),
                     )
                 )
 
         db.session.add(IdeaRequest(user_id=user_id, idea_id=idea.id))
+
+        # Persist novelty breakdown for audit trail
+        try:
+            from backend.core.models import NoveltyBreakdown
+            nb = NoveltyBreakdown(
+                idea_id=idea.id,
+                mean_similarity=0,
+                similarity_variance=0,
+                base_score=novelty_pos.get("novelty_score", 0) if isinstance(novelty_pos, dict) else 0,
+                bonus_score=0,
+                weighted_score=idea.novelty_score_cached or 0,
+                stabilized_score=idea.novelty_score_cached or 0,
+                retrieved_sources_count=len(ranked),
+                referenced_ideas_count=0,
+                domain=domain.name,
+                engine="software",
+                algorithm_version="production_v1",
+            )
+            db.session.add(nb)
+        except Exception as e:
+            logger.warning("Failed to persist NoveltyBreakdown: %s", e)
         
         # ================================================================
         # CREATE AUDIT TRACE (Phase 0-4 reasoning documented)

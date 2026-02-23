@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import time
 import uuid
 import threading
@@ -129,7 +130,7 @@ def _generate_ollama(
         "options": {
             "temperature": temperature,
             "num_predict": max_tokens,
-            "num_ctx": 2048,
+            "num_ctx": int(os.getenv("LLM_CONTEXT_SIZE", 4096)),
         },
     }
 
