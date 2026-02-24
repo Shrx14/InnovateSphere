@@ -219,6 +219,10 @@ class ProjectIdea(db.Model):
 
         return max(0, min(100, int(score)))
 
+    def refresh_quality_cache(self):
+        """Sync quality_score_cached with the live quality_score property."""
+        self.quality_score_cached = self.quality_score
+
     @property
     def hallucination_risk_level(self):
         count = sum(

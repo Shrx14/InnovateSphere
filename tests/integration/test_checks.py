@@ -4,7 +4,7 @@ import jwt
 import time
 import subprocess
 import time as t
-from backend.config import Config
+from backend.core.config import Config
 
 # Set dummy DB
 os.environ['DATABASE_URL'] = 'sqlite:///test.db'

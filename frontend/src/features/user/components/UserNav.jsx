@@ -33,14 +33,11 @@ const UserNav = () => {
               <NavLink to="/user/novelty" className={navLinkClass}>
                 Novelty
               </NavLink>
-              <NavLink to="/user/my-ideas" className={navLinkClass}>
-                My Ideas
-              </NavLink>
               <button
                 onClick={logout}
                 className="text-neutral-400 hover:text-white transition-colors"
               >
-                Sign out
+                Logout
               </button>
             </>
           ) : (

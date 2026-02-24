@@ -3,14 +3,26 @@
 End-to-end API test for novelty analysis
 """
 
+import os
 import requests
 import json
 import time
 
-BASE_URL = "http://localhost:5000"
+BASE_URL = os.getenv("TEST_API_BASE_URL", "http://localhost:5000")
 
-# Use a test token (from the logs, we can see what's being used)
-test_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc3MDY0OTM1OSwianRpIjoiYWYwM2MzOTMtNjc3Yy00MDgxLWI2NDAtNjYwNjU2ODRhMmZjIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6OCwibmJmIjoxNzcwNjQ5MzU5LCJleHAiOjE3NzA2NTAyNTksInJvbGUiOiJ1c2VyIiwiZW1haWwiOiJ0ZXN0QHRlc3QuY29tIiwicHJlZmVycmVkX2RvbWFpbl9pZCI6bnVsbH0.QmWlqaUSgznVWMBC7VN3XNK70Vix3FvekUfigXzWK7I"
+# Acquire a fresh token via login instead of using an expired hardcoded JWT
+def _get_test_token():
+    email = os.getenv("TEST_USER_EMAIL", "test@test.com")
+    password = os.getenv("TEST_USER_PASSWORD", "TestUser@123")
+    try:
+        r = requests.post(f"{BASE_URL}/api/login", json={"email": email, "password": password}, timeout=10)
+        if r.status_code == 200:
+            return r.json().get("access_token")
+    except Exception:
+        pass
+    return None
+
+test_token = _get_test_token()
 
 headers = {
     "Authorization": f"Bearer {test_token}",

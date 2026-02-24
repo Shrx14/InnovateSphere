@@ -5,6 +5,7 @@ plus idea generation and novelty checking end-to-end.
 """
 
 import json
+import os
 import time
 import sys
 import requests
@@ -95,8 +96,8 @@ def test_user_routes():
     print(f"\n{Colors.BOLD}═══ USER AUTH ROUTES ═══{Colors.END}")
 
     # Try logging in with known user credentials first
-    user_email = "test@test.com"
-    user_pass = "TestUser@123"
+    user_email = os.getenv("TEST_USER_EMAIL", "test@test.com")
+    user_pass = os.getenv("TEST_USER_PASSWORD", "TestUser@123")
     token, refresh = login(user_email, user_pass)
     if token:
         print(f"  Logged in as existing user: {user_email}")
@@ -157,7 +158,13 @@ def test_user_routes():
 # ── 3. ADMIN AUTH ─────────────────────────────────────────────────────────
 
 def ensure_admin_user():
-    """Try known admin credentials."""
+    """Try known admin credentials (loaded from env vars with defaults)."""
+    admin_email = os.getenv("TEST_ADMIN_EMAIL")
+    admin_pass = os.getenv("TEST_ADMIN_PASSWORD")
+    if admin_email and admin_pass:
+        token, _ = login(admin_email, admin_pass)
+        if token:
+            return admin_email, admin_pass, token
     for email, pw in [
         ("admin1@example.com", "Admin@123"),
         ("test@example.com", "AdminPass123"),

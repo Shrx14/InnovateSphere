@@ -38,28 +38,30 @@ def main():
 
         admin = User.query.filter_by(email='admin@example.com').first()
         if not admin:
+            _admin_pw = os.getenv("TEST_ADMIN_PASSWORD", "admin123")
             admin = User(
                 email='admin@example.com',
                 username='admin',
-                password_hash=generate_password_hash('admin123'),
+                password_hash=generate_password_hash(_admin_pw),
                 role='admin',
                 skill_level='advanced'
             )
             db.session.add(admin)
-            print("  ✓ Created admin@example.com / admin123")
+            print("  ✓ Created admin@example.com")
         else:
             print("  ✓ admin@example.com already exists")
 
         user = User.query.filter_by(email='user@example.com').first()
         if not user:
+            _user_pw = os.getenv("TEST_USER_PASSWORD", "password123")
             user = User(
                 email='user@example.com',
                 username='testuser',
-                password_hash=generate_password_hash('password123'),
+                password_hash=generate_password_hash(_user_pw),
                 skill_level='beginner'
             )
             db.session.add(user)
-            print("  ✓ Created user@example.com / password123")
+            print("  ✓ Created user@example.com")
         else:
             print("  ✓ user@example.com already exists")
 

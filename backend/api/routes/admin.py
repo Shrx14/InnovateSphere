@@ -387,13 +387,23 @@ def admin_rescore_idea(idea_id):
 
     try:
         from backend.novelty.service import analyze_novelty
+        # Use the original novelty input text stored during generation for parity,
+        # falling back to problem_statement/title if not available
+        original_input = None
+        if idea.novelty_context and isinstance(idea.novelty_context, dict):
+            original_input = idea.novelty_context.get("input_text")
+        if not original_input:
+            original_input = idea.problem_statement or idea.title
+
         result = analyze_novelty(
-            idea.problem_statement or idea.title,
-            idea.domain.name if idea.domain else "generic"
+            original_input,
+            idea.domain.name if idea.domain else "generic",
+            bypass_cache=True,
         )
 
         old_novelty = idea.novelty_score_cached
-        idea.novelty_score_cached = result.get("novelty_score", old_novelty)
+        idea.novelty_score_cached = round(result.get("novelty_score", old_novelty))
+        result["input_text"] = original_input  # Preserve for future rescores
         idea.novelty_context = result
         idea.quality_score_cached = idea.quality_score
 

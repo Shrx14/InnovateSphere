@@ -613,7 +613,8 @@ def generate_hybrid(
         db.session.flush()
 
         idea.quality_score_cached = idea.quality_score
-        idea.novelty_score_cached = novelty.get("novelty_score", 0)
+        idea.novelty_score_cached = round(novelty.get("novelty_score", 0))
+        novelty["input_text"] = novelty_input  # Store for rescore parity
         idea.novelty_context = novelty
 
         # Persist sources
@@ -1114,8 +1115,9 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
         
         # Safely get novelty score
         novelty_pos = parsed.get("novelty_positioning", {})
-        idea.novelty_score_cached = novelty_pos.get("novelty_score", 0) if isinstance(novelty_pos, dict) else 0
+        idea.novelty_score_cached = round(novelty_pos.get("novelty_score", 0) if isinstance(novelty_pos, dict) else 0)
 
+        novelty["input_text"] = novelty_input  # Store for rescore parity
         idea.novelty_context = novelty
 
         # Add sources

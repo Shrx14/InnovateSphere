@@ -76,7 +76,7 @@ def check_stability(key_text: str, score: float, confidence: str) -> float:
     if history:
         prev = history[-1]
         delta = score - prev
-        if confidence != "High" and abs(delta) > MAX_DELTA:
+        if str(confidence).lower() != "high" and abs(delta) > MAX_DELTA:
             score = prev + MAX_DELTA * (1 if delta > 0 else -1)
 
     history.append(score)

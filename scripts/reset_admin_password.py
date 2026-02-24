@@ -14,15 +14,17 @@ from backend.core.app import create_app
 from backend.core.db import db
 from sqlalchemy import text
 
+_new_password = os.getenv("TEST_ADMIN_PASSWORD", "AdminPass123")
+
 app = create_app()
 with app.app_context():
-    new_hash = generate_password_hash("AdminPass123")
+    new_hash = generate_password_hash(_new_password)
     db.session.execute(
         text("UPDATE users SET password_hash = :h WHERE id = 1"),
         {"h": new_hash}
     )
     db.session.commit()
-    print(f"Password updated for user 1 (test@example.com, admin)")
+    print(f"Password updated for user 1")
     print(f"New hash prefix: {new_hash[:30]}")
 
     # Verify it works

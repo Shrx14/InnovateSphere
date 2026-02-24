@@ -3,6 +3,7 @@ Comprehensive test suite:
 1. Login + Idea Generation + Novelty Analysis
 2. Public Ideas Search (no login required)
 """
+import os
 import sys
 import json
 import requests
@@ -206,9 +207,9 @@ def main():
         print(f"  cd backend && python -m backend.run")
         sys.exit(1)
     
-    # Credentials
-    email = "test@test.com"
-    password = "TestUser@123"
+    # Credentials (from env vars or defaults)
+    email = os.getenv("TEST_USER_EMAIL", "test@test.com")
+    password = os.getenv("TEST_USER_PASSWORD", "TestUser@123")
     
     # Test authenticated flow
     token = login(email, password)

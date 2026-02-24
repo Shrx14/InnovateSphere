@@ -1,6 +1,6 @@
 import logging
 
-from backend.novelty.config import DOMAIN_NOVELTY_WEIGHT, SIMILARITY_THRESHOLDS, DOMAIN_MATURITY, COMMODITY_PATTERNS
+from backend.novelty.config import DOMAIN_NOVELTY_WEIGHT, DOMAIN_MATURITY, COMMODITY_PATTERNS
 from backend.novelty.utils.observability import check_stability, trace_analysis, record_telemetry
 
 from backend.novelty.scoring.base import compute_base_score
@@ -157,8 +157,8 @@ class NoveltyAnalyzer:
             )
             # Return baseline score with low confidence when no sources available
             return {
-                "novelty_score": 50.0,  # Neutral score when no baseline exists
-                "novelty_level": determine_level(50.0),
+                "novelty_score": 30.0,  # Low baseline when no references exist (was 50 — inflated)
+                "novelty_level": determine_level(30.0),
                 "confidence": "Low",
                 "explanations": [
                     "Unable to assess novelty: no reference sources found in this domain.",
@@ -177,7 +177,7 @@ class NoveltyAnalyzer:
                 },
             }
 
-        sim_stats = compute_similarity_stats(description, sources, self.embedder)
+        sim_stats = compute_similarity_stats(description, sources, self.embedder, domain=domain)
         specificity = compute_specificity_signal(description)
         temporal = compute_temporal_signal(sources)
         saturation = compute_saturation_penalty(len(sources))
@@ -272,6 +272,7 @@ class NoveltyAnalyzer:
             peripheral_penalty_note = "Novelty assessment has lower confidence: many retrieved sources are tangentially related rather than directly relevant to this problem type."
 
         weighted = score * DOMAIN_NOVELTY_WEIGHT.get(domain, DOMAIN_NOVELTY_WEIGHT.get(domain.lower(), 1.0))
+        weighted = min(weighted, 100.0)  # Cap after domain weight to prevent overflow
         stabilized = check_stability(description + domain, weighted, "Medium")
 
         # Normalize score to engine caps before mapping to level
@@ -315,6 +316,7 @@ class NoveltyAnalyzer:
             source_count=len(sanitized_sources),
             avg_popularity_penalty=saturation,
             sources=sources,
+            domain=domain,
         )
 
         if peripheral_penalty_note:

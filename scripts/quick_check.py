@@ -1,9 +1,12 @@
 """Quick check of previously-failing routes."""
+import os
 import requests
 
 BASE = "http://localhost:5000"
 
-r = requests.post(f"{BASE}/api/login", json={"email": "test@example.com", "password": "AdminPass123"}, timeout=10)
+_email = os.getenv("TEST_ADMIN_EMAIL", "test@example.com")
+_password = os.getenv("TEST_ADMIN_PASSWORD", "AdminPass123")
+r = requests.post(f"{BASE}/api/login", json={"email": _email, "password": _password}, timeout=10)
 token = r.json()["access_token"]
 h = {"Authorization": f"Bearer {token}"}
 

@@ -23,12 +23,12 @@ def compute_similarity_signal(description: str, sources: list, embedder) -> list
     return [float(np.dot(query_vec, v)) for v in vectors]
 
 
-def compute_similarity_stats(description: str, sources: list, embedder) -> dict:
+def compute_similarity_stats(description: str, sources: list, embedder, domain: str = "generic") -> dict:
     """
     Compute similarity statistics for sources.
     """
     similarities = compute_similarity_signal(description, sources, embedder)
-    return compute_similarity_distribution(similarities)
+    return compute_similarity_distribution(similarities, domain=domain)
 
 
 def compute_specificity_signal(description: str) -> float:
@@ -39,11 +39,8 @@ def compute_specificity_signal(description: str) -> float:
     if len(words) < 5:
         return 0.2
 
-    tech_terms = {
-        "api", "database", "algorithm",
-        "framework", "protocol", "distributed",
-        "system", "pipeline"
-    }
+    from backend.novelty.config import TECH_TERMS
+    tech_terms = TECH_TERMS
 
     tech_count = sum(1 for w in words if w.lower() in tech_terms)
     length_factor = min(len(words) / 50, 1.0)

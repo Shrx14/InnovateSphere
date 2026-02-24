@@ -11,7 +11,8 @@ def generate_explanation(
     similarity_stats: Dict[str, float],
     source_count: int,
     avg_popularity_penalty: float,
-    sources: List[Dict[str, Any]]
+    sources: List[Dict[str, Any]],
+    domain: str = None
 ) -> List[str]:
     """
     Generate structured explanation for novelty analysis.
@@ -45,8 +46,11 @@ def generate_explanation(
 
     explanations.append(f"Average similarity to existing sources is {sim_desc} ({mean_sim:.2f}).")
 
+    # Use domain-aware threshold when available
+    from backend.novelty.config import SIMILARITY_THRESHOLDS
+    display_threshold = SIMILARITY_THRESHOLDS.get(domain, 0.7) if domain else 0.7
     if count_above > 0:
-        explanations.append(f"Found {count_above} sources with high similarity (≥0.7).")
+        explanations.append(f"Found {count_above} sources with high similarity (≥{display_threshold}).")
     else:
         explanations.append("No sources with very high similarity found.")
 

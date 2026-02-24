@@ -1,3 +1,9 @@
+"""DEPRECATED: This engine is not used in production.
+All domains route through NoveltyAnalyzer (software engine).
+Kept for reference only — safe to remove."""
+import warnings
+warnings.warn("SocialNoveltyEngine is deprecated and unused", DeprecationWarning, stacklevel=2)
+
 class SocialNoveltyEngine:
     def analyze(self, description: str, domain: str, problem_class: str = "general"):
         text = description.lower()

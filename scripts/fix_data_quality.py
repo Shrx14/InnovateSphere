@@ -11,11 +11,16 @@ Usage:
     python scripts/fix_data_quality.py --dry-run   # Preview changes
     python scripts/fix_data_quality.py              # Apply changes
 """
+import os
 import sys
 import json
 import psycopg2
 
-DB_URL = "postgresql://innovate_admin:npg_VmnriYj0lk4y@ep-green-bird-a1xliwfl-pooler.ap-southeast-1.aws.neon.tech/innovatesphere_dev?sslmode=require"
+DB_URL = os.getenv("DATABASE_URL")
+if not DB_URL:
+    print("ERROR: DATABASE_URL environment variable is required.")
+    print("Set it before running: $env:DATABASE_URL='postgresql://...'")
+    sys.exit(1)
 
 DRY_RUN = "--dry-run" in sys.argv
 

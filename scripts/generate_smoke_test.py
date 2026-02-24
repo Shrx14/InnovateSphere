@@ -2,6 +2,7 @@
 Usage: python scripts/generate_smoke_test.py
 """
 import sys
+import os
 import json
 import time
 
@@ -41,8 +42,8 @@ def generate(token, query, domain_id):
 
 
 def main():
-    email = "test@test.com"
-    password = "TestUser@123"
+    email = os.getenv("TEST_USER_EMAIL", "test@test.com")
+    password = os.getenv("TEST_USER_PASSWORD", "TestUser@123")
 
     print("Starting smoke test: login -> generate")
     token = login(email, password)

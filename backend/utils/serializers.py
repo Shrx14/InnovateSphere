@@ -14,7 +14,6 @@ def serialize_public_idea(idea):
         "title": idea.title,
         "problem_statement": idea.problem_statement,
         "tech_stack": idea.tech_stack,
-        "tech_stack_json": idea.tech_stack_json,
         "domain": idea.domain.name if idea.domain else None,
     }
 

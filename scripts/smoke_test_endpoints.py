@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Quick endpoint smoke test for all major API routes."""
+import os
 import requests
 import json
 import sys
@@ -81,7 +82,7 @@ def main():
     # --- Auth ---
     print("\n--- Authentication ---")
     r = test("Login (admin)", "POST", f"{BASE}/login",
-             json_body={"email": "test@example.com", "password": "AdminPass123"})
+             json_body={"email": os.getenv("TEST_ADMIN_EMAIL", "test@example.com"), "password": os.getenv("TEST_ADMIN_PASSWORD", "AdminPass123")})
     token = None
     if r:
         data = r.json()
@@ -91,7 +92,7 @@ def main():
     if not token:
         print("\n!!! Cannot test authenticated endpoints without token !!!")
         print("Trying other users...")
-        for email, pwd in [("admin1@example.com", "AdminPass123"), ("admin@example.com", "admin123")]:
+        for email, pwd in [(os.getenv("TEST_ADMIN_EMAIL", "admin1@example.com"), os.getenv("TEST_ADMIN_PASSWORD", "AdminPass123")), ("admin@example.com", "admin123")]:
             r = requests.post(f"{BASE}/login", json={"email": email, "password": pwd}, timeout=10)
             if r.status_code == 200:
                 token = r.json().get("access_token")

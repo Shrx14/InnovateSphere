@@ -4,6 +4,7 @@ Comprehensive endpoint test script for InnovateSphere.
 Tests all backend API routes and the frontend dev server.
 """
 import json
+import os
 import time
 import random
 import string
@@ -27,7 +28,7 @@ access_token = None
 refresh_token = None
 admin_token = None
 test_user_email = None
-test_user_password = "TestPass123!"
+test_user_password = os.getenv("TEST_USER_PASSWORD", "TestPass123!")
 test_idea_id = None
 
 
@@ -202,7 +203,7 @@ def main():
     if access_token is None:
         # Try the admin account
         status, body = test("Login admin", "POST", "/api/login",
-                            data={"email": "test@example.com", "password": "AdminPass123"})
+                            data={"email": os.getenv("TEST_ADMIN_EMAIL", "test@example.com"), "password": os.getenv("TEST_ADMIN_PASSWORD", "AdminPass123")})
         if status == 200 and isinstance(body, dict):
             access_token = body.get("access_token")
             refresh_token = body.get("refresh_token")
@@ -309,7 +310,12 @@ def main():
 
     # Try to get admin token
     if admin_token is None:
-        admin_creds = [
+        _env_admin = os.getenv("TEST_ADMIN_EMAIL")
+        _env_admin_pw = os.getenv("TEST_ADMIN_PASSWORD")
+        admin_creds = []
+        if _env_admin and _env_admin_pw:
+            admin_creds.append((_env_admin, _env_admin_pw))
+        admin_creds += [
             ("test@example.com", "AdminPass123"),
             ("admin@example.com", "admin123"),
             ("admin@example.com", "AdminPass123"),

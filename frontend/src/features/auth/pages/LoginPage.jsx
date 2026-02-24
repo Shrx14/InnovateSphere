@@ -31,10 +31,15 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-transparent">
-      {/* Subtle gradient overlay that layers with the starfield */}
+    <div className="min-h-screen relative overflow-hidden bg-neutral-950">
+      {/* Animated Gradient Background with Blobs */}
       <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/10 via-purple-600/10 to-pink-500/5" />
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 opacity-20" />
+        
+        {/* Animated blobs */}
+        <div className="absolute top-0 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
+        <div className="absolute top-0 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob-delay-2" />
+        <div className="absolute -bottom-8 left-20 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob-delay-4" />
       </div>
 
       {/* Content */}

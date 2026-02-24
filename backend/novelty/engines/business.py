@@ -1,3 +1,9 @@
+"""DEPRECATED: This engine is not used in production.
+All domains route through NoveltyAnalyzer (software engine).
+Kept for reference only — safe to remove."""
+import warnings
+warnings.warn("BusinessNoveltyEngine is deprecated and unused", DeprecationWarning, stacklevel=2)
+
 from backend.novelty.normalization import determine_level
 
 class BusinessNoveltyEngine:

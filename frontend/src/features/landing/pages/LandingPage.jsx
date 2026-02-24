@@ -80,9 +80,24 @@ const LandingPage = () => {
       )}
       {/* ===== HERO ===== */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Subtle gradient overlay that layers with the starfield */}
+        {/* Animated background */}
         <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 via-purple-900/15 to-pink-900/10" />
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/40 via-purple-900/30 to-pink-900/20" />
+          <motion.div
+            animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            className="absolute top-0 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
+          />
+          <motion.div
+            animate={{ x: [0, -30, 0], y: [0, 20, 0] }}
+            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+            className="absolute top-0 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
+          />
+          <motion.div
+            animate={{ x: [0, 20, 0], y: [0, 30, 0] }}
+            transition={{ duration: 22, repeat: Infinity, ease: "linear" }}
+            className="absolute -bottom-8 left-20 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
+          />
         </div>
 
         <motion.div
