@@ -133,11 +133,6 @@ def admin_get_generation_trace(idea_id):
                 "description": "Validate sources support the problem",
                 "output": trace.phase_4_output
             },
-            "phase_5": {
-                "name": "Output Synthesis",
-                "description": "Generate grounded, evidence-anchored idea",
-                "output": trace.phase_4_output
-            },
             "constraints_active": trace.constraints_active,
             "bias_penalties_applied": trace.bias_penalties_applied,
             "created_at": trace.created_at.isoformat() if trace.created_at else None

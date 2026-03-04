@@ -212,3 +212,102 @@ def register():
         return jsonify({
             "error": "Registration failed. Please try again."
         }), 500
+
+
+@auth_bp.route("/api/user/profile", methods=["GET"])
+@jwt_required()
+def get_profile():
+    """Get current user's profile."""
+    user_id = get_jwt_identity()
+    user = User.query.get(int(user_id))
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    return jsonify({
+        "id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "skill_level": user.skill_level,
+        "preferred_domain_id": user.preferred_domain_id,
+        "preferred_domains": user.preferred_domains or [],
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+    }), 200
+
+
+@auth_bp.route("/api/user/profile", methods=["PUT"])
+@jwt_required()
+def update_profile():
+    """Update current user's profile (username, skill_level, preferred_domain_id)."""
+    user_id = get_jwt_identity()
+    user = User.query.get(int(user_id))
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    data = request.get_json() or {}
+
+    if "username" in data:
+        new_username = data["username"].strip()
+        if len(new_username) < 3:
+            return jsonify({"error": "Username must be at least 3 characters"}), 400
+        # Check uniqueness
+        existing = User.query.filter(User.username == new_username, User.id != user.id).first()
+        if existing:
+            return jsonify({"error": "Username already taken"}), 409
+        user.username = new_username
+
+    if "skill_level" in data:
+        valid_levels = ["beginner", "intermediate", "advanced", "expert"]
+        if data["skill_level"] not in valid_levels:
+            return jsonify({"error": f"skill_level must be one of: {', '.join(valid_levels)}"}), 400
+        user.skill_level = data["skill_level"]
+
+    if "preferred_domain_id" in data:
+        user.preferred_domain_id = data["preferred_domain_id"]
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Failed to update profile"}), 500
+
+    return jsonify({
+        "message": "Profile updated",
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "skill_level": user.skill_level,
+            "preferred_domain_id": user.preferred_domain_id,
+        }
+    }), 200
+
+
+@auth_bp.route("/api/user/password", methods=["PUT"])
+@jwt_required()
+def change_password():
+    """Change password (requires current password)."""
+    user_id = get_jwt_identity()
+    user = User.query.get(int(user_id))
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    data = request.get_json() or {}
+    current_password = data.get("current_password", "")
+    new_password = data.get("new_password", "")
+
+    if not current_password or not new_password:
+        return jsonify({"error": "Current and new passwords are required"}), 400
+
+    if not user.check_password(current_password):
+        return jsonify({"error": "Current password is incorrect"}), 401
+
+    if len(new_password) < 6:
+        return jsonify({"error": "New password must be at least 6 characters"}), 400
+
+    user.set_password(new_password)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Failed to change password"}), 500
+
+    return jsonify({"message": "Password changed successfully"}), 200

@@ -104,16 +104,7 @@ def public_ideas():
 
     return jsonify({
         "ideas": [
-            {
-                "id": i.id,
-                "title": i.title,
-                "problem_statement": i.problem_statement,
-                "tech_stack": i.tech_stack,
-                "domain": i.domain.name if i.domain else None,
-                "novelty_score": i.novelty_score_cached,
-                "quality_score": i.quality_score_cached,
-                "created_at": i.created_at.isoformat(),
-            }
+            {**serialize_public_idea(i), "created_at": i.created_at.isoformat()}
             for i in ideas
         ],
         "meta": {
@@ -209,29 +200,20 @@ def public_idea_detail(idea_id):
                 logger.warning(f"Failed to commit anonymous view: {e}")
                 db.session.rollback()
 
-    return jsonify({
-        "idea": {
-            "id": idea.id,
-            "title": idea.title,
-            "problem_statement": idea.problem_statement,
-            "tech_stack": idea.tech_stack,
-            "domain": idea.domain.name if idea.domain else None,
-            "novelty_score": idea.novelty_score_cached,
-            "quality_score": idea.quality_score_cached,
-            "view_count": idea.view_count,
-            "created_at": idea.created_at.isoformat(),
-            "sources": [
-                {
-                    "source_type": s.source_type,
-                    "title": s.title,
-                    "url": s.url,
-                    "summary": s.summary,
-                    "relevance_tier": s.relevance_tier if hasattr(s, 'relevance_tier') else "supporting",
-                }
-                for s in idea.sources
-            ],
+    base = serialize_public_idea(idea)
+    base["view_count"] = idea.view_count
+    base["created_at"] = idea.created_at.isoformat()
+    base["sources"] = [
+        {
+            "source_type": s.source_type,
+            "title": s.title,
+            "url": s.url,
+            "summary": s.summary,
+            "relevance_tier": s.relevance_tier or "supporting",
         }
-    }), 200
+        for s in idea.sources
+    ]
+    return jsonify({"idea": base}), 200
 
 
 @public_bp.route("/api/public/top-ideas", methods=["GET"])
@@ -264,16 +246,7 @@ def public_top_ideas():
 
     return jsonify({
         "ideas": [
-            {
-                "id": i.id,
-                "title": i.title,
-                "problem_statement": i.problem_statement,
-                "tech_stack": i.tech_stack,
-                "domain": i.domain.name if i.domain else None,
-                "novelty_score": i.novelty_score_cached,
-                "quality_score": i.quality_score_cached,
-                "view_count": i.view_count,
-            }
+            {**serialize_public_idea(i), "view_count": i.view_count}
             for i in ideas
         ]
     }), 200
@@ -334,5 +307,4 @@ def public_stats():
     return jsonify({
         "total_public_ideas": total_public_ideas,
         "total_domains": Domain.query.count(),
-        "total_users": User.query.count(),
     }), 200

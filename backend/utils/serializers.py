@@ -42,7 +42,7 @@ def serialize_full_idea(idea):
                     else None,
                     "summary": s.summary,
                     "is_hallucinated": s.is_hallucinated,
-                    "relevance_tier": "supporting",
+                    "relevance_tier": s.relevance_tier or "supporting",
                 }
                 for s in idea.sources
             ],

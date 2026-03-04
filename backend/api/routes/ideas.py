@@ -190,6 +190,128 @@ def submit_idea_feedback(idea_id):
     return jsonify({"message": "Feedback submitted successfully"}), 201
 
 
+@ideas_bp.route("/api/ideas/<int:idea_id>/feedback", methods=["DELETE"])
+@jwt_required()
+def delete_idea_feedback(idea_id):
+    """
+    Remove feedback (e.g. unbookmark).
+    Query param: ?feedback_type=bookmark
+    """
+    feedback_type = request.args.get("feedback_type")
+    if not feedback_type:
+        return jsonify({"error": "feedback_type query param required"}), 400
+
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    existing = IdeaFeedback.query.filter_by(
+        user_id=user_id, idea_id=idea_id, feedback_type=feedback_type
+    ).first()
+    if not existing:
+        return jsonify({"error": "Feedback not found"}), 404
+
+    db.session.delete(existing)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Failed to remove feedback"}), 500
+
+    return jsonify({"message": f"{feedback_type} removed"}), 200
+
+
+@ideas_bp.route("/api/ideas/bookmarked", methods=["GET"])
+@jwt_required()
+def bookmarked_ideas():
+    """
+    List all ideas bookmarked by the current user.
+    """
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        page = max(int(request.args.get("page", 1)), 1)
+        limit = min(int(request.args.get("limit", 20)), 100)
+    except ValueError:
+        return jsonify({"error": "page and limit must be valid integers"}), 400
+
+    bookmark_idea_ids = (
+        db.session.query(IdeaFeedback.idea_id)
+        .filter(IdeaFeedback.user_id == user_id, IdeaFeedback.feedback_type == "bookmark")
+    )
+
+    query = (
+        ProjectIdea.query
+        .options(
+            joinedload(ProjectIdea.domain),
+            joinedload(ProjectIdea.admin_verdict),
+        )
+        .filter(ProjectIdea.id.in_(bookmark_idea_ids))
+        .order_by(ProjectIdea.created_at.desc())
+    )
+
+    total = query.count()
+    ideas = query.offset((page - 1) * limit).limit(limit).all()
+
+    return jsonify({
+        "ideas": [
+            {
+                "id": idea.id,
+                "title": idea.title,
+                "problem_statement": idea.problem_statement,
+                "domain": idea.domain.name if idea.domain else None,
+                "novelty_score": idea.novelty_score_cached,
+                "quality_score": idea.quality_score_cached,
+                "status": idea.admin_verdict.verdict if idea.admin_verdict else "pending",
+                "created_at": idea.created_at.isoformat(),
+            }
+            for idea in ideas
+        ],
+        "meta": {
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "pages": (total + limit - 1) // limit,
+        }
+    }), 200
+
+
+@ideas_bp.route("/api/ideas/<int:idea_id>/request", methods=["POST"])
+@jwt_required()
+def request_idea(idea_id):
+    """
+    Express demand for an idea. Prevents duplicates via user_id+idea_id.
+    """
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    idea = ProjectIdea.query.get(idea_id)
+    if not idea:
+        return jsonify({"error": "Idea not found"}), 404
+
+    existing = IdeaRequest.query.filter_by(user_id=user_id, idea_id=idea_id).first()
+    if existing:
+        return jsonify({"error": "Already requested", "requested_count": len(idea.requests)}), 409
+
+    db.session.add(IdeaRequest(user_id=user_id, idea_id=idea_id))
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Already requested"}), 409
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Failed to submit request"}), 500
+
+    return jsonify({
+        "message": "Idea requested",
+        "requested_count": len(idea.requests)
+    }), 201
+
+
 @ideas_bp.route("/api/ideas/mine", methods=["GET"])
 @jwt_required()
 def my_ideas():

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, ArrowRight, ChevronRight } from 'lucide-react';
+import { Sparkles, ArrowRight, ChevronRight, Bookmark } from 'lucide-react';
 
 import { useIdeas } from '@/hooks/useIdeas';
+import api from '@/lib/api';
 
 import { fadeIn, staggerContainer, cardHover, cardTap } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,16 @@ function sortIdeas(ideas, sortBy) {
 export default function UserDashboard() {
   const { ideas, loading, grouped, error } = useIdeas();
   const [sortBy, setSortBy] = useState('recent');
+  const [bookmarkedIdeas, setBookmarkedIdeas] = useState([]);
+  const [loadingBookmarks, setLoadingBookmarks] = useState(true);
+
+  // Fetch bookmarked ideas
+  useEffect(() => {
+    api.get('/ideas/bookmarked')
+      .then(res => setBookmarkedIdeas(res.data.ideas || []))
+      .catch(() => { })
+      .finally(() => setLoadingBookmarks(false));
+  }, []);
 
   // Loading state with skeletons
   if (loading) {
@@ -140,6 +151,10 @@ export default function UserDashboard() {
               <TabsTrigger value="validated">Validated ({grouped.validated.length})</TabsTrigger>
               <TabsTrigger value="pending">Pending ({grouped.pending.length})</TabsTrigger>
               <TabsTrigger value="rejected">Rejected ({grouped.rejected.length})</TabsTrigger>
+              <TabsTrigger value="bookmarks">
+                <Bookmark className="w-3.5 h-3.5 mr-1" />
+                Bookmarks ({bookmarkedIdeas.length})
+              </TabsTrigger>
             </TabsList>
 
             <select
@@ -158,6 +173,13 @@ export default function UserDashboard() {
               <IdeaList ideas={sortIdeas(grouped[tab], sortBy)} tab={tab} />
             </TabsContent>
           ))}
+          <TabsContent value="bookmarks">
+            {loadingBookmarks ? (
+              <div className="space-y-4">{[0, 1].map(i => <SkeletonCard key={i} />)}</div>
+            ) : (
+              <IdeaList ideas={sortIdeas(bookmarkedIdeas, sortBy)} tab="bookmarks" />
+            )}
+          </TabsContent>
         </Tabs>
 
         {/* Generate More Button */}

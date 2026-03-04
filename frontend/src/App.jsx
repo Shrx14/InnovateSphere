@@ -31,6 +31,7 @@ const ContactPage = React.lazy(() => import("./features/static/pages/ContactPage
 const PrivacyPage = React.lazy(() => import("./features/static/pages/PrivacyPage"));
 const TermsPage = React.lazy(() => import("./features/static/pages/TermsPage"));
 const HowItWorksPage = React.lazy(() => import("./features/static/pages/HowItWorksPage"));
+const UserProfilePage = React.lazy(() => import("./features/user/pages/UserProfilePage"));
 
 const RouteFallback = () => (
   <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
@@ -91,6 +92,7 @@ const App = () => {
                         <Route path="generate" element={<ProtectedRoute><GeneratePage /></ProtectedRoute>} />
                         <Route path="novelty" element={<ProtectedRoute><NoveltyPage /></ProtectedRoute>} />
                         <Route path="my-ideas" element={<ProtectedRoute><MyIdeasPage /></ProtectedRoute>} />
+                        <Route path="profile" element={<ProtectedRoute><UserProfilePage /></ProtectedRoute>} />
                       </Routes>
                     </UserShell>
                   }

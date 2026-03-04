@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { ArrowLeft, Eye, Star, MessageSquare, AlertTriangle, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Eye, Star, MessageSquare, AlertTriangle, ShieldCheck, Bookmark, Share2, Users } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
@@ -56,16 +56,30 @@ const IdeaDetail = () => {
   const [rating, setRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [requestedCount, setRequestedCount] = useState(0);
 
   useEffect(() => {
     const endpoint = user ? `/ideas/${id}` : `/public/ideas/${id}`;
     api
       .get(endpoint)
       .then((res) => {
-        setIdea(res.data.idea || res.data);
+        const loadedIdea = res.data.idea || res.data;
+        setIdea(loadedIdea);
+        setRequestedCount(loadedIdea.requested_count || 0);
         setLoading(false);
       })
       .catch(() => setLoading(false));
+
+    // Check bookmark status for authenticated users
+    if (user) {
+      api.get(`/ideas/${id}/feedbacks`)
+        .then(res => {
+          const bookmarks = (res.data.by_type?.bookmark || []);
+          setIsBookmarked(bookmarks.length > 0);
+        })
+        .catch(() => { });
+    }
   }, [id, user]);
 
   // Fetch novelty breakdown for authenticated users
@@ -169,9 +183,62 @@ const IdeaDetail = () => {
                 <Eye className="w-4 h-4" /> {idea.view_count || 0}
               </span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-light dark:text-white text-neutral-900 leading-tight">
+            <h1 className="text-4xl md:text-5xl font-light dark:text-white text-neutral-900 leading-tight mb-4">
               {idea.title}
             </h1>
+            {user && (
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      if (isBookmarked) {
+                        await api.delete(`/ideas/${id}/feedback?feedback_type=bookmark`);
+                        setIsBookmarked(false);
+                        toast.success('Bookmark removed');
+                      } else {
+                        await api.post(`/ideas/${id}/feedback`, { feedback_type: 'bookmark' });
+                        setIsBookmarked(true);
+                        toast.success('Idea bookmarked');
+                      }
+                    } catch (err) {
+                      toast.error(err.response?.data?.error || 'Failed');
+                    }
+                  }}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isBookmarked
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-neutral-800 dark:text-neutral-300 text-neutral-600 hover:bg-neutral-700'
+                    }`}
+                >
+                  <Bookmark className="w-4 h-4" fill={isBookmarked ? 'currentColor' : 'none'} />
+                  {isBookmarked ? 'Bookmarked' : 'Bookmark'}
+                </button>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.href);
+                    toast.success('Link copied to clipboard');
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-neutral-800 dark:text-neutral-300 text-neutral-600 hover:bg-neutral-700 transition-colors"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Share
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await api.post(`/ideas/${id}/request`);
+                      setRequestedCount(res.data.requested_count);
+                      toast.success('Interest recorded!');
+                    } catch (err) {
+                      toast.error(err.response?.data?.error || 'Failed');
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-neutral-800 dark:text-neutral-300 text-neutral-600 hover:bg-neutral-700 transition-colors"
+                >
+                  <Users className="w-4 h-4" />
+                  Request ({requestedCount})
+                </button>
+              </div>
+            )}
           </motion.div>
 
           {/* Problem Statement */}
