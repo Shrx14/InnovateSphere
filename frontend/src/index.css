@@ -1,42 +1,134 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ==================== THEME VARIABLES ==================== */
+:root {
+  /* Light mode (default when .dark is removed) */
+  --bg-primary: #f8f9fc;
+  --bg-secondary: #f0f1f5;
+  --bg-card: #ffffff;
+  --bg-elevated: #eef0f5;
+  --bg-input: rgba(255, 255, 255, 0.95);
+  --text-primary: #1a1a2e;
+  --text-secondary: #4a4a68;
+  --text-muted: #8888a4;
+  --text-inverse: #ffffff;
+  --border-default: rgba(99, 102, 241, 0.12);
+  --border-subtle: rgba(99, 102, 241, 0.06);
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(99, 102, 241, 0.1);
+  --glow-color: rgba(99, 102, 241, 0.15);
+  --glow-hover: rgba(99, 102, 241, 0.25);
+  --scrollbar-thumb: rgba(99, 102, 241, 0.15);
+  --scrollbar-hover: rgba(99, 102, 241, 0.25);
+  --skeleton-from: #e8e9f0;
+  --skeleton-to: #d8d9e4;
+  --tooltip-bg: rgba(255, 255, 255, 0.95);
+  --tooltip-border: rgba(99, 102, 241, 0.2);
+  --card-shine: rgba(99, 102, 241, 0.03);
+  --focus-shadow: 0 0 20px rgba(99, 102, 241, 0.25);
+  --input-focus-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+  --card-shadow: 0 1px 3px rgba(99, 102, 241, 0.06), 0 4px 16px rgba(99, 102, 241, 0.04);
+  --card-hover-shadow: 0 4px 24px rgba(99, 102, 241, 0.12), 0 8px 32px rgba(99, 102, 241, 0.06);
+}
+
+.dark {
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #171717;
+  --bg-card: #171717;
+  --bg-elevated: #262626;
+  --bg-input: rgba(23, 23, 23, 0.8);
+  --text-primary: #ffffff;
+  --text-secondary: #a3a3a3;
+  --text-muted: #737373;
+  --text-inverse: #171717;
+  --border-default: rgba(255, 255, 255, 0.1);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --glass-bg: rgba(23, 23, 23, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glow-color: rgba(99, 102, 241, 0.15);
+  --glow-hover: rgba(99, 102, 241, 0.3);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.1);
+  --scrollbar-hover: rgba(255, 255, 255, 0.2);
+  --skeleton-from: #262626;
+  --skeleton-to: #1a1a1a;
+  --tooltip-bg: rgba(23, 23, 23, 0.95);
+  --tooltip-border: rgba(99, 102, 241, 0.3);
+  --card-shine: rgba(255, 255, 255, 0.03);
+  --focus-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+  --input-focus-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2);
+  --card-hover-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
 /* ==================== GLASSMORPHISM ==================== */
 @layer components {
   .glass-card {
-    @apply bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl;
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 1rem;
+    box-shadow: var(--card-shadow);
   }
 
   .glass-card-lg {
-    @apply bg-white/5 backdrop-blur-xl border border-white/15 rounded-3xl shadow-2xl;
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--glass-border);
+    border-radius: 1.5rem;
+    box-shadow: var(--card-shadow);
   }
 
   .glass-input {
-    @apply bg-white/10 backdrop-blur-lg border border-white/20 rounded-lg px-4 py-3 text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all;
+    background: var(--bg-input);
+    backdrop-filter: blur(4px);
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    transition: all 0.2s;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
   }
 
-  select {
-    @apply text-white;
-    color-scheme: dark;
+  .glass-input::placeholder {
+    color: var(--text-muted);
   }
 
-  select option {
-    background-color: rgb(23, 23, 23);
-    color: white;
+  .glass-input:focus {
+    outline: none;
+    border-color: rgba(99, 102, 241, 0.5);
+    background: var(--bg-card);
+    box-shadow: var(--input-focus-shadow);
   }
+}
 
-  select option:checked {
-    background: linear-gradient(rgb(99, 102, 241), rgb(99, 102, 241));
-    background-color: rgb(99, 102, 241) !important;
-    color: white;
-  }
+/* ==================== GLOBAL TYPOGRAPHY ==================== */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Space Grotesk', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 /* ==================== GRADIENT ANIMATIONS ==================== */
 @keyframes gradient-shift {
-  0%, 100% {
+
+  0%,
+  100% {
     background-position: 0% 50%;
   }
+
   50% {
     background-position: 100% 50%;
   }
@@ -46,6 +138,7 @@
   0% {
     background-position: -1000px 0;
   }
+
   100% {
     background-position: 1000px 0;
   }
@@ -57,12 +150,10 @@
 }
 
 .shimmer-loading {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.2) 50%,
-    rgba(255, 255, 255, 0.1) 100%
-  );
+  background: linear-gradient(90deg,
+      var(--skeleton-from) 0%,
+      var(--skeleton-to) 50%,
+      var(--skeleton-from) 100%);
   background-size: 1000px 100%;
   animation: shimmer 2s linear infinite;
 }
@@ -76,13 +167,11 @@
 }
 
 .gradient-text-animated {
-  background: linear-gradient(
-    -45deg,
-    #667eea,
-    #764ba2,
-    #f093fb,
-    #667eea
-  );
+  background: linear-gradient(-45deg,
+      #667eea,
+      #764ba2,
+      #f093fb,
+      #667eea);
   background-size: 400% 400%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -92,12 +181,15 @@
 
 /* ==================== BUTTON & INPUT EFFECTS ==================== */
 .btn-glass {
-  @apply relative px-6 py-3 rounded-lg font-medium text-white transition-all duration-300;
-  @apply bg-white/10 backdrop-blur-lg border border-white/20;
+  @apply relative px-6 py-3 rounded-lg font-medium transition-all duration-300;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
 }
 
 .btn-glass:hover {
-  @apply bg-white/20 border-white/30 shadow-lg;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
 }
 
 .btn-glass:active {
@@ -118,7 +210,7 @@
 input:focus,
 textarea:focus,
 select:focus {
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+  box-shadow: var(--focus-shadow);
 }
 
 /* ==================== SCROLLBAR STYLING ==================== */
@@ -132,12 +224,12 @@ select:focus {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--scrollbar-hover);
 }
 
 /* ==================== BASE STYLES ==================== */
@@ -147,9 +239,172 @@ html {
 
 body {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+  min-height: 100vh;
+}
+
+/* Light mode gradient background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 40% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
+    linear-gradient(180deg, #f0f0ff 0%, #f8f9fc 30%, #f5f0ff 70%, #eef0ff 100%);
+  pointer-events: none;
+}
+
+.dark body::before {
+  background: none;
 }
 
 * {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==================== CUSTOM CURSOR ==================== */
+.custom-cursor-active,
+.custom-cursor-active * {
+  cursor: none !important;
+}
+
+/* ==================== AURORA / NEBULA BACKGROUND ==================== */
+@keyframes aurora-drift {
+
+  0%,
+  100% {
+    background-position: 0% 50%;
+    filter: hue-rotate(0deg);
+  }
+
+  25% {
+    background-position: 50% 100%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+    filter: hue-rotate(30deg);
+  }
+
+  75% {
+    background-position: 50% 0%;
+  }
+}
+
+.aurora-bg {
+  background: linear-gradient(-45deg,
+      rgba(99, 102, 241, 0.15),
+      rgba(139, 92, 246, 0.12),
+      rgba(236, 72, 153, 0.1),
+      rgba(59, 130, 246, 0.12),
+      rgba(99, 102, 241, 0.15));
+  background-size: 400% 400%;
+  animation: aurora-drift 20s ease infinite;
+}
+
+/* ==================== GLOW BORDER ==================== */
+@keyframes glow-pulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 5px var(--glow-color),
+      0 0 20px rgba(99, 102, 241, 0.05);
+  }
+
+  50% {
+    box-shadow: 0 0 10px var(--glow-hover),
+      0 0 40px rgba(99, 102, 241, 0.1),
+      0 0 60px rgba(139, 92, 246, 0.05);
+  }
+}
+
+.glow-border {
+  position: relative;
+  transition: box-shadow 0.3s ease;
+}
+
+.glow-border:hover {
+  box-shadow: 0 0 15px var(--glow-hover),
+    0 0 30px rgba(99, 102, 241, 0.1),
+    0 4px 20px rgba(0, 0, 0, 0.1);
+  border-color: rgba(99, 102, 241, 0.4) !important;
+}
+
+.glow-border-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* ==================== 3D TILT CARD ==================== */
+.tilt-card {
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+
+.tilt-card-inner {
+  transition: transform 0.1s ease-out;
+  transform-style: preserve-3d;
+}
+
+/* ==================== FLOATING ANIMATION ==================== */
+@keyframes gentle-float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.float-gentle {
+  animation: gentle-float 6s ease-in-out infinite;
+}
+
+.float-gentle-delayed {
+  animation: gentle-float 6s ease-in-out 2s infinite;
+}
+
+/* ==================== CARD SHINE EFFECT ==================== */
+@keyframes card-shine {
+  0% {
+    left: -100%;
+  }
+
+  100% {
+    left: 200%;
+  }
+}
+
+.card-shine:hover::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg,
+      transparent,
+      var(--card-shine),
+      transparent);
+  animation: card-shine 0.8s ease-in-out;
+  pointer-events: none;
+}
+
+/* ==================== THEME TRANSITION ==================== */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition: background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease,
+    box-shadow 0.3s ease !important;
 }

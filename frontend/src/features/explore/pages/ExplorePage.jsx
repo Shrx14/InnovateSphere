@@ -6,7 +6,7 @@ import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
 import useDebounce from "@/hooks/useDebounce";
-import { fadeIn, staggerContainer } from "@/lib/motion";
+import { fadeIn, staggerContainer, cardHover, cardTap } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 import { Card } from "@/components/ui/Card";
@@ -36,7 +36,7 @@ const ExplorePage = () => {
   useEffect(() => {
     api.get("/domains")
       .then((res) => setDomains(res.data.domains))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // Fetch ideas on filter/search/page change
@@ -57,71 +57,91 @@ const ExplorePage = () => {
   }, [debouncedSearchQuery, filters.domain, filters.page]);
 
   return (
-    <main className="min-h-screen bg-neutral-950">
+    <main className="min-h-screen dark:bg-neutral-950/0">
       <div className="max-w-7xl mx-auto px-6 py-12 md:py-20">
         {/* Header */}
         <motion.div variants={fadeIn} initial="hidden" animate="visible" className="mb-12 md:mb-16">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-5xl md:text-6xl font-light text-white">Explore Ideas</h1>
+            <h1 className="text-5xl md:text-6xl font-light dark:text-white text-neutral-900">Explore Ideas</h1>
             {isAuthenticated && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 rounded-full border border-indigo-500/20">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 rounded-full border border-indigo-500/20"
+              >
                 <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
                 <span className="text-sm text-indigo-300">
                   Welcome back{user?.email ? `, ${user.email.split("@")[0]}` : ""}
                 </span>
-              </div>
+              </motion.div>
             )}
           </div>
-          <p className="text-xl text-neutral-300">
+          <p className="text-xl dark:text-neutral-300 text-neutral-600">
             Discover project ideas evaluated with research evidence and novelty scoring.
           </p>
         </motion.div>
 
         {/* Search & Filter */}
         <div className="mb-12 space-y-4">
-          <Card className="p-6">
-            <label className="block text-sm text-neutral-400 mb-3">Search Ideas</label>
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
-              <Input
-                placeholder="Search by title, domain, or keywords..."
-                value={filters.q}
-                onChange={(e) => setFilters({ ...filters, q: e.target.value, page: 1 })}
-                className="pl-12"
-              />
-            </div>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Card className="p-6 glow-border transition-all focus-within:border-indigo-500/40 focus-within:shadow-[0_0_20px_rgba(99,102,241,0.15)]">
+              <label className="block text-sm dark:text-neutral-400 text-neutral-500 mb-3">Search Ideas</label>
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 dark:text-neutral-500 text-neutral-400" />
+                <Input
+                  placeholder="Search by title, domain, or keywords..."
+                  value={filters.q}
+                  onChange={(e) => setFilters({ ...filters, q: e.target.value, page: 1 })}
+                  className="pl-12"
+                />
+              </div>
+            </Card>
+          </motion.div>
 
-          <Card className="p-6">
-            <label className="block text-sm text-neutral-400 mb-3">Filter by Domain</label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setFilters({ ...filters, domain: "", page: 1 })}
-                className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium transition-all",
-                  filters.domain === ""
-                    ? "bg-indigo-600 text-white"
-                    : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
-                )}
-              >
-                All Domains
-              </button>
-              {domains.map((d) => (
-                <button
-                  key={d.id}
-                  onClick={() => setFilters({ ...filters, domain: d.name, page: 1 })}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Card className="p-6">
+              <label className="block text-sm dark:text-neutral-400 text-neutral-500 mb-3">Filter by Domain</label>
+              <div className="flex flex-wrap gap-2">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setFilters({ ...filters, domain: "", page: 1 })}
                   className={cn(
-                    "px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
-                    filters.domain === d.name
-                      ? "bg-indigo-600 text-white"
-                      : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                    "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                    filters.domain === ""
+                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+                      : "dark:bg-neutral-800 bg-neutral-100 dark:text-neutral-300 text-neutral-600 hover:bg-neutral-700"
                   )}
                 >
-                  {d.name}
-                </button>
-              ))}
-            </div>
-          </Card>
+                  All Domains
+                </motion.button>
+                {domains.map((d) => (
+                  <motion.button
+                    key={d.id}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setFilters({ ...filters, domain: d.name, page: 1 })}
+                    className={cn(
+                      "px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
+                      filters.domain === d.name
+                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+                        : "dark:bg-neutral-800 bg-neutral-100 dark:text-neutral-300 text-neutral-600 hover:bg-neutral-700"
+                    )}
+                  >
+                    {d.name}
+                  </motion.button>
+                ))}
+              </div>
+            </Card>
+          </motion.div>
         </div>
 
         {/* Results */}
@@ -147,21 +167,23 @@ const ExplorePage = () => {
               {ideas.map((idea) => (
                 <motion.div key={idea.id} variants={fadeIn}>
                   <Link to={`/idea/${idea.id}`}>
-                    <Card className="p-8 hover:bg-neutral-800/50 transition-colors cursor-pointer group flex flex-col h-full">
-                      <div className="mb-4">
-                        <Badge>{idea.domain}</Badge>
-                      </div>
-                      <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-indigo-300 transition line-clamp-2 flex-grow">
-                        {idea.title}
-                      </h3>
-                      <p className="text-sm text-neutral-400 line-clamp-3 mb-6 leading-relaxed">
-                        {idea.problem_statement}
-                      </p>
-                      <div className="grid grid-cols-2 gap-4 pt-4 border-t border-neutral-800">
-                        <ScoreDisplay value={idea.novelty_score} label="Novelty" />
-                        <ScoreDisplay value={idea.quality_score} label="Quality" />
-                      </div>
-                    </Card>
+                    <motion.div whileHover={cardHover} whileTap={cardTap}>
+                      <Card className="p-8 dark:hover:bg-neutral-800/50 bg-neutral-100 transition-colors cursor-pointer group flex flex-col h-full glow-border card-shine overflow-hidden">
+                        <div className="mb-4">
+                          <Badge>{idea.domain}</Badge>
+                        </div>
+                        <h3 className="text-xl font-semibold dark:text-white text-neutral-900 mb-3 group-hover:text-indigo-300 transition line-clamp-2 flex-grow">
+                          {idea.title}
+                        </h3>
+                        <p className="text-sm dark:text-neutral-400 text-neutral-500 line-clamp-3 mb-6 leading-relaxed">
+                          {idea.problem_statement}
+                        </p>
+                        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-neutral-800">
+                          <ScoreDisplay value={idea.novelty_score} label="Novelty" />
+                          <ScoreDisplay value={idea.quality_score} label="Quality" />
+                        </div>
+                      </Card>
+                    </motion.div>
                   </Link>
                 </motion.div>
               ))}
@@ -204,7 +226,7 @@ const ExplorePage = () => {
                       (i === meta.pages - 2 && meta.page < meta.pages - 2)
                     ) {
                       return (
-                        <span key={i} className="text-neutral-500 px-2 py-1">...</span>
+                        <span key={i} className="dark:text-neutral-500 text-neutral-400 px-2 py-1">...</span>
                       );
                     }
                     return null;

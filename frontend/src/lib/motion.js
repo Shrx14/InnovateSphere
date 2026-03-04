@@ -86,3 +86,50 @@ export const progressSpring = {
   damping: 20,
   mass: 0.5,
 };
+
+/** Gentle floating animation for cards/elements */
+export const floatAnimation = {
+  y: [0, -10, 0],
+  transition: {
+    duration: 6,
+    repeat: Infinity,
+    ease: 'easeInOut',
+  },
+};
+
+/** Card hover effect — lift with glow shadow */
+export const cardHover = {
+  scale: 1.02,
+  y: -4,
+  transition: { duration: 0.25, ease: 'easeOut' },
+};
+
+/** Card tap effect — subtle press */
+export const cardTap = {
+  scale: 0.98,
+  transition: { duration: 0.1 },
+};
+
+/** Glow pulse for featured elements */
+export const glowPulse = {
+  boxShadow: [
+    '0 0 5px rgba(99,102,241,0.15), 0 0 20px rgba(99,102,241,0.05)',
+    '0 0 10px rgba(99,102,241,0.3), 0 0 40px rgba(99,102,241,0.1)',
+    '0 0 5px rgba(99,102,241,0.15), 0 0 20px rgba(99,102,241,0.05)',
+  ],
+  transition: {
+    duration: 3,
+    repeat: Infinity,
+    ease: 'easeInOut',
+  },
+};
+
+/** Slide in from bottom — sections on scroll */
+export const slideUp = {
+  hidden: { opacity: 0, y: 40 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: 'easeOut' },
+  },
+};

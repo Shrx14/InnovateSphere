@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 const Badge = React.forwardRef(
   ({ className, variant = 'default', ...props }, ref) => {
     const variants = {
-      default: 'bg-neutral-800 text-neutral-200 border-neutral-700',
+      default: 'dark:bg-neutral-800 bg-neutral-100 dark:text-neutral-200 text-neutral-700 border-neutral-700',
       success: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
       warning: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
       error: 'bg-red-500/10 text-red-400 border-red-500/20',

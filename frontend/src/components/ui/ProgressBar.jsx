@@ -13,11 +13,11 @@ export function ProgressBar({ value = 0, label, className }) {
     <div className={cn('w-full', className)}>
       {label && (
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-neutral-400">{label}</span>
-          <span className="text-xs font-medium text-neutral-300">{Math.round(value)}%</span>
+          <span className="text-xs dark:text-neutral-400 text-neutral-500">{label}</span>
+          <span className="text-xs font-medium dark:text-neutral-300 text-neutral-600">{Math.round(value)}%</span>
         </div>
       )}
-      <div className="h-2 w-full rounded-full bg-neutral-800 overflow-hidden">
+      <div className="h-2 w-full rounded-full dark:bg-neutral-800 bg-neutral-100 overflow-hidden">
         <motion.div
           className="h-full rounded-full bg-indigo-500"
           initial={{ width: 0 }}

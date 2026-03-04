@@ -1,8 +1,16 @@
-// src/features/auth/pages/RegisterPage.jsx
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles, User, Layers } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../lib/api';
+
+const SKILL_LEVELS = [
+  { value: 'beginner', label: 'Beginner', desc: 'Just starting out' },
+  { value: 'intermediate', label: 'Intermediate', desc: 'Some experience' },
+  { value: 'advanced', label: 'Advanced', desc: 'Proficient' },
+  { value: 'expert', label: 'Expert', desc: 'Deep expertise' },
+];
 
 const RegisterPage = () => {
   const { login } = useAuth();
@@ -19,14 +27,12 @@ const RegisterPage = () => {
     e.preventDefault();
     setError(null);
 
-    // Validate passwords match
     if (form.password !== form.confirmPassword) {
       setError('Passwords do not match');
       return;
     }
 
     setLoading(true);
-
     try {
       const res = await api.post('/register', {
         email: form.email,
@@ -42,191 +48,203 @@ const RegisterPage = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen relative overflow-hidden bg-neutral-950">
-      {/* Animated Gradient Background with Blobs */}
-      <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 opacity-20" />
-        
-        {/* Animated blobs */}
-        <div className="absolute top-0 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
-        <div className="absolute top-0 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob-delay-2" />
-        <div className="absolute -bottom-8 left-20 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob-delay-4" />
+  const InputField = ({ icon: Icon, label, ...props }) => (
+    <div className="space-y-2">
+      <label className="block text-xs font-medium dark:text-neutral-400 text-neutral-500 uppercase tracking-wider">
+        {label}
+      </label>
+      <div className="relative group">
+        <div className="absolute -inset-[1px] rounded-xl opacity-0 group-focus-within:opacity-100 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 blur-[1px] transition-opacity duration-300" />
+        <div className="relative">
+          <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 dark:text-neutral-500 text-neutral-400 group-focus-within:text-indigo-400 transition-colors z-10" />
+          <input
+            className="relative w-full rounded-xl dark:bg-neutral-900/80 bg-white/80 backdrop-blur-sm text-sm dark:text-white text-neutral-900 border dark:border-neutral-700/50 border-neutral-200 outline-none transition-all duration-300 placeholder:dark:text-neutral-500 text-neutral-400 focus:border-indigo-500/50 focus:bg-neutral-900 focus:shadow-[0_0_20px_rgba(99,102,241,0.1)] pl-10 pr-4 py-3 h-12"
+            {...props}
+          />
+        </div>
       </div>
+    </div>
+  );
 
-      {/* Content */}
-      <div className="relative z-10 flex items-center justify-center min-h-screen px-4 py-8">
+  return (
+    <div className="min-h-screen dark:bg-neutral-950/0 relative">
+      <div className="relative z-10 flex items-center justify-center min-h-screen px-4 py-12">
         <div className="w-full max-w-md">
-          {/* Glass Card Container */}
-          <div className="glass-card-lg p-8 space-y-6 max-w-md">
-            {/* Header */}
-            <div className="space-y-2">
-              <h1 className="text-4xl font-bold text-white">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          >
+            {/* Logo + Brand */}
+            <div className="text-center mb-8">
+              <Link to="/" className="inline-flex items-center gap-2 group mb-6">
+                <motion.div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{
+                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)',
+                  }}
+                  whileHover={{ scale: 1.05, rotate: 5 }}
+                >
+                  <Sparkles className="w-5 h-5 dark:text-white text-neutral-900" />
+                </motion.div>
+                <span className="text-lg font-display font-semibold bg-gradient-to-r from-neutral-100 to-neutral-400 bg-clip-text text-transparent">
+                  InnovateSphere
+                </span>
+              </Link>
+              <h1 className="text-3xl md:text-4xl font-display font-bold dark:text-white text-neutral-900 mb-2">
                 Create account
               </h1>
-              <p className="text-base text-neutral-300">
-                Join InnovateSphere to start generating ideas
+              <p className="dark:text-neutral-400 text-neutral-500">
+                Join and start generating research-backed ideas
               </p>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email Input */}
-              <div className="space-y-2">
-                <label htmlFor="reg-email" className="block text-sm font-medium text-neutral-300">
-                  Email
-                </label>
-                <input
-                  id="reg-email"
-                  name="email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  placeholder="your@email.com"
-                  className="glass-input w-full"
-                />
-              </div>
+            {/* Card */}
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-indigo-500/20 rounded-2xl blur-xl" />
+              <div className="relative dark:bg-neutral-900/80 bg-white/80 backdrop-blur-xl border dark:border-neutral-800/50 border-neutral-200 rounded-2xl p-8 space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <InputField icon={Mail} label="Email" name="email" type="email" required autoComplete="email" value={form.email} onChange={handleChange} placeholder="you@example.com" />
+                  <InputField icon={User} label="Username" name="username" type="text" required autoComplete="username" value={form.username} onChange={handleChange} placeholder="your_username" />
 
-              {/* Username Input */}
-              <div className="space-y-2">
-                <label htmlFor="reg-username" className="block text-sm font-medium text-neutral-300">
-                  Username
-                </label>
-                <input
-                  id="reg-username"
-                  name="username"
-                  type="text"
-                  required
-                  autoComplete="username"
-                  value={form.username}
-                  onChange={handleChange}
-                  placeholder="your_username"
-                  className="glass-input w-full"
-                />
-              </div>
+                  {/* Skill Level Selection */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium dark:text-neutral-400 text-neutral-500 uppercase tracking-wider">
+                      Skill Level
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {SKILL_LEVELS.map((skill) => (
+                        <motion.button
+                          key={skill.value}
+                          type="button"
+                          onClick={() => setForm({ ...form, skillLevel: skill.value })}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className={`p-3 rounded-xl border text-left transition-all duration-200 ${form.skillLevel === skill.value
+                              ? 'bg-indigo-500/15 border-indigo-500/40 shadow-lg shadow-indigo-500/10'
+                              : 'bg-neutral-900/50 dark:border-neutral-700/50 border-neutral-200 dark:hover:bg-neutral-800/50 bg-neutral-100 hover:border-neutral-600/50'
+                            }`}
+                        >
+                          <div className={`text-sm font-medium ${form.skillLevel === skill.value ? 'text-indigo-300' : 'dark:text-neutral-300 text-neutral-600'}`}>
+                            {skill.label}
+                          </div>
+                          <div className="text-xs dark:text-neutral-500 text-neutral-400">{skill.desc}</div>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* Skill Level Select */}
-              <div className="space-y-2">
-                <label htmlFor="reg-skill" className="block text-sm font-medium text-neutral-300">
-                  Skill Level
-                </label>
-                <select
-                  id="reg-skill"
-                  name="skillLevel"
-                  value={form.skillLevel}
-                  onChange={handleChange}
-                  className="glass-input w-full"
-                >
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
-                  <option value="expert">Expert</option>
-                </select>
-              </div>
+                  {/* Password */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium dark:text-neutral-400 text-neutral-500 uppercase tracking-wider">
+                      Password
+                    </label>
+                    <div className="relative group">
+                      <div className="absolute -inset-[1px] rounded-xl opacity-0 group-focus-within:opacity-100 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 blur-[1px] transition-opacity duration-300" />
+                      <div className="relative">
+                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 dark:text-neutral-500 text-neutral-400 group-focus-within:text-indigo-400 transition-colors z-10" />
+                        <input
+                          name="password"
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          autoComplete="new-password"
+                          value={form.password}
+                          onChange={handleChange}
+                          placeholder="••••••••"
+                          className="relative w-full rounded-xl dark:bg-neutral-900/80 bg-white/80 backdrop-blur-sm text-sm dark:text-white text-neutral-900 border dark:border-neutral-700/50 border-neutral-200 outline-none transition-all duration-300 placeholder:dark:text-neutral-500 text-neutral-400 focus:border-indigo-500/50 focus:bg-neutral-900 focus:shadow-[0_0_20px_rgba(99,102,241,0.1)] pl-10 pr-12 py-3 h-12"
+                        />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 dark:text-neutral-500 text-neutral-400 hover:text-neutral-300 transition z-10">
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
 
-              {/* Password Input */}
-              <div className="space-y-2">
-                <label htmlFor="reg-password" className="block text-sm font-medium text-neutral-300">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="reg-password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    autoComplete="new-password"
-                    value={form.password}
-                    onChange={handleChange}
-                    placeholder="••••••••"
-                    className="glass-input w-full pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-300 transition"
+                  {/* Confirm Password */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium dark:text-neutral-400 text-neutral-500 uppercase tracking-wider">
+                      Confirm Password
+                    </label>
+                    <div className="relative group">
+                      <div className="absolute -inset-[1px] rounded-xl opacity-0 group-focus-within:opacity-100 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 blur-[1px] transition-opacity duration-300" />
+                      <div className="relative">
+                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 dark:text-neutral-500 text-neutral-400 group-focus-within:text-indigo-400 transition-colors z-10" />
+                        <input
+                          name="confirmPassword"
+                          type={showConfirm ? 'text' : 'password'}
+                          required
+                          autoComplete="new-password"
+                          value={form.confirmPassword}
+                          onChange={handleChange}
+                          placeholder="••••••••"
+                          className="relative w-full rounded-xl dark:bg-neutral-900/80 bg-white/80 backdrop-blur-sm text-sm dark:text-white text-neutral-900 border dark:border-neutral-700/50 border-neutral-200 outline-none transition-all duration-300 placeholder:dark:text-neutral-500 text-neutral-400 focus:border-indigo-500/50 focus:bg-neutral-900 focus:shadow-[0_0_20px_rgba(99,102,241,0.1)] pl-10 pr-12 py-3 h-12"
+                        />
+                        <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3.5 top-1/2 -translate-y-1/2 dark:text-neutral-500 text-neutral-400 hover:text-neutral-300 transition z-10">
+                          {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Error */}
+                  <AnimatePresence>
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8, height: 0 }}
+                        animate={{ opacity: 1, y: 0, height: 'auto' }}
+                        exit={{ opacity: 0, y: -8, height: 0 }}
+                        className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-300 text-sm"
+                      >
+                        {error}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Submit */}
+                  <motion.button
+                    type="submit"
+                    disabled={loading}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    className="w-full h-12 rounded-xl text-sm font-semibold dark:text-white text-neutral-900 relative overflow-hidden group transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                    style={{
+                      background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)',
+                    }}
                   >
-                    {showPassword ? '✕' : '•••'}
-                  </button>
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400" />
+                    <span className="relative flex items-center justify-center gap-2">
+                      {loading ? (
+                        <>
+                          <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Creating account...
+                        </>
+                      ) : (
+                        <>
+                          Create account
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </span>
+                  </motion.button>
+                </form>
+
+                {/* Divider */}
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-neutral-700 to-transparent" />
+                  <span className="text-xs dark:text-neutral-500 text-neutral-400 uppercase tracking-wider">or</span>
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-neutral-700 to-transparent" />
                 </div>
+
+                {/* Login link */}
+                <p className="text-center text-sm dark:text-neutral-400 text-neutral-500">
+                  Already have an account?{' '}
+                  <Link to="/login" className="text-indigo-400 hover:text-indigo-300 font-semibold transition">
+                    Sign in
+                  </Link>
+                </p>
               </div>
-
-              {/* Confirm Password Input */}
-              <div className="space-y-2">
-                <label htmlFor="reg-confirm" className="block text-sm font-medium text-neutral-300">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="reg-confirm"
-                    name="confirmPassword"
-                    type={showConfirm ? 'text' : 'password'}
-                    required
-                    autoComplete="new-password"
-                    value={form.confirmPassword}
-                    onChange={handleChange}
-                    placeholder="••••••••"
-                    className="glass-input w-full pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirm(!showConfirm)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-300 transition"
-                  >
-                    {showConfirm ? '✕' : '•••'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Error Message */}
-              {error && (
-                <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm animate-shake">
-                  {error}
-                </div>
-              )}
-
-              {/* Sign Up Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn-primary w-full mt-6"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Creating account...
-                  </span>
-                ) : (
-                  'Create account'
-                )}
-              </button>
-            </form>
-
-            {/* Divider */}
-            <div className="flex items-center gap-4">
-              <div className="flex-1 h-px bg-white/10" />
-              <span className="text-sm text-neutral-400">or</span>
-              <div className="flex-1 h-px bg-white/10" />
             </div>
-
-            {/* Sign In Link */}
-            <p className="text-center text-neutral-400">
-              Already have an account?{' '}
-              <Link
-                to="/login"
-                className="text-indigo-400 hover:text-indigo-300 font-semibold transition"
-              >
-                Sign in
-              </Link>
-            </p>
-          </div>
-
-          {/* Footer */}
-          <div className="text-center mt-8 text-neutral-500 text-sm">
-            <p>© 2026 InnovateSphere. All rights reserved.</p>
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>

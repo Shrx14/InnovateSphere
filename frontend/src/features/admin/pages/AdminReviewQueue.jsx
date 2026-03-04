@@ -69,7 +69,7 @@ const AdminReviewQueue = () => {
       Low: 'text-green-400',
       Medium: 'text-yellow-400',
       High: 'text-red-400'
-    }[riskLevel] || 'text-neutral-400';
+    }[riskLevel] || 'dark:text-neutral-400 text-neutral-500';
     return riskColor;
   };
 
@@ -90,8 +90,8 @@ const AdminReviewQueue = () => {
 
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-light text-white">Admin review queue</h1>
-        <p className="mt-2 text-neutral-400">
+        <h1 className="text-4xl font-light dark:text-white text-neutral-900">Admin review queue</h1>
+        <p className="mt-2 dark:text-neutral-400 text-neutral-500">
           Review generated ideas for quality and novelty before publication.
         </p>
       </div>
@@ -99,15 +99,15 @@ const AdminReviewQueue = () => {
       {/* Loading */}
       {UI_STATE === 'loading' && (
         <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-8 text-center">
-          <p className="text-neutral-400">Loading review queue...</p>
+          <p className="dark:text-neutral-400 text-neutral-500">Loading review queue...</p>
         </div>
       )}
 
       {/* Empty */}
       {UI_STATE === 'empty' && (
         <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-8 text-center">
-          <h2 className="text-xl font-medium text-white mb-2">No ideas pending review</h2>
-          <p className="text-neutral-400">All ideas have been reviewed or none are available.</p>
+          <h2 className="text-xl font-medium dark:text-white text-neutral-900 mb-2">No ideas pending review</h2>
+          <p className="dark:text-neutral-400 text-neutral-500">All ideas have been reviewed or none are available.</p>
         </div>
       )}
 
@@ -115,27 +115,27 @@ const AdminReviewQueue = () => {
       {UI_STATE === 'populated' && (
         <div className="rounded-lg border border-neutral-800 bg-neutral-900 overflow-hidden">
           <table className="w-full">
-            <thead className="bg-neutral-800">
+            <thead className="dark:bg-neutral-800 bg-neutral-100">
               <tr>
-                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Title</th>
-                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Domain</th>
-                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Novelty</th>
-                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Quality</th>
-                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Risk</th>
-                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Flags</th>
-                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Details</th>
-                <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-neutral-300">Actions</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium dark:text-neutral-300 text-neutral-600">Title</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium dark:text-neutral-300 text-neutral-600">Domain</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium dark:text-neutral-300 text-neutral-600">Novelty</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium dark:text-neutral-300 text-neutral-600">Quality</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium dark:text-neutral-300 text-neutral-600">Risk</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium dark:text-neutral-300 text-neutral-600">Flags</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium dark:text-neutral-300 text-neutral-600">Details</th>
+                <th scope="col" className="px-6 py-4 text-left text-sm font-medium dark:text-neutral-300 text-neutral-600">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-800">
               {ideas.map((idea) => (
-                <tr key={idea.id} className="hover:bg-neutral-800/50">
-                  <td className="px-6 py-4 text-sm text-white">{idea.title}</td>
-                  <td className="px-6 py-4 text-sm text-neutral-300">{idea.domain}</td>
-                  <td className="px-6 py-4 text-sm text-neutral-300">{formatScore(idea.novelty_score)}</td>
-                  <td className="px-6 py-4 text-sm text-neutral-300">{formatScore(idea.quality_score)}</td>
+                <tr key={idea.id} className="dark:hover:bg-neutral-800/50 bg-neutral-100">
+                  <td className="px-6 py-4 text-sm dark:text-white text-neutral-900">{idea.title}</td>
+                  <td className="px-6 py-4 text-sm dark:text-neutral-300 text-neutral-600">{idea.domain}</td>
+                  <td className="px-6 py-4 text-sm dark:text-neutral-300 text-neutral-600">{formatScore(idea.novelty_score)}</td>
+                  <td className="px-6 py-4 text-sm dark:text-neutral-300 text-neutral-600">{formatScore(idea.quality_score)}</td>
                   <td className={`px-6 py-4 text-sm ${getRiskColor(idea.hallucination_risk_level)}`}>{idea.hallucination_risk_level}</td>
-                  <td className="px-6 py-4 text-sm text-neutral-300">{formatFeedbackFlags(idea.feedback_summary)}</td>
+                  <td className="px-6 py-4 text-sm dark:text-neutral-300 text-neutral-600">{formatFeedbackFlags(idea.feedback_summary)}</td>
                   <td className="px-6 py-4">
                     <Link
                       to={`/admin/idea/${idea.id}`}
@@ -177,21 +177,21 @@ const AdminReviewQueue = () => {
           {/* Pagination */}
           {meta.pages > 1 && (
             <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-800 bg-neutral-900/50">
-              <span className="text-sm text-neutral-400">
+              <span className="text-sm dark:text-neutral-400 text-neutral-500">
                 Showing {ideas.length} of {meta.total} ideas (Page {meta.page} of {meta.pages})
               </span>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-3 py-1 text-sm rounded border border-neutral-700 text-neutral-300 hover:border-white hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="px-3 py-1 text-sm rounded border border-neutral-700 dark:text-neutral-300 text-neutral-600 hover:border-white dark:hover:text-white text-neutral-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   ← Previous
                 </button>
                 <button
                   onClick={() => setPage(p => p + 1)}
                   disabled={page >= meta.pages}
-                  className="px-3 py-1 text-sm rounded border border-neutral-700 text-neutral-300 hover:border-white hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="px-3 py-1 text-sm rounded border border-neutral-700 dark:text-neutral-300 text-neutral-600 hover:border-white dark:hover:text-white text-neutral-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   Next →
                 </button>

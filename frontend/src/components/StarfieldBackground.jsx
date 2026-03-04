@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useTheme } from '@/context/ThemeContext';
 
 /**
  * GPU-friendly animated starfield with shooting comets.
@@ -6,6 +7,7 @@ import { useEffect, useRef } from 'react';
  */
 const StarfieldBackground = () => {
   const canvasRef = useRef(null);
+  const { theme } = useTheme();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -209,8 +211,8 @@ const StarfieldBackground = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none"
-      style={{ zIndex: 0 }}
+      className="fixed inset-0 pointer-events-none transition-opacity duration-500"
+      style={{ zIndex: 0, opacity: theme === 'dark' ? 1 : 0.15 }}
       aria-hidden="true"
     />
   );

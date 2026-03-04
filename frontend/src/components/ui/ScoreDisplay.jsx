@@ -36,7 +36,7 @@ export function ScoreDisplay({ value, label, size = 'md', className }) {
       title={scoreInterpretation(value)}
     >
       {label && (
-        <span className={cn('text-neutral-400', s.label)}>{label}</span>
+        <span className={cn('dark:text-neutral-400 text-neutral-500', s.label)}>{label}</span>
       )}
       <span className={cn('font-semibold', s.score, scoreColor(value))}>
         {formatScore(value)}

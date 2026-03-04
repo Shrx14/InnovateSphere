@@ -14,7 +14,7 @@ const AdminProtectedRoute = ({ children }) => {
       <div className="min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-950 to-neutral-900 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-neutral-400">Loading...</p>
+          <p className="dark:text-neutral-400 text-neutral-500">Loading...</p>
         </div>
       </div>
     );

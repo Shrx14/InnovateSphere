@@ -1,17 +1,68 @@
 import * as React from 'react';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-const Input = React.forwardRef(({ className, type, ...props }, ref) => {
+const Input = React.forwardRef(({ className, type, label, icon: Icon, ...props }, ref) => {
+  const [focused, setFocused] = React.useState(false);
+  const hasValue = props.value !== undefined ? Boolean(props.value) : false;
+  const showFloating = focused || hasValue;
+
   return (
-    <input
-      type={type}
-      className={cn(
-        'flex h-10 w-full rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-white ring-offset-neutral-950 file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-        className
-      )}
-      ref={ref}
-      {...props}
-    />
+    <div className="relative group">
+      {/* Animated border gradient */}
+      <div className={cn(
+        'absolute -inset-[1px] rounded-xl transition-opacity duration-300',
+        focused
+          ? 'opacity-100 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 blur-[1px]'
+          : 'opacity-0'
+      )} />
+
+      <div className="relative">
+        {Icon && (
+          <Icon className={cn(
+            'absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors duration-200 z-10',
+            focused ? 'text-indigo-400' : 'dark:text-neutral-500 text-neutral-400'
+          )} />
+        )}
+
+        <input
+          type={type}
+          ref={ref}
+          onFocus={(e) => { setFocused(true); props.onFocus?.(e); }}
+          onBlur={(e) => { setFocused(false); props.onBlur?.(e); }}
+          className={cn(
+            'relative w-full rounded-xl dark:bg-neutral-900/80 bg-white/80 backdrop-blur-sm text-sm dark:text-white text-neutral-900',
+            'border dark:border-neutral-700/50 border-neutral-200 outline-none',
+            'transition-all duration-300',
+            'placeholder:dark:text-neutral-500 text-neutral-400',
+            'focus:border-indigo-500/50 focus:bg-neutral-900',
+            'focus:shadow-[0_0_20px_rgba(99,102,241,0.1)]',
+            Icon ? 'pl-10 pr-4' : 'px-4',
+            label ? 'pt-5 pb-2 h-14' : 'py-3 h-12',
+            className,
+          )}
+          {...props}
+        />
+
+        {/* Floating label */}
+        {label && (
+          <motion.label
+            initial={false}
+            animate={{
+              y: showFloating ? -8 : 0,
+              scale: showFloating ? 0.75 : 1,
+              color: focused ? 'rgb(129,140,248)' : 'rgb(115,115,115)',
+            }}
+            className={cn(
+              'absolute top-1/2 -translate-y-1/2 text-sm origin-left pointer-events-none z-10',
+              Icon ? 'left-10' : 'left-4',
+            )}
+          >
+            {label}
+          </motion.label>
+        )}
+      </div>
+    </div>
   );
 });
 Input.displayName = 'Input';
