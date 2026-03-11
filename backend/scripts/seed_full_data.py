@@ -261,10 +261,10 @@ Return a JSON object with EXACTLY these keys:
     "current_gaps": "What existing solutions miss",
     "constraints": ["constraint1", "constraint2", "constraint3"]
   }},
-  "tech_stack": "Comma-separated list of 4-6 technologies",
+  "tech_stack": "Comma-separated list of 4-6 specific technologies (e.g. Python, FastAPI, React, PostgreSQL, TensorFlow — NOT vague categories like AI, ML, Cloud)",
   "tech_stack_json": [
-    {{"name": "Technology1", "role": "What it does in the project", "justification": "Why this tech was chosen"}},
-    {{"name": "Technology2", "role": "What it does", "justification": "Why chosen"}}
+    {{"name": "SpecificLanguageOrFramework", "role": "What it does in the project", "justification": "Why this specific tool was chosen over alternatives"}},
+    {{"name": "AnotherSpecificLibrary", "role": "What it does", "justification": "Why chosen"}}
   ],
   "user_query": "A short 5-10 word search query a user might type to discover this idea"
 }}"""

@@ -201,7 +201,6 @@ def public_idea_detail(idea_id):
                 db.session.rollback()
 
     base = serialize_public_idea(idea)
-    base["view_count"] = idea.view_count
     base["created_at"] = idea.created_at.isoformat()
     base["sources"] = [
         {
@@ -245,10 +244,7 @@ def public_top_ideas():
     )[:10]
 
     return jsonify({
-        "ideas": [
-            {**serialize_public_idea(i), "view_count": i.view_count}
-            for i in ideas
-        ]
+        "ideas": [serialize_public_idea(i) for i in ideas]
     }), 200
 
 

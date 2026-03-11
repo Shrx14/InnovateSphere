@@ -157,12 +157,14 @@ Return STRICT JSON:
       "supported_by": [0, 1]
     }
   ],
-  "tech_stack": {
-    "Technology": {
-      "reason": "Why this technology is used",
+  "tech_stack": [
+    {
+      "component": "Technical category (e.g. Backend, Frontend, ML/AI, Database, DevOps)",
+      "technologies": ["SpecificFramework", "SpecificLibrary"],
+      "rationale": "Why these specific tools",
       "supported_by": [1]
     }
-  },
+  ],
   "scalability": "How the system scales and where it may fail",
   "risks": "Key technical and practical risks",
   "sources": [
@@ -174,6 +176,14 @@ Return STRICT JSON:
     }
   ]
 }
+
+CRITICAL tech_stack rule:
+- "technologies" must list SPECIFIC software: programming languages (Python, Go, Rust, Java),
+  frameworks (FastAPI, Django, Flask, React, Next.js, Express.js), libraries (PyTorch, TensorFlow,
+  scikit-learn, spaCy, LangChain, Pandas), databases (PostgreSQL, MongoDB, Redis, Neo4j),
+  tools (Docker, Kubernetes, Kafka, Celery), or platforms (AWS Lambda, GCP Vertex AI, Vercel).
+- NEVER use vague category names like "AI", "ML", "NLP", "Cloud Services", "Big Data",
+  "Analytics", "IoT", "Blockchain", "APIs" as technology names. These are CATEGORIES, not technologies.
 
 If grounding rules cannot be satisfied, return an EMPTY JSON object.
 """
@@ -252,9 +262,9 @@ Return STRICT JSON:
   ],
   "tech_stack": [
     {{
-      "component": "Component area (e.g. Backend, Frontend, ML Pipeline)",
-      "technologies": ["tech1", "tech2"],
-      "rationale": "Why these technologies"
+      "component": "Technical category (e.g. Backend, Frontend, ML/AI, Database, DevOps, Sensors, Blockchain)",
+      "technologies": ["SpecificLanguageOrFramework", "SpecificLibrary"],
+      "rationale": "Why these specific tools were chosen for this project"
     }}
   ],
   "key_innovations": [
@@ -279,6 +289,11 @@ Rules:
 - Every module and tech choice should be justified
 - source_references should list sources that informed your design
 - Be specific and actionable — modules should be implementable
+- tech_stack "technologies" must list SPECIFIC software: programming languages (Python, Go, Rust, Java),
+  frameworks (FastAPI, Django, Flask, React, Next.js, Express.js), libraries (PyTorch, TensorFlow,
+  scikit-learn, spaCy, LangChain, Pandas), databases (PostgreSQL, MongoDB, Redis, Neo4j),
+  tools (Docker, Kubernetes, Kafka, Celery), or platforms (AWS Lambda, GCP Vertex AI, Vercel).
+  NEVER use vague categories like "AI", "ML", "NLP", "Cloud Services", "Big Data", "Analytics" as technology names.
 """
 
 # Load active prompts from DB
@@ -391,9 +406,9 @@ Create a complete project idea with the following JSON structure:
   "problem_context": "Why this problem matters and current gaps in solutions.",
   "tech_stack": [
     {{
-      "component": "Component name (e.g., Backend, Frontend, Database)",
-      "technologies": ["tech1", "tech2"],
-      "rationale": "Why these technologies were chosen"
+      "component": "Technical category (e.g. Backend, Frontend, ML/AI, Database, DevOps)",
+      "technologies": ["SpecificLanguageOrFramework", "SpecificLibrary"],
+      "rationale": "Why these specific tools were chosen"
     }}
   ],
   "modules": [
@@ -420,6 +435,11 @@ Rules:
 - Be specific and actionable
 - Modules should be implementable
 - Tech stack should be realistic and justified
+- tech_stack "technologies" must list SPECIFIC software: programming languages (Python, Go, Rust, Java),
+  frameworks (FastAPI, Django, Flask, React, Next.js, Express.js), libraries (PyTorch, TensorFlow,
+  scikit-learn, spaCy, LangChain, Pandas), databases (PostgreSQL, MongoDB, Redis, Neo4j),
+  tools (Docker, Kubernetes, Kafka, Celery), or platforms (AWS Lambda, GCP Vertex AI, Vercel).
+  NEVER use vague categories like "AI", "ML", "NLP", "Cloud Services", "Big Data", "Analytics" as technology names.
 """
 
 DIRECT_GENERATION_SYSTEM = (

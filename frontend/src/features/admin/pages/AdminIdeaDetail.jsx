@@ -183,7 +183,32 @@ const AdminIdeaDetail = () => {
           {/* Tech Stack */}
           <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-6">
             <h2 className="text-xl font-medium dark:text-white text-neutral-900 mb-4">Tech Stack</h2>
-            <p className="dark:text-neutral-300 text-neutral-600">{idea.tech_stack}</p>
+            {idea.tech_stack_json && Array.isArray(idea.tech_stack_json) && idea.tech_stack_json.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {idea.tech_stack_json.map((item, idx) => {
+                  const name = item.component || item.name || "Technology";
+                  const techs = item.technologies;
+                  const desc = item.rationale || item.role || "";
+                  const extra = item.justification || "";
+                  return (
+                    <div key={idx} className="rounded-lg border border-neutral-700 bg-neutral-800/50 p-3">
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className="text-sm font-semibold text-purple-300">{name}</span>
+                        {techs && techs.length > 0 && techs.map((t, i) => (
+                          <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                      {desc && <p className="text-xs text-neutral-400 leading-relaxed">{desc}</p>}
+                      {extra && <p className="text-xs text-neutral-500 mt-1 italic">{extra}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="dark:text-neutral-300 text-neutral-600">{idea.tech_stack}</p>
+            )}
           </div>
 
           {/* Evidence Sources with hallucination flagging */}

@@ -92,6 +92,51 @@ from .schemas import validate_generated_idea, validate_hybrid_idea
 from .constraints import build_hitl_constraints, is_rejected_pattern, filter_hallucinated_sources
 
 
+def _build_tech_stack_text(tech_list: List[Dict[str, Any]]) -> str:
+    """Build a human-readable tech stack string from structured JSON.
+    
+    Handles both schema formats:
+      - {component, technologies, rationale}  (hybrid/demo format)
+      - {name, role, justification}           (seed data format)
+    
+    Returns strings like:
+      "Backend: FastAPI, PostgreSQL | ML/AI: PyTorch, scikit-learn"
+    """
+    if not tech_list or not isinstance(tech_list, list):
+        return "Not specified"
+    
+    parts = []
+    for t in tech_list:
+        if not isinstance(t, dict):
+            continue
+        
+        # Hybrid/demo format: {component, technologies, rationale}
+        if "component" in t and "technologies" in t:
+            techs = t.get("technologies", [])
+            if isinstance(techs, list) and techs:
+                parts.append(f"{t['component']}: {', '.join(str(x) for x in techs)}")
+            else:
+                parts.append(t["component"])
+        # Seed/legacy format: {name, role, justification}
+        elif "name" in t:
+            name = t.get("name", "")
+            role = t.get("role", "")
+            if role:
+                parts.append(f"{name} — {role}")
+            else:
+                parts.append(name)
+        # Multi-pass technology_choices format: {technology, role, justification}
+        elif "technology" in t:
+            tech = t.get("technology", "")
+            role = t.get("role", "")
+            if role:
+                parts.append(f"{tech} — {role}")
+            else:
+                parts.append(tech)
+    
+    return (" | ".join(parts))[:500] if parts else "Not specified"
+
+
 # Module-level feasibility estimator (used to populate Phase 0 bounds)
 def estimate_feasibility_module(query: str, domain: str, sources: List[Dict[str, Any]], novelty: Dict[str, Any]) -> Dict[str, Any]:
     source_count = max(0, len(sources))
@@ -590,10 +635,7 @@ def generate_hybrid(
 
         tech_stack_list = parsed_dict.get("tech_stack", [])
         if isinstance(tech_stack_list, list):
-            tech_stack_str = ", ".join(
-                t.get("component", "") if isinstance(t, dict) else str(t)
-                for t in tech_stack_list
-            )[:500]
+            tech_stack_str = _build_tech_stack_text(tech_stack_list)
         else:
             tech_stack_str = str(tech_stack_list)[:500]
 
@@ -1091,16 +1133,28 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
         problem_form = parsed.get("problem_formulation", {})
         problem_statement = problem_form.get("context", "No problem statement provided")
         
-        # Build tech stack safely
-        tech_choices = parsed.get("technology_choices", [])
-        tech_stack = ", ".join(t.get("technology", "Unknown") for t in tech_choices if isinstance(t, dict)) if tech_choices else "Not specified"
+        # Build tech stack safely — Pass 4 now returns array format
+        tech_choices = parsed.get("tech_stack", parsed.get("technology_choices", []))
+        if isinstance(tech_choices, list):
+            tech_stack = _build_tech_stack_text(tech_choices)
+            tech_stack_json = tech_choices
+        elif isinstance(tech_choices, dict):
+            # Legacy dict format: {"Technology": {"reason": ...}}
+            tech_stack_json = [
+                {"component": "Technology", "technologies": [k], "rationale": v.get("reason", "") if isinstance(v, dict) else str(v)}
+                for k, v in tech_choices.items()
+            ]
+            tech_stack = _build_tech_stack_text(tech_stack_json)
+        else:
+            tech_stack = "Not specified"
+            tech_stack_json = []
         
         idea = ProjectIdea(
             title=title,
             problem_statement=problem_statement,
             problem_statement_json=problem_form,
             tech_stack=tech_stack,
-            tech_stack_json=tech_choices,
+            tech_stack_json=tech_stack_json,
             domain_id=domain_id,
             ai_pipeline_version=get_active_ai_pipeline_version(),
             is_ai_generated=True,

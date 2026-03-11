@@ -139,9 +139,40 @@ const GeneratePage = () => {
                       <p className="text-xs dark:text-neutral-400 text-neutral-500 uppercase tracking-widest font-semibold">
                         Suggested Tech Stack
                       </p>
-                      <p className="text-base dark:text-neutral-300 text-neutral-600 leading-relaxed">
-                        {gen.result.tech_stack}
-                      </p>
+                      {(() => {
+                        const tsJson = gen.result.idea?.tech_stack_json || gen.result.tech_stack_json;
+                        if (tsJson && Array.isArray(tsJson) && tsJson.length > 0) {
+                          return (
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              {tsJson.map((item, idx) => {
+                                const name = item.component || item.name || "Technology";
+                                const techs = item.technologies;
+                                const desc = item.rationale || item.role || "";
+                                const extra = item.justification || "";
+                                return (
+                                  <div key={idx} className="rounded-lg border dark:border-neutral-700 border-neutral-200 dark:bg-neutral-800/50 bg-neutral-50 p-3">
+                                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                      <span className="text-sm font-semibold text-indigo-400">{name}</span>
+                                      {techs && techs.length > 0 && techs.map((t, i) => (
+                                        <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                          {t}
+                                        </span>
+                                      ))}
+                                    </div>
+                                    {desc && <p className="text-xs dark:text-neutral-400 text-neutral-500 leading-relaxed">{desc}</p>}
+                                    {extra && <p className="text-xs dark:text-neutral-500 text-neutral-400 mt-1 italic">{extra}</p>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        }
+                        return (
+                          <p className="text-base dark:text-neutral-300 text-neutral-600 leading-relaxed">
+                            {gen.result.tech_stack}
+                          </p>
+                        );
+                      })()}
                     </div>
                   </div>
 
