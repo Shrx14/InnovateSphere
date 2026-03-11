@@ -21,10 +21,10 @@ const Textarea = React.forwardRef(({ className, label, ...props }, ref) => {
           onFocus={(e) => { setFocused(true); props.onFocus?.(e); }}
           onBlur={(e) => { setFocused(false); props.onBlur?.(e); }}
           className={cn(
-            'relative w-full rounded-xl dark:bg-neutral-900/80 bg-white/80 backdrop-blur-sm text-sm dark:text-white text-neutral-900',
-            'border dark:border-neutral-700/50 border-neutral-200 outline-none',
+            'relative w-full rounded-xl bg-neutral-900/80 backdrop-blur-sm text-sm text-white
+            'border border-neutral-700/50 outline-none',
             'transition-all duration-300 min-h-[120px]',
-            'placeholder:dark:text-neutral-500 text-neutral-400',
+            'placeholder:text-neutral-500
             'focus:border-indigo-500/50 focus:bg-neutral-900',
             'focus:shadow-[0_0_20px_rgba(99,102,241,0.1)]',
             'px-4 py-3',

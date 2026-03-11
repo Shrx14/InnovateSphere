@@ -62,13 +62,13 @@ const SourcesList = ({ sources, evidenceBreakdown }) => {
       </div>
       
       {source.relevance_explanation && (
-        <p className="text-xs dark:text-neutral-400 text-neutral-500 mt-2 italic">
+        <p className="text-xs text-neutral-400 mt-2 italic">
           {source.relevance_explanation}
         </p>
       )}
       
       {source.summary && (
-        <p className="text-xs dark:text-neutral-500 text-neutral-400 mt-2 line-clamp-2 leading-relaxed">
+        <p className="text-xs text-neutral-500 mt-2 line-clamp-2 leading-relaxed">
           {source.summary}
         </p>
       )}
@@ -84,14 +84,14 @@ const SourcesList = ({ sources, evidenceBreakdown }) => {
             <span className="text-lg font-bold" style={{ color: tierConfig.supporting.color }}>
               {tierConfig.supporting.icon}
             </span>
-            <h3 className="text-sm font-semibold dark:text-white text-neutral-900 flex-1">
+            <h3 className="text-sm font-semibold text-white flex-1">
               {tierConfig.supporting.label}
             </h3>
-            <span className="text-xs px-2 py-1 bg-white/10 rounded-full font-semibold dark:text-white text-neutral-900">
+            <span className="text-xs px-2 py-1 bg-white/10 rounded-full font-semibold text-white
               {sourcesByTier.supporting.length}
             </span>
           </div>
-          <p className="text-xs dark:text-neutral-400 text-neutral-500 mb-3 italic">
+          <p className="text-xs text-neutral-400 mb-3 italic">
             {tierConfig.supporting.description}
           </p>
           <div className="space-y-2">
@@ -107,14 +107,14 @@ const SourcesList = ({ sources, evidenceBreakdown }) => {
             <span className="text-lg font-bold" style={{ color: tierConfig.contextual.color }}>
               {tierConfig.contextual.icon}
             </span>
-            <h3 className="text-sm font-semibold dark:text-white text-neutral-900 flex-1">
+            <h3 className="text-sm font-semibold text-white flex-1">
               {tierConfig.contextual.label}
             </h3>
-            <span className="text-xs px-2 py-1 bg-white/10 rounded-full font-semibold dark:text-white text-neutral-900">
+            <span className="text-xs px-2 py-1 bg-white/10 rounded-full font-semibold text-white
               {sourcesByTier.contextual.length}
             </span>
           </summary>
-          <p className="text-xs dark:text-neutral-400 text-neutral-500 mt-2 mb-3 italic">
+          <p className="text-xs text-neutral-400 mt-2 mb-3 italic">
             {tierConfig.contextual.description}
           </p>
           <div className="space-y-2 mt-3">
@@ -133,17 +133,17 @@ const SourcesList = ({ sources, evidenceBreakdown }) => {
             <span className="text-lg font-bold" style={{ color: tierConfig.peripheral.color }}>
               {showPeripheral ? '−' : '+'}
             </span>
-            <h3 className="text-sm font-semibold dark:text-neutral-400 text-neutral-500 flex-1">
+            <h3 className="text-sm font-semibold text-neutral-400 flex-1">
               {tierConfig.peripheral.label}
             </h3>
-            <span className="text-xs px-2 py-1 bg-white/10 rounded-full font-semibold dark:text-neutral-400 text-neutral-500">
+            <span className="text-xs px-2 py-1 bg-white/10 rounded-full font-semibold text-neutral-400
               {sourcesByTier.peripheral.length}
             </span>
           </button>
           
           {showPeripheral && (
             <>
-              <p className="text-xs dark:text-neutral-500 text-neutral-400 mt-2 mb-3 italic">
+              <p className="text-xs text-neutral-500 mt-2 mb-3 italic">
                 {tierConfig.peripheral.description}
               </p>
               <div className="space-y-2 mt-3">
@@ -157,10 +157,10 @@ const SourcesList = ({ sources, evidenceBreakdown }) => {
       {/* Evidence breakdown summary */}
       {evidenceBreakdown && (
         <div className="p-3 bg-white/5 rounded border border-white/10 text-center">
-          <p className="text-xs dark:text-neutral-400 text-neutral-500">
+          <p className="text-xs text-neutral-400
             <span className="text-emerald-400 font-semibold">{evidenceBreakdown.supporting || 0}</span> supporting •{' '}
             <span className="text-amber-400 font-semibold">{evidenceBreakdown.contextual || 0}</span> contextual •{' '}
-            <span className="dark:text-neutral-500 text-neutral-400 font-semibold">{evidenceBreakdown.peripheral || 0}</span> peripheral
+            <span className="text-neutral-500 font-semibold">{evidenceBreakdown.peripheral || 0}</span> peripheral
           </p>
         </div>
       )}

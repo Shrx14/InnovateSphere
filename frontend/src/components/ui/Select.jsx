@@ -52,13 +52,13 @@ const Select = ({
                 onClick={() => setOpen((prev) => !prev)}
                 className={cn(
                     'w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl text-sm transition-all duration-200',
-                    'dark:bg-neutral-900/80 bg-white/80 border backdrop-blur-sm',
+                    'bg-neutral-900/80 border backdrop-blur-sm',
                     'focus:outline-none',
                     open
                         ? 'border-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.15)]'
-                        : 'dark:border-neutral-700/50 border-neutral-200 hover:border-neutral-600',
+                        : 'border-neutral-700/50 hover:border-neutral-600',
                     disabled && 'opacity-50 cursor-not-allowed',
-                    value ? 'dark:text-white text-neutral-900' : 'text-neutral-400'
+                    value ? 'text-white : 'text-neutral-400'
                 )}
             >
                 <span className="truncate">{displayLabel}</span>
@@ -78,7 +78,7 @@ const Select = ({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -8, scale: 0.96 }}
                         transition={{ duration: 0.15, ease: 'easeOut' }}
-                        className="absolute z-50 mt-2 w-full rounded-xl border dark:border-neutral-700/50 border-neutral-200 dark:bg-neutral-900/95 bg-white/95 backdrop-blur-xl shadow-2xl dark:shadow-black/40 shadow-black/10 overflow-hidden"
+                        className="absolute z-50 mt-2 w-full rounded-xl border border-neutral-700/50 bg-neutral-900/95 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden"
                     >
                         <div className="max-h-64 overflow-y-auto py-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-neutral-700">
                             {options.map((opt) => {
@@ -98,7 +98,7 @@ const Select = ({
                                             'w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors duration-100',
                                             isSelected
                                                 ? 'bg-indigo-500/15 text-indigo-500 dark:text-indigo-300'
-                                                : 'dark:text-neutral-300 text-neutral-600 dark:hover:bg-neutral-800/60 hover:bg-neutral-100 dark:hover:text-white hover:text-neutral-900'
+                                                : 'text-neutral-300 hover:bg-neutral-800/60 hover:text-white
                                         )}
                                     >
                                         <span className="flex-1 truncate">{optLabel}</span>

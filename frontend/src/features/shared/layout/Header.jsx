@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import ProfileDropdown from '../../../components/ProfileDropdown';
 
@@ -26,7 +26,7 @@ const Header = () => {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
       className={`sticky top-0 z-50 transition-all duration-300 ${scrolled
-        ? 'dark:bg-neutral-950/80 bg-white/80 backdrop-blur-xl border-b dark:border-neutral-800/60 border-neutral-200 shadow-lg dark:shadow-black/20 shadow-black/5'
+        ? 'bg-neutral-950/80 backdrop-blur-xl border-b border-neutral-800/60 shadow-lg shadow-black/20'
         : 'bg-transparent border-b border-transparent'
         }`}
     >
@@ -47,14 +47,14 @@ const Header = () => {
           >
             <Sparkles className="w-4 h-4 text-white" />
           </motion.div>
-          <span className="text-sm font-semibold tracking-wide bg-gradient-to-r dark:from-neutral-100 dark:to-neutral-400 from-neutral-700 to-neutral-500 bg-clip-text text-transparent group-hover:from-indigo-300 group-hover:to-purple-300 transition-all duration-300">
+          <span className="text-sm font-semibold tracking-wide bg-gradient-to-r from-neutral-100 to-neutral-400 bg-clip-text text-transparent group-hover:from-indigo-300 group-hover:to-purple-300 transition-all duration-300">
             InnovateSphere
           </span>
         </Link>
 
         {/* Mobile hamburger */}
         <button
-          className="md:hidden dark:text-neutral-400 text-neutral-500 dark:hover:text-neutral-200 hover:text-neutral-800 transition"
+          className="md:hidden text-neutral-400 hover:text-neutral-200 transition"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label="Toggle navigation"
           aria-expanded={mobileOpen}
@@ -76,7 +76,7 @@ const Header = () => {
                 to="/explore"
                 className={`relative px-4 py-2 rounded-lg transition-all duration-200 ${isActive('/explore')
                   ? 'text-indigo-300 bg-indigo-500/10'
-                  : 'dark:text-neutral-400 text-neutral-500 dark:hover:text-neutral-100 hover:text-neutral-900 dark:hover:bg-white/5 hover:bg-neutral-100'
+                  : 'text-neutral-400 hover:text-neutral-100 hover:bg-white/5'
                   }`}
               >
                 Explore
@@ -95,7 +95,7 @@ const Header = () => {
                     to="/user/dashboard"
                     className={`relative px-4 py-2 rounded-lg transition-all duration-200 ${isActive('/user/dashboard')
                       ? 'text-indigo-300 bg-indigo-500/10'
-                      : 'dark:text-neutral-400 text-neutral-500 dark:hover:text-neutral-100 hover:text-neutral-900 dark:hover:bg-white/5 hover:bg-neutral-100'
+                      : 'text-neutral-400 hover:text-neutral-100 hover:bg-white/5'
                       }`}
                   >
                     Dashboard
@@ -118,7 +118,7 @@ const Header = () => {
                     to="/login"
                     className={`px-4 py-2 rounded-lg transition-all duration-200 ${isActive('/login')
                       ? 'text-indigo-300 bg-indigo-500/10'
-                      : 'dark:text-neutral-400 text-neutral-500 dark:hover:text-neutral-100 hover:text-neutral-900 dark:hover:bg-white/5 hover:bg-neutral-100'
+                      : 'text-neutral-400 hover:text-neutral-100 hover:bg-white/5'
                       }`}
                   >
                     Sign in
@@ -127,7 +127,7 @@ const Header = () => {
                 <li>
                   <Link
                     to="/register"
-                    className="relative px-4 py-2 rounded-lg dark:text-white text-neutral-900 font-medium overflow-hidden group transition-all duration-300"
+                    className="relative px-4 py-2 rounded-lg text-white font-medium overflow-hidden group transition-all duration-300"
                     style={{
                       background: 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(139,92,246,0.2) 100%)',
                       border: '1px solid rgba(99,102,241,0.3)',
@@ -156,7 +156,7 @@ const Header = () => {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="md:hidden border-t dark:border-neutral-800/60 border-neutral-200 bg-neutral-950/95 backdrop-blur-xl overflow-hidden"
+            className="md:hidden border-t border-neutral-800/60 bg-neutral-950/95 backdrop-blur-xl overflow-hidden"
             aria-label="Mobile navigation"
           >
             <ul className="flex flex-col gap-1 px-6 py-4 text-sm">
@@ -164,7 +164,7 @@ const Header = () => {
                 <Link
                   to="/explore"
                   onClick={() => setMobileOpen(false)}
-                  className={`block py-2.5 px-3 rounded-lg transition ${isActive('/explore') ? 'text-indigo-300 bg-indigo-500/10' : 'dark:text-neutral-400 text-neutral-500 dark:hover:text-neutral-200 hover:text-neutral-800 dark:hover:bg-white/5 hover:bg-neutral-100'
+                  className={`block py-2.5 px-3 rounded-lg transition ${isActive('/explore') ? 'text-indigo-300 bg-indigo-500/10' : 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5'
                     }`}
                 >
                   Explore
@@ -182,7 +182,7 @@ const Header = () => {
                       <Link
                         to={to}
                         onClick={() => setMobileOpen(false)}
-                        className={`block py-2.5 px-3 rounded-lg transition ${isActive(to) ? 'text-indigo-300 bg-indigo-500/10' : 'dark:text-neutral-400 text-neutral-500 dark:hover:text-neutral-200 hover:text-neutral-800 dark:hover:bg-white/5 hover:bg-neutral-100'}`}
+                        className={`block py-2.5 px-3 rounded-lg transition ${isActive(to) ? 'text-indigo-300 bg-indigo-500/10' : 'text-neutral-400 hover:text-neutral-200 hover:bg-white/5'}`}
                       >
                         {label}
                       </Link>
@@ -191,7 +191,7 @@ const Header = () => {
                   <li>
                     <button
                       onClick={() => { logout(); setMobileOpen(false); }}
-                      className="block py-2.5 px-3 rounded-lg text-red-400 hover:text-red-300 dark:hover:bg-white/5 hover:bg-neutral-50 transition w-full text-left"
+                      className="block py-2.5 px-3 rounded-lg text-red-400 hover:text-red-300 hover:bg-white/5 transition w-full text-left"
                     >
                       Logout
                     </button>
@@ -200,7 +200,7 @@ const Header = () => {
               ) : (
                 <>
                   <li>
-                    <Link to="/login" onClick={() => setMobileOpen(false)} className="block py-2.5 px-3 rounded-lg dark:text-neutral-400 text-neutral-500 dark:hover:text-neutral-200 hover:text-neutral-800 dark:hover:bg-white/5 hover:bg-neutral-100 transition">
+                    <Link to="/login" onClick={() => setMobileOpen(false)} className="block py-2.5 px-3 rounded-lg text-neutral-400 hover:text-neutral-200 hover:bg-white/5 transition">
                       Sign in
                     </Link>
                   </li>

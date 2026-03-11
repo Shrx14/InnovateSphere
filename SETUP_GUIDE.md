@@ -203,7 +203,7 @@ FLASK_DEBUG=1
 
 # LLM CONFIG (Ollama - free local)
 LLM_PROVIDER=ollama
-LLM_MODEL_NAME=phi3:mini
+LLM_MODEL_NAME=qwen2.5:7b
 OLLAMA_BASE_URL=http://localhost:11434
 LLM_STARTUP_HARD_FAIL=false
 
@@ -356,7 +356,7 @@ npm install
 
 **API connection error:**
 - Check backend is running on :5000
-- Check REACT_APP_API_URL in .env.local
+- Check VITE_API_URL in .env
 - Check CORS_ORIGINS in backend/.env
 
 **Styling not loading:**
@@ -898,7 +898,7 @@ curl http://localhost:11434/api/tags
 ```bash
 # Use smaller model
 # backend/.env:
-LLM_MODEL_NAME=phi3:mini
+LLM_MODEL_NAME=qwen2.5:3b
 
 # Or use CPU only
 # Stop Ollama and restart

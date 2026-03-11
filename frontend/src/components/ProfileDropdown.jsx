@@ -61,10 +61,10 @@ const ProfileDropdown = () => {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: -4 }}
                         transition={{ duration: 0.15, ease: 'easeOut' }}
-                        className="absolute right-0 mt-2 w-64 rounded-xl overflow-hidden shadow-xl dark:shadow-black/40 shadow-black/10 border dark:border-neutral-800 border-neutral-200 dark:bg-neutral-900 bg-white z-[100]"
+                        className="absolute right-0 mt-2 w-64 rounded-xl overflow-hidden shadow-xl shadow-black/40 border border-neutral-800 dark:bg-neutral-900 bg-white z-[100]"
                     >
                         {/* User info header */}
-                        <div className="px-4 py-3 border-b dark:border-neutral-800 border-neutral-100">
+                        <div className="px-4 py-3 border-b border-neutral-800
                             <div className="flex items-center gap-3">
                                 <div
                                     className="flex items-center justify-center w-10 h-10 rounded-full text-white text-sm font-semibold shrink-0"
@@ -75,10 +75,10 @@ const ProfileDropdown = () => {
                                     {initial}
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-sm font-medium dark:text-neutral-100 text-neutral-900 truncate">
+                                    <p className="text-sm font-medium text-neutral-100 truncate">
                                         {user?.email || 'User'}
                                     </p>
-                                    <p className="text-xs dark:text-neutral-500 text-neutral-400 capitalize">
+                                    <p className="text-xs text-neutral-500 capitalize">
                                         {user?.role || 'member'}
                                     </p>
                                 </div>
@@ -92,22 +92,22 @@ const ProfileDropdown = () => {
                                     key={to}
                                     to={to}
                                     onClick={() => setOpen(false)}
-                                    className="flex items-center gap-3 px-4 py-2.5 text-sm dark:text-neutral-300 text-neutral-600 dark:hover:text-white hover:text-neutral-900 dark:hover:bg-white/5 hover:bg-neutral-50 transition-colors duration-150"
+                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-300 hover:text-white hover:bg-white/5 transition-colors duration-150"
                                 >
-                                    <Icon className="w-4 h-4 dark:text-neutral-500 text-neutral-400" />
+                                    <Icon className="w-4 h-4 text-neutral-500 />
                                     {label}
                                 </Link>
                             ))}
                         </div>
 
                         {/* Logout */}
-                        <div className="border-t dark:border-neutral-800 border-neutral-100 py-1.5">
+                        <div className="border-t border-neutral-800 py-1.5">
                             <button
                                 onClick={() => {
                                     setOpen(false);
                                     logout();
                                 }}
-                                className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-400 hover:text-red-300 dark:hover:bg-white/5 hover:bg-neutral-50 transition-colors duration-150"
+                                className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-white/5 transition-colors duration-150"
                             >
                                 <LogOut className="w-4 h-4" />
                                 Logout

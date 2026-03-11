@@ -5,7 +5,7 @@ import StarfieldBackground from "@/components/StarfieldBackground";
 
 const UserShell = ({ children }) => {
   return (
-    <div className="min-h-screen dark:text-white text-neutral-900 relative flex flex-col" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+    <div className="min-h-screen text-white relative flex flex-col" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
       <StarfieldBackground />
 
       <UserNav />

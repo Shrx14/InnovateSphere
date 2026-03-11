@@ -12,4 +12,5 @@ node_modules/
 .vscode/
 backend/.env
 frontend/.env
+frontend/build/
 #instance/

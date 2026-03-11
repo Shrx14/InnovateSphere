@@ -20,7 +20,7 @@ const GeneratePage = () => {
   const gen = useGeneration();
 
   return (
-    <div className="min-h-screen dark:bg-neutral-950/0">
+    <div className="min-h-screen">
       <div className="max-w-4xl mx-auto px-6 py-12 md:py-20">
         {/* Header */}
         <motion.div
@@ -29,10 +29,10 @@ const GeneratePage = () => {
           animate="visible"
           className="mb-12 md:mb-16"
         >
-          <h1 className="text-5xl md:text-6xl font-light dark:text-white text-neutral-900 mb-4">
+          <h1 className="text-5xl md:text-6xl font-light text-white mb-4">
             Generate Idea
           </h1>
-          <p className="text-xl dark:text-neutral-300 text-neutral-600">
+          <p className="text-xl text-neutral-300
             Create innovative project ideas evaluated with research evidence and real-time novelty scoring.
           </p>
         </motion.div>
@@ -69,7 +69,7 @@ const GeneratePage = () => {
                           variants={fadeIn}
                           initial="hidden"
                           animate="visible"
-                          className="flex items-center gap-2 text-sm dark:text-neutral-400 text-neutral-500"
+                          className="flex items-center gap-2 text-sm text-neutral-400
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                           Found {gen.sourcesCount} relevant sources
@@ -80,7 +80,7 @@ const GeneratePage = () => {
                           variants={fadeIn}
                           initial="hidden"
                           animate="visible"
-                          className="flex items-center gap-2 text-sm dark:text-neutral-400 text-neutral-500"
+                          className="flex items-center gap-2 text-sm text-neutral-400
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
                           Novelty: {formatScore(gen.noveltyScore)}/10
@@ -121,7 +121,7 @@ const GeneratePage = () => {
                   </Badge>
 
                   {/* Title */}
-                  <h2 className="text-3xl md:text-4xl font-bold dark:text-white text-neutral-900 leading-tight">
+                  <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight">
                     {gen.result.title}
                   </h2>
 
@@ -131,12 +131,12 @@ const GeneratePage = () => {
                       <p className="text-xs text-indigo-400 uppercase tracking-widest font-semibold">
                         Problem Statement
                       </p>
-                      <p className="text-base dark:text-neutral-300 text-neutral-600 leading-relaxed">
+                      <p className="text-base text-neutral-300 leading-relaxed">
                         {gen.result.problem_statement}
                       </p>
                     </div>
                     <div className="space-y-3">
-                      <p className="text-xs dark:text-neutral-400 text-neutral-500 uppercase tracking-widest font-semibold">
+                      <p className="text-xs text-neutral-400 uppercase tracking-widest font-semibold">
                         Suggested Tech Stack
                       </p>
                       {(() => {
@@ -150,7 +150,7 @@ const GeneratePage = () => {
                                 const desc = item.rationale || item.role || "";
                                 const extra = item.justification || "";
                                 return (
-                                  <div key={idx} className="rounded-lg border dark:border-neutral-700 border-neutral-200 dark:bg-neutral-800/50 bg-neutral-50 p-3">
+                                  <div key={idx} className="rounded-lg border border-neutral-700 bg-neutral-800/50 p-3">
                                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                                       <span className="text-sm font-semibold text-indigo-400">{name}</span>
                                       {techs && techs.length > 0 && techs.map((t, i) => (
@@ -159,8 +159,8 @@ const GeneratePage = () => {
                                         </span>
                                       ))}
                                     </div>
-                                    {desc && <p className="text-xs dark:text-neutral-400 text-neutral-500 leading-relaxed">{desc}</p>}
-                                    {extra && <p className="text-xs dark:text-neutral-500 text-neutral-400 mt-1 italic">{extra}</p>}
+                                    {desc && <p className="text-xs text-neutral-400 leading-relaxed">{desc}</p>}
+                                    {extra && <p className="text-xs text-neutral-500 mt-1 italic">{extra}</p>}
                                   </div>
                                 );
                               })}
@@ -168,7 +168,7 @@ const GeneratePage = () => {
                           );
                         }
                         return (
-                          <p className="text-base dark:text-neutral-300 text-neutral-600 leading-relaxed">
+                          <p className="text-base text-neutral-300 leading-relaxed">
                             {gen.result.tech_stack}
                           </p>
                         );
@@ -177,7 +177,7 @@ const GeneratePage = () => {
                   </div>
 
                   {/* Divider */}
-                  <div className="h-px dark:bg-neutral-800 bg-neutral-100" />
+                  <div className="h-px bg-neutral-800 />
 
                   {/* Metrics */}
                   <motion.div
@@ -188,10 +188,10 @@ const GeneratePage = () => {
                   >
                     <motion.div variants={fadeIn}>
                       <Card className="p-4 text-center bg-neutral-900/50">
-                        <div className="text-lg font-bold dark:text-white text-neutral-900 mb-1">
+                        <div className="text-lg font-bold text-white mb-1">
                           {gen.result.domain}
                         </div>
-                        <p className="text-xs dark:text-neutral-500 text-neutral-400">Domain</p>
+                        <p className="text-xs text-neutral-500
                       </Card>
                     </motion.div>
                     <motion.div variants={fadeIn}>
@@ -207,7 +207,7 @@ const GeneratePage = () => {
                     <motion.div variants={fadeIn}>
                       <Card className="p-4 text-center bg-neutral-900/50">
                         <div className="text-lg font-bold text-emerald-400 mb-1">Saved</div>
-                        <p className="text-xs dark:text-neutral-500 text-neutral-400">Status</p>
+                        <p className="text-xs text-neutral-500
                       </Card>
                     </motion.div>
                   </motion.div>
@@ -274,7 +274,7 @@ const GeneratePage = () => {
             >
               {/* Domain Selection Grid */}
               <div>
-                <label className="block text-sm font-semibold dark:text-neutral-300 text-neutral-600 mb-4 uppercase tracking-wide">
+                <label className="block text-sm font-semibold text-neutral-300 mb-4 uppercase tracking-wide">
                   Select Domain
                 </label>
                 {gen.domainsLoading ? (
@@ -300,8 +300,8 @@ const GeneratePage = () => {
                         className={cn(
                           'rounded-2xl border p-4 transition-colors text-center glow-border',
                           gen.selectedDomainId === String(domain.id)
-                            ? 'bg-indigo-500/15 border-indigo-500/40 dark:text-white text-neutral-900 shadow-lg shadow-indigo-500/10'
-                            : 'bg-neutral-900 border-neutral-800 dark:text-neutral-300 text-neutral-600 dark:hover:bg-neutral-800 hover:bg-neutral-100 hover:border-neutral-700'
+                            ? 'bg-indigo-500/15 border-indigo-500/40 text-white shadow-lg shadow-indigo-500/10'
+                            : 'bg-neutral-900 border-neutral-800 text-neutral-300 hover:bg-neutral-800 hover:border-neutral-700'
                         )}
                       >
                         <div className="text-sm font-medium truncate">{domain.name}</div>
@@ -315,7 +315,7 @@ const GeneratePage = () => {
               <Card className="p-8 md:p-12 glow-border">
                 <CardContent className="space-y-6">
                   <div>
-                    <label className="block text-sm font-semibold dark:text-neutral-300 text-neutral-600 mb-3 uppercase tracking-wide">
+                    <label className="block text-sm font-semibold text-neutral-300 mb-3 uppercase tracking-wide">
                       Describe Your Idea
                     </label>
                     <Textarea
@@ -326,12 +326,12 @@ const GeneratePage = () => {
                       className="resize-none"
                     />
                     <div className="flex justify-between items-center mt-2">
-                      <p className="text-xs dark:text-neutral-500 text-neutral-400">
+                      <p className="text-xs text-neutral-500
                         Be specific about the problem you're solving
                       </p>
                       <p className={cn(
                         'text-xs font-medium',
-                        gen.query.length > 1800 ? 'text-yellow-400' : 'dark:text-neutral-500 text-neutral-400'
+                        gen.query.length > 1800 ? 'text-yellow-400' : 'text-neutral-500
                       )}>
                         {gen.query.length}/2000
                       </p>

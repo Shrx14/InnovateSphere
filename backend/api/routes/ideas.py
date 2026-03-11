@@ -335,7 +335,7 @@ def my_ideas():
             joinedload(ProjectIdea.admin_verdict),
         )
         .join(IdeaRequest, IdeaRequest.idea_id == ProjectIdea.id)
-        .join(Domain, Domain.id == ProjectIdea.domain_id)
+        .outerjoin(Domain, Domain.id == ProjectIdea.domain_id)
         .outerjoin(AdminVerdict)
         .filter(IdeaRequest.user_id == user_id)
         .order_by(ProjectIdea.created_at.desc())

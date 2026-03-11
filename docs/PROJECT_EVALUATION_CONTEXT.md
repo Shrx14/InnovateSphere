@@ -34,7 +34,7 @@ InnovateSphere is an AI-powered full-stack web application for generating and ex
 
 | Component | Technology | Version | Purpose |
 |-----------|------------|---------|---------|
-| Language | Python | 3.9+ | Primary language |
+| Language | Python | 3.10+ | Primary language |
 | Framework | Flask | 2.3.3 | Web framework |
 | ORM | Flask-SQLAlchemy | 3.0.5 | Database ORM |
 | Database | PostgreSQL | 13+ | Primary database |
@@ -46,10 +46,6 @@ InnovateSphere is an AI-powered full-stack web application for generating and ex
 | Caching | Flask-Caching | 2.1.0+ | Response caching |
 | Rate Limiting | Flask-Limiter | 4.1.0+ | API rate limiting |
 | Embeddings | Sentence Transformers | 2.2.2 | Text embeddings |
-| NLP | Transformers | 4.33.3 | NLP pipeline |
-| ML Framework | PyTorch | 2.2.1 | Deep learning |
-| LLM Orchestration | LangChain | 0.1.16 | LLM chaining |
-| LLM Community | LangChain Community | 0.0.32 | LLM providers |
 | Academic Search | arxiv | 1.4.4 | arXiv API client |
 | HTTP Client | requests | 2.28.0+ | HTTP requests |
 | Validation | Pydantic | 2.0.0+ | Data validation |
@@ -177,7 +173,7 @@ graph TD
     
     GenPage --> Submit["POST /api/ideas/generate<br/>- Multi-pass LLM Pipeline"]
     
-    Submit --> Processing["⚙️ Generation Processing<br/>- Retrieval (arXiv + GitHub)<br/>- 4-Pass LLM Analysis<br/>- Novelty + Quality Scoring"]
+    Submit --> Processing["⚙️ Generation Processing<br/>- Retrieval (arXiv + GitHub)<br/>- 2-Pass Hybrid LLM Analysis<br/>- Quality Scoring"]
     
     Processing --> Success["✅ Idea Generated<br/>- Full Details + Sources<br/>- Novelty/Quality Scores"]
     
@@ -308,7 +304,7 @@ graph TD
     
     OpenAI --> LLM
     
-    Prompts --> Pipeline["4-Pass Pipeline<br/>- HITL Constraints Injection<br/>- Bias Profile Application<br/>- Source Penalty Weighting"]
+    Prompts --> Pipeline["Generation Pipeline<br/>- Hybrid 2-Pass (Active Default)<br/>- HITL Constraints Injection<br/>- Bias Profile Application<br/>- Source Penalty Weighting<br/>- 4-Pass Production (Theoretical)"]
     
     Pipeline --> Output["Structured JSON Output<br/>- Problem Statement<br/>- Tech Stack<br/>- Evidence Sources<br/>- Novelty Positioning"]
 ```

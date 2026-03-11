@@ -11,11 +11,11 @@ AI-powered research idea generation platform with evidence-grounded pipelines, h
 
 ### Generation Pipeline
 
-| Mode | Passes | Evidence | Novelty | Use Case |
-|------|--------|----------|---------|----------|
-| Demo | 1-pass | Minimal | Skipped | Fast demos |
-| Hybrid | 2-pass | Live retrieval (arXiv + GitHub) | Skipped | Daily usage |
-| Production | 4-pass | Full retrieval + validation | Full analysis | Research-grade |
+| Mode | Passes | Evidence | Novelty | Use Case | Status |
+|------|--------|----------|---------|----------|--------|
+| Demo | 1-pass | Minimal | Skipped | Fast demos | Active |
+| Hybrid | 2-pass | Live retrieval (arXiv + GitHub) | Skipped | Daily usage | **Active (default)** |
+| Production | 4-pass | Full retrieval + validation | Full analysis | Research-grade | Theoretical |
 
 ## Features
 

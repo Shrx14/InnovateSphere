@@ -44,7 +44,7 @@ const NotFoundPage = () => (
     <div className="text-center max-w-md">
       <h1 className="text-7xl font-bold text-indigo-500 mb-4">404</h1>
       <h2 className="text-2xl font-light mb-4" style={{ color: 'var(--text-primary)' }}>Page not found</h2>
-      <p className="dark:text-neutral-400 text-neutral-500 dark:text-neutral-400 mb-8">The page you&apos;re looking for doesn&apos;t exist or has been moved.</p>
+      <p className="text-neutral-400 mb-8">The page you&apos;re looking for doesn&apos;t exist or has been moved.</p>
       <a href="/" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition">
         Go Home
       </a>

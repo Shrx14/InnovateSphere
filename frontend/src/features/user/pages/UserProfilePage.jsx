@@ -80,23 +80,23 @@ export default function UserProfilePage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen dark:bg-neutral-950/0">
+            <div className="min-h-screen bg-neutral-950/0">
                 <div className="max-w-2xl mx-auto px-6 py-12 md:py-20">
-                    <div className="h-10 w-48 dark:bg-neutral-800 bg-neutral-100 rounded-lg mb-8" />
-                    <div className="h-64 dark:bg-neutral-800 bg-neutral-100 rounded-2xl" />
+                    <div className="h-10 w-48 bg-neutral-800 rounded-lg mb-8" />
+                    <div className="h-64 bg-neutral-800 rounded-2xl" />
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen dark:bg-neutral-950/0">
+        <div className="min-h-screen bg-neutral-950/0">
             <div className="max-w-2xl mx-auto px-6 py-12 md:py-20">
                 <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-8">
 
                     <motion.div variants={fadeIn}>
-                        <h1 className="text-4xl md:text-5xl font-light dark:text-white text-neutral-900 mb-2">Profile</h1>
-                        <p className="dark:text-neutral-400 text-neutral-500">Manage your account settings</p>
+                        <h1 className="text-4xl md:text-5xl font-light text-white mb-2">Profile</h1>
+                        <p className="text-neutral-400">Manage your account settings</p>
                     </motion.div>
 
                     {/* Profile Info */}
@@ -109,32 +109,32 @@ export default function UserProfilePage() {
 
                             <div className="space-y-5">
                                 <div>
-                                    <label className="block text-sm font-medium dark:text-neutral-300 text-neutral-600 mb-2">Email</label>
+                                    <label className="block text-sm font-medium text-neutral-300 mb-2">Email</label>
                                     <input
                                         type="email"
                                         value={profile?.email || ''}
                                         disabled
-                                        className="w-full h-10 rounded-lg border border-neutral-700 dark:bg-neutral-800/50 bg-neutral-100 px-3 text-sm dark:text-neutral-400 text-neutral-500 cursor-not-allowed"
+                                        className="w-full h-10 rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 text-sm text-neutral-400 cursor-not-allowed"
                                     />
-                                    <p className="text-xs dark:text-neutral-600 text-neutral-400 mt-1">Email cannot be changed</p>
+                                    <p className="text-xs text-neutral-600 mt-1">Email cannot be changed</p>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium dark:text-neutral-300 text-neutral-600 mb-2">Username</label>
+                                    <label className="block text-sm font-medium text-neutral-300 mb-2">Username</label>
                                     <input
                                         type="text"
                                         value={username}
                                         onChange={e => setUsername(e.target.value)}
-                                        className="w-full h-10 rounded-lg border border-neutral-700 dark:bg-neutral-800 bg-white px-3 text-sm dark:text-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        className="w-full h-10 rounded-lg border border-neutral-700 bg-neutral-800 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium dark:text-neutral-300 text-neutral-600 mb-2">Skill Level</label>
+                                    <label className="block text-sm font-medium text-neutral-300 mb-2">Skill Level</label>
                                     <select
                                         value={skillLevel}
                                         onChange={e => setSkillLevel(e.target.value)}
-                                        className="w-full h-10 rounded-lg border border-neutral-700 dark:bg-neutral-800 bg-white px-3 text-sm dark:text-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        className="w-full h-10 rounded-lg border border-neutral-700 bg-neutral-800 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     >
                                         <option value="beginner">Beginner</option>
                                         <option value="intermediate">Intermediate</option>
@@ -144,11 +144,11 @@ export default function UserProfilePage() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium dark:text-neutral-300 text-neutral-600 mb-2">Preferred Domain</label>
+                                    <label className="block text-sm font-medium text-neutral-300 mb-2">Preferred Domain</label>
                                     <select
                                         value={preferredDomainId}
                                         onChange={e => setPreferredDomainId(e.target.value)}
-                                        className="w-full h-10 rounded-lg border border-neutral-700 dark:bg-neutral-800 bg-white px-3 text-sm dark:text-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        className="w-full h-10 rounded-lg border border-neutral-700 bg-neutral-800 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     >
                                         <option value="">No preference</option>
                                         {domains.map(d => (
@@ -175,23 +175,23 @@ export default function UserProfilePage() {
 
                             <div className="space-y-5">
                                 <div>
-                                    <label className="block text-sm font-medium dark:text-neutral-300 text-neutral-600 mb-2">Current Password</label>
+                                    <label className="block text-sm font-medium text-neutral-300 mb-2">Current Password</label>
                                     <input
                                         type="password"
                                         value={currentPassword}
                                         onChange={e => setCurrentPassword(e.target.value)}
-                                        className="w-full h-10 rounded-lg border border-neutral-700 dark:bg-neutral-800 bg-white px-3 text-sm dark:text-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        className="w-full h-10 rounded-lg border border-neutral-700 bg-neutral-800 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium dark:text-neutral-300 text-neutral-600 mb-2">New Password</label>
+                                    <label className="block text-sm font-medium text-neutral-300 mb-2">New Password</label>
                                     <input
                                         type="password"
                                         value={newPassword}
                                         onChange={e => setNewPassword(e.target.value)}
                                         placeholder="Minimum 6 characters"
-                                        className="w-full h-10 rounded-lg border border-neutral-700 dark:bg-neutral-800 bg-white px-3 text-sm dark:text-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        className="w-full h-10 rounded-lg border border-neutral-700 bg-neutral-800 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     />
                                 </div>
 
@@ -210,7 +210,7 @@ export default function UserProfilePage() {
                     {/* Account Info */}
                     <motion.div variants={fadeIn}>
                         <Card className="p-6">
-                            <p className="text-sm dark:text-neutral-500 text-neutral-400">
+                            <p className="text-sm text-neutral-500">
                                 Member since {profile?.created_at ? new Date(profile.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Unknown'}
                             </p>
                         </Card>

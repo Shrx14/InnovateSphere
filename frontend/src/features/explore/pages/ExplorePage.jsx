@@ -57,12 +57,12 @@ const ExplorePage = () => {
   }, [debouncedSearchQuery, filters.domain, filters.page]);
 
   return (
-    <main className="min-h-screen dark:bg-neutral-950/0">
+    <main className="min-h-screen">
       <div className="max-w-7xl mx-auto px-6 py-12 md:py-20">
         {/* Header */}
         <motion.div variants={fadeIn} initial="hidden" animate="visible" className="mb-12 md:mb-16">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-5xl md:text-6xl font-light dark:text-white text-neutral-900">Explore Ideas</h1>
+            <h1 className="text-5xl md:text-6xl font-light text-white">Explore Ideas</h1>
             {isAuthenticated && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -76,7 +76,7 @@ const ExplorePage = () => {
               </motion.div>
             )}
           </div>
-          <p className="text-xl dark:text-neutral-300 text-neutral-600">
+          <p className="text-xl text-neutral-300">
             Discover project ideas evaluated with research evidence and novelty scoring.
           </p>
         </motion.div>
@@ -89,9 +89,9 @@ const ExplorePage = () => {
             transition={{ delay: 0.1 }}
           >
             <Card className="p-6 glow-border transition-all focus-within:border-indigo-500/40 focus-within:shadow-[0_0_20px_rgba(99,102,241,0.15)]">
-              <label className="block text-sm dark:text-neutral-400 text-neutral-500 mb-3">Search Ideas</label>
+              <label className="block text-sm text-neutral-400 mb-3">Search Ideas</label>
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 dark:text-neutral-500 text-neutral-400" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
                 <Input
                   placeholder="Search by title, domain, or keywords..."
                   value={filters.q}
@@ -108,7 +108,7 @@ const ExplorePage = () => {
             transition={{ delay: 0.2 }}
           >
             <Card className="p-6">
-              <label className="block text-sm dark:text-neutral-400 text-neutral-500 mb-3">Filter by Domain</label>
+              <label className="block text-sm text-neutral-400 mb-3">Filter by Domain</label>
               <div className="flex flex-wrap gap-2">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -118,7 +118,7 @@ const ExplorePage = () => {
                     "px-4 py-2 rounded-lg text-sm font-medium transition-all",
                     filters.domain === ""
                       ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
-                      : "dark:bg-neutral-800 bg-neutral-100 dark:text-neutral-300 text-neutral-600 hover:bg-neutral-700"
+                      : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
                   )}
                 >
                   All Domains
@@ -133,7 +133,7 @@ const ExplorePage = () => {
                       "px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
                       filters.domain === d.name
                         ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
-                        : "dark:bg-neutral-800 bg-neutral-100 dark:text-neutral-300 text-neutral-600 hover:bg-neutral-700"
+                        : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
                     )}
                   >
                     {d.name}
@@ -168,14 +168,14 @@ const ExplorePage = () => {
                 <motion.div key={idea.id} variants={fadeIn}>
                   <Link to={`/idea/${idea.id}`}>
                     <motion.div whileHover={cardHover} whileTap={cardTap}>
-                      <Card className="p-8 dark:hover:bg-neutral-800/50 bg-neutral-100 transition-colors cursor-pointer group flex flex-col h-full glow-border card-shine overflow-hidden">
+                      <Card className="p-8 hover:bg-neutral-800/50 transition-colors cursor-pointer group flex flex-col h-full glow-border card-shine overflow-hidden">
                         <div className="mb-4">
                           <Badge>{idea.domain}</Badge>
                         </div>
-                        <h3 className="text-xl font-semibold dark:text-white text-neutral-900 mb-3 group-hover:text-indigo-300 transition line-clamp-2 flex-grow">
+                        <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-indigo-300 transition line-clamp-2 flex-grow">
                           {idea.title}
                         </h3>
-                        <p className="text-sm dark:text-neutral-400 text-neutral-500 line-clamp-3 mb-6 leading-relaxed">
+                        <p className="text-sm text-neutral-400 line-clamp-3 mb-6 leading-relaxed">
                           {idea.problem_statement}
                         </p>
                         <div className="grid grid-cols-2 gap-4 pt-4 border-t border-neutral-800">
@@ -226,7 +226,7 @@ const ExplorePage = () => {
                       (i === meta.pages - 2 && meta.page < meta.pages - 2)
                     ) {
                       return (
-                        <span key={i} className="dark:text-neutral-500 text-neutral-400 px-2 py-1">...</span>
+                        <span key={i} className="text-neutral-500 px-2 py-1">...</span>
                       );
                     }
                     return null;

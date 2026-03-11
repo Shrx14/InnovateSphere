@@ -55,11 +55,11 @@ export default function UserDashboard() {
   // Loading state with skeletons
   if (loading) {
     return (
-      <div className="min-h-screen dark:bg-neutral-950/0">
+      <div className="min-h-screen">
         <div className="max-w-6xl mx-auto px-6 py-12 md:py-20">
           <div className="mb-12">
-            <div className="h-12 w-64 dark:bg-neutral-800 bg-neutral-100 rounded-lg mb-4" />
-            <div className="h-6 w-96 dark:bg-neutral-800 bg-neutral-100 rounded-lg" />
+            <div className="h-12 w-64 bg-neutral-800 rounded-lg mb-4" />
+            <div className="h-6 w-96 bg-neutral-800 rounded-lg" />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-12">
             {[0, 1, 2, 3].map(i => <SkeletonMetric key={i} />)}
@@ -75,7 +75,7 @@ export default function UserDashboard() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen dark:bg-neutral-950/0 flex items-center justify-center px-6">
+      <div className="min-h-screen flex items-center justify-center px-6">
         <EmptyState
           title="Failed to load ideas"
           description={error}
@@ -92,7 +92,7 @@ export default function UserDashboard() {
   // Empty state
   if (ideas.length === 0) {
     return (
-      <div className="min-h-screen dark:bg-neutral-950/0 flex items-center justify-center px-6">
+      <div className="min-h-screen flex items-center justify-center px-6">
         <EmptyState
           title="No ideas yet"
           description="Start generating innovative ideas based on research evidence."
@@ -111,12 +111,12 @@ export default function UserDashboard() {
   }
 
   return (
-    <div className="min-h-screen dark:bg-neutral-950/0">
+    <div className="min-h-screen">
       <div className="max-w-6xl mx-auto px-6 py-12 md:py-20">
         {/* Header */}
         <motion.div variants={fadeIn} initial="hidden" animate="visible" className="mb-12">
-          <h1 className="text-5xl md:text-6xl font-light dark:text-white text-neutral-900 mb-2">Your Ideas</h1>
-          <p className="text-xl dark:text-neutral-300 text-neutral-600">
+          <h1 className="text-5xl md:text-6xl font-light text-white mb-2">Your Ideas</h1>
+          <p className="text-xl text-neutral-300
             Track the status and performance of your generated ideas.
           </p>
         </motion.div>
@@ -129,7 +129,7 @@ export default function UserDashboard() {
           className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-12"
         >
           {[
-            { label: 'Total Ideas', value: ideas.length, color: 'dark:text-white text-neutral-900' },
+            { label: 'Total Ideas', value: ideas.length, color: 'text-white },
             { label: 'Validated', value: grouped.validated.length, color: 'text-emerald-400' },
             { label: 'Pending', value: grouped.pending.length, color: 'text-yellow-400' },
             { label: 'Rejected', value: grouped.rejected.length, color: 'text-red-400' },
@@ -137,7 +137,7 @@ export default function UserDashboard() {
             <motion.div key={stat.label} variants={fadeIn} whileHover={cardHover} whileTap={cardTap}>
               <Card className="p-6 text-center glow-border card-shine overflow-hidden">
                 <div className={cn('text-3xl font-bold mb-2', stat.color)}>{stat.value}</div>
-                <p className="text-sm dark:text-neutral-400 text-neutral-500">{stat.label}</p>
+                <p className="text-sm text-neutral-400
               </Card>
             </motion.div>
           ))}
@@ -160,7 +160,7 @@ export default function UserDashboard() {
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value)}
-              className="h-10 rounded-lg border border-neutral-700 dark:bg-neutral-800/50 bg-neutral-100 px-3 py-2 text-sm dark:text-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="h-10 rounded-lg border border-neutral-700 bg-neutral-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               {SORT_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -201,7 +201,7 @@ function IdeaList({ ideas, tab }) {
   if (ideas.length === 0) {
     return (
       <Card className="p-8 text-center">
-        <p className="dark:text-neutral-400 text-neutral-500 mb-4">
+        <p className="text-neutral-400 mb-4">
           {tab === 'all' ? 'No ideas found.' : `No ${tab} ideas yet.`}
         </p>
         <Link to="/user/generate" className="text-indigo-400 hover:text-indigo-300 font-medium transition">
@@ -224,10 +224,10 @@ function IdeaList({ ideas, tab }) {
                       <StatusBadge status={idea.status} />
                       {idea.domain && <Badge>{idea.domain}</Badge>}
                     </div>
-                    <h3 className="text-lg md:text-xl font-semibold dark:text-white text-neutral-900 mb-2 group-hover:text-indigo-300 transition line-clamp-2">
+                    <h3 className="text-lg md:text-xl font-semibold text-white mb-2 group-hover:text-indigo-300 transition line-clamp-2">
                       {idea.title}
                     </h3>
-                    <p className="text-sm dark:text-neutral-400 text-neutral-500 line-clamp-2 mb-4">
+                    <p className="text-sm text-neutral-400 line-clamp-2 mb-4">
                       {idea.problem_statement}
                     </p>
                     <div className="flex flex-wrap gap-4 text-sm">

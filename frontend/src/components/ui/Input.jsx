@@ -21,7 +21,7 @@ const Input = React.forwardRef(({ className, type, label, icon: Icon, ...props }
         {Icon && (
           <Icon className={cn(
             'absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors duration-200 z-10',
-            focused ? 'text-indigo-400' : 'dark:text-neutral-500 text-neutral-400'
+            focused ? 'text-indigo-400' : 'text-neutral-500
           )} />
         )}
 
@@ -31,10 +31,10 @@ const Input = React.forwardRef(({ className, type, label, icon: Icon, ...props }
           onFocus={(e) => { setFocused(true); props.onFocus?.(e); }}
           onBlur={(e) => { setFocused(false); props.onBlur?.(e); }}
           className={cn(
-            'relative w-full rounded-xl dark:bg-neutral-900/80 bg-white/80 backdrop-blur-sm text-sm dark:text-white text-neutral-900',
-            'border dark:border-neutral-700/50 border-neutral-200 outline-none',
+            'relative w-full rounded-xl bg-neutral-900/80 backdrop-blur-sm text-sm text-white
+            'border border-neutral-700/50 outline-none',
             'transition-all duration-300',
-            'placeholder:dark:text-neutral-500 text-neutral-400',
+            'placeholder:text-neutral-500
             'focus:border-indigo-500/50 focus:bg-neutral-900',
             'focus:shadow-[0_0_20px_rgba(99,102,241,0.1)]',
             Icon ? 'pl-10 pr-4' : 'px-4',

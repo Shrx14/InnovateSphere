@@ -1261,7 +1261,7 @@ Services:
 │
 └── frontend (React dev server)
    ├─ Port: 3000
-   ├─ Env: REACT_APP_API_BASE_URL=http://localhost:5000
+   ├─ Env: VITE_API_URL=http://localhost:5000
    └─ Depends: backend (for health)
 
 Networks: Single isolated network (all services communicate internally)
@@ -1519,7 +1519,7 @@ ENABLE_AI_PIPELINES = "v2"
 |-----------|------|-------------------|------|
 | **Frontend** | UI | User interaction, forms, dashboards | React, Tailwind |
 | **Flask App** | API | Request routing, middleware, response | Flask |
-| **Generation** | Service | 4-pass idea synthesis | LLM (Ollama/OpenAI) |
+| **Generation** | Service | Hybrid 2-pass idea synthesis (4-pass theoretical) | LLM (Ollama/OpenAI) |
 | **Retrieval** | Service | Paper + repo search, ranking | arXiv, GitHub APIs |
 | **Novelty** | Service | Semantic scoring, signal fusion | SentenceTransformers |
 | **Semantic** | Utility | Embeddings, similarity, filtering | Embeddings DB |

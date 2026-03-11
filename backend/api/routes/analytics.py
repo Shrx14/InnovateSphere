@@ -117,10 +117,10 @@ def admin_trends_frontend():
     if not require_admin():
         return jsonify({"error": "Admin access required"}), 403
 
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
 
     # Get last 30 days of data
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
 
     results = (
         db.session.query(

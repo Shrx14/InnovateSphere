@@ -1,69 +1,246 @@
 # AI Architecture Documentation
 
-## Segment 0.1: AI Pipeline Versioning and Domain Taxonomy
+## 1. Overview
 
-[Previous content for Segment 0.1]
+InnovateSphere uses a **provider-agnostic LLM integration** with no dependency on LangChain or similar orchestration frameworks. All LLM interaction goes through a single `generate_json()` function that abstracts provider differences and guarantees structured JSON output.
 
-## Segment 1.1: Analytics-First Database Schema
+**Active Configuration:**
+- **Provider:** Ollama (local) with optional OpenAI fallback
+- **Model:** qwen2.5:7b (default)
+- **Embeddings:** all-MiniLM-L6-v2 (384-dim, sentence-transformers)
+- **Active Mode:** Hybrid (2-pass) — the default for daily usage
+- **Vector Storage:** PostgreSQL + pgvector
 
-[Previous content for Segment 1.1]
+---
 
-## Segment 1.2: Public vs Authenticated Content Access
+## 2. LLM Client Architecture
 
-### Overview
-This segment implements authorization rules and response shaping to provide limited, read-only access to certain content for anonymous users while unlocking richer features for authenticated users. This enforces clear boundaries without duplicating logic and supports performance and cost control.
+### Provider-Agnostic Interface
 
-### Public vs Authenticated Access Rules
+```
+generate_json(prompt, system_prompt, max_tokens, temperature)
+    ├── Config.LLM_PROVIDER == "ollama"  → _generate_ollama()
+    ├── Config.LLM_PROVIDER == "openai"  → _generate_openai()
+    └── On TransientLLMError + fallback enabled → retry with fallback provider
+```
 
-#### Anonymous Users (No Authentication Required)
-- **Allowed Actions:**
-  - View a list of public project ideas via GET /api/public/ideas
-  - Search project ideas by keyword and domain
-  - View limited idea details via GET /api/ideas/<idea_id> (with requires_login flag)
-- **Visible Fields:** id, title, problem_statement, tech_stack, domain name
-- **Restrictions:** Cannot see full descriptions, sources, reviews, popularity metrics, or access novelty scoring. Cannot submit reviews or requests.
+**Key design decisions:**
+- Returns parsed Python `dict` — never raw text
+- Robust JSON extraction from mixed LLM output (handles markdown fences, trailing text)
+- Exponential backoff with jitter on transient failures
+- Thread-safe Ollama health cache (30s TTL) and OpenAI client singleton
+- Custom `TransientLLMError` exception with optional `trace_id` for audit trail
 
-#### Authenticated Users (JWT Required for Certain Actions)
-- **Allowed Actions:**
-  - View full project idea details, including sources and reviews
-  - Submit idea requests (tracked in idea_requests)
-  - Submit reviews (rating + optional comment, one per user per idea)
-  - See personalized content filtered by preferred domain
-- **Visible Fields:** All idea fields, sources, reviews, average rating, request count
+### Configuration (backend/.env)
 
-### Rationale for Feature Gating
-- **User Experience:** Encourages signups by showing value of full access
-- **Performance:** Limits database queries and response sizes for anonymous users
-- **Cost Control:** Reduces load on AI-related features for non-paying users
-- **Analytics:** Tracks demand through requests and reviews for data-driven improvements
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `LLM_PROVIDER` | `ollama` | Primary provider |
+| `LLM_MODEL_NAME` | `qwen2.5:7b` | Model name |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint |
+| `LLM_TIMEOUT_SECONDS` | `60` | Request timeout |
+| `LLM_MAX_RETRIES` | `4` | Retry count |
+| `LLM_FALLBACK_ENABLED` | `false` | Enable provider fallback |
+| `LLM_FALLBACK_PROVIDER` | `openai` | Fallback provider |
 
-### API Implementation Details
+---
 
-#### GET /api/public/ideas
-- No authentication required
-- Query parameters: q (keyword search), domain_id (filter by domain)
-- Returns limited idea data for public browsing
+## 3. Generation Pipeline
 
-#### GET /api/ideas/<idea_id>
-- Authentication optional
-- Returns limited fields + requires_login flag if not authenticated
-- Returns full details if authenticated
+### Three Operating Modes
 
-#### POST /api/ideas/<idea_id>/request
-- Authentication required
-- Creates entry in idea_requests for demand tracking
+| Mode | Passes | Retrieval | Novelty | Status |
+|------|--------|-----------|---------|--------|
+| Demo | 1-pass | Minimal | Skipped | Available |
+| **Hybrid** | **2-pass** | **Live arXiv + GitHub** | **Skipped** | **Active default** |
+| Production | 4-pass | Full + validation | Full analysis | Theoretical |
 
-#### POST /api/ideas/<idea_id>/review
-- Authentication required
-- Allows rating (1-5) + optional comment
-- Enforces one review per user per idea
+Mode is determined by `Config.get_active_mode()` which checks `DEMO_MODE` and `HYBRID_MODE` flags.
 
-### Access Control Enforcement
-- Uses @jwt_required() only for routes requiring authentication
-- For mixed-access routes, detects authentication gracefully without returning 401 for public access
-- All rules are explicit and documented in route code
+### Hybrid Mode Pipeline (Active)
+
+```
+User Input (problem_statement + domain)
+    │
+    ├── Phase 0: Input Conditioning
+    │   └── Sanitize, validate, extract keywords
+    │
+    ├── Phase 1: Retrieval
+    │   ├── arXiv API → academic papers
+    │   ├── GitHub API → repositories
+    │   └── Semantic filtering with threshold fallback
+    │
+    ├── Phase 2: LLM Pass 1 — Landscape + Problem Formulation
+    │   └── PASS1_PROMPT_TEMPLATE → structured analysis
+    │
+    ├── Phase 3: LLM Pass 2 — Constraint Synthesis + Output
+    │   └── PASS2_PROMPT_TEMPLATE → final idea JSON
+    │
+    └── Phase 4: Scoring + Persistence
+        ├── Quality score computation
+        ├── Hallucination risk assessment
+        ├── Evidence strength calculation
+        └── Save to ProjectIdea + IdeaSource + GenerationTrace
+```
+
+### Prompt Architecture
+
+All prompts are stored in `backend/ai/prompts.py` with database-backed versioning via `PromptVersion` model. The system falls back to hardcoded defaults if no DB version exists.
+
+**Prompt sets:**
+- `PASS1_SYSTEM` / `PASS1_PROMPT_TEMPLATE` — Hybrid pass 1
+- `PASS2_SYSTEM` / `PASS2_PROMPT_TEMPLATE` — Hybrid pass 2
+- `PASS3_SYSTEM` / `PASS4_SYSTEM` — Production passes 3-4 (theoretical)
+- `DIRECT_SYSTEM` / `DIRECT_PROMPT_TEMPLATE` — Demo mode single pass
+
+---
+
+## 4. Retrieval Pipeline
+
+### Source Retrieval Orchestrator
+
+```
+retrieve_sources(query, domain)
+    ├── arXiv API → search by relevance
+    ├── GitHub API → search repositories
+    └── Combined + deduplicated → raw_sources[]
+```
+
+### Semantic Filtering
+
+```
+filter_by_semantic_similarity(query, sources, threshold)
+    ├── Embed query + source summaries → 384-dim vectors
+    ├── Cosine similarity scoring
+    ├── Progressive threshold fallback (threshold → threshold/2 → 0.1)
+    └── Falls back to all raw sources if no filter passes
+```
+
+### Source Reputation
+
+Each source gets a reputation weight based on provider (arXiv, GitHub) and metadata quality (citation count, stars, recency). Used in evidence strength calculation.
+
+---
+
+## 5. Embeddings & Semantic Search
+
+### Embedding Model
+
+- **Model:** `all-MiniLM-L6-v2` from sentence-transformers
+- **Dimension:** 384
+- **Storage:** PostgreSQL with pgvector extension
+- **Caching:** Thread-safe LRU cache (max 5000 embeddings)
+
+### Semantic Operations
+
+| Operation | Module | Purpose |
+|-----------|--------|---------|
+| `get_embedding(text)` | `semantic/embeddings.py` | Text → 384-dim vector |
+| `cosine_similarity(a, b)` | `semantic/similarity.py` | Vector comparison |
+| `filter_by_semantic_similarity()` | `semantic/filter.py` | Source relevance filtering |
+| `rank_sources()` | `semantic/ranker.py` | Multi-signal source ranking |
+
+---
+
+## 6. Novelty Scoring Engine
+
+### Architecture
+
+```
+analyze_novelty(description, domain)
+    ├── Cache check (SHA-256 key, 10-min TTL)
+    ├── Domain intent routing → problem_class detection
+    ├── NoveltyAnalyzer (lazy singleton)
+    │   ├── Similarity signal (vs existing ideas in DB)
+    │   ├── Specificity signal (description depth)
+    │   ├── Temporal signal (recency of related work)
+    │   └── Saturation signal (domain crowding)
+    ├── Signal fusion → weighted score
+    ├── Stabilization + normalization
+    └── Persist to NoveltyBreakdown model
+```
+
+### Scoring Signals
+
+| Signal | Weight | Source |
+|--------|--------|--------|
+| Similarity | Dynamic | Cosine distance to existing ideas |
+| Specificity | Dynamic | Description length + technical depth |
+| Temporal | Dynamic | Age of related work |
+| Saturation | Dynamic | Domain idea density |
+
+Results are persisted in the `NoveltyBreakdown` model with all intermediate scores for transparency.
+
+---
+
+## 7. AI Pipeline Versioning
+
+### Database-Backed Versioning
+
+The `AiPipelineVersion` model tracks pipeline configuration:
+- Version identifier (e.g., `v2`)
+- Generation mode mappings
+- Active/inactive status
+- Created/updated timestamps
+
+The `BiasProfile` model stores versioned bias rules:
+- Domain-specific scoring adjustments
+- Source penalty weights
+- HITL constraint overrides
+
+Active versions are resolved by `get_active_ai_pipeline_version()` and `get_active_bias_profile()` from the AI registry.
+
+---
+
+## 8. Quality & Hallucination Assessment
+
+### Quality Score Computation
+
+Quality scores are computed during generation based on:
+- Evidence strength (source count, relevance, reputation)
+- Response completeness (all required fields present)
+- Technical depth (specificity of tech stack, problem statement)
+- Source-claim alignment
+
+### Hallucination Risk Levels
+
+| Level | Criteria |
+|-------|----------|
+| Low | 3+ high-relevance sources, strong evidence alignment |
+| Medium | 1-2 sources or moderate alignment |
+| High | No sources or weak alignment, generic responses |
+
+---
+
+## 9. HITL (Human-in-the-Loop) Integration
+
+Admin verdicts cascade through the scoring system:
+- **Validated:** Boosts quality score of similar ideas
+- **Downgraded:** Applies penalty to similar ideas
+- **Rejected:** Flags pattern for future generation constraints
+
+The `GenerationTrace` model provides full audit trail of all pipeline phases (0-4), constraints applied, bias penalties, and timing for admin review.
+
+---
+
+## 10. Public vs Authenticated Content Access
+
+### Access Rules
+
+**Anonymous Users (No Auth):**
+- View public idea listings via `GET /api/public/ideas`
+- Search by keyword and domain
+- View limited idea details (id, title, problem_statement, tech_stack, domain)
+- Cannot see sources, reviews, scores, or submit feedback
+
+**Authenticated Users (JWT Required):**
+- Full idea details including sources and reviews
+- Submit reviews (1-5 rating + comment, one per user per idea)
+- Submit idea requests (demand tracking)
+- Submit structured feedback (12 types)
+- Generate new ideas
 
 ### Response Shaping
-- Helper functions serialize_public_idea() and serialize_full_idea() avoid duplication
-- Public responses include requires_login: true and signup encouragement message
-- Authenticated responses include computed fields like average_rating and requested_count
+
+- `serialize_public_idea()` — limited fields + `requires_login: true`
+- `serialize_full_idea()` — all fields including computed metrics

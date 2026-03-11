@@ -102,8 +102,8 @@ const AnimatedCounter = ({ target, label, sub }) => {
         <div className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent mb-4">
           {count.toLocaleString()}
         </div>
-        <p className="dark:text-neutral-300 text-neutral-600 font-medium">{label}</p>
-        <p className="dark:text-neutral-500 text-neutral-400 text-sm mt-2">{sub}</p>
+        <p className="text-neutral-300 font-medium">{label}</p>
+        <p className="text-neutral-500 text-sm mt-2">{sub}</p>
       </Card>
     </motion.div>
   );
@@ -136,9 +136,9 @@ const LandingPage = () => {
   }, []);
 
   return (
-    <div className="dark:bg-neutral-950/0 min-h-screen">
+    <div className=" min-h-screen">
       {error && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 dark:text-white text-neutral-900 px-6 py-3 rounded-lg shadow-lg">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 text-white px-6 py-3 rounded-lg shadow-lg">
           {error}
         </div>
       )}
@@ -171,7 +171,7 @@ const LandingPage = () => {
             variants={fadeIn}
             className="text-6xl md:text-7xl font-light tracking-tight mb-8 leading-tight"
           >
-            <span className="dark:text-white text-neutral-900">Project ideas</span>
+            <span className="text-white ideas</span>
             <br />
             <span className="gradient-text-animated">
               from research evidence
@@ -180,7 +180,7 @@ const LandingPage = () => {
 
           <motion.p
             variants={fadeIn}
-            className="text-xl md:text-2xl dark:text-neutral-300 text-neutral-600 leading-relaxed max-w-2xl mx-auto mb-12 font-light"
+            className="text-xl md:text-2xl text-neutral-300 leading-relaxed max-w-2xl mx-auto mb-12 font-light"
           >
             InnovateSphere evaluates ideas using evidence and real-time novelty scoring — not hype.
           </motion.p>
@@ -227,19 +227,19 @@ const LandingPage = () => {
 
                   return (
                     <Link to={featured ? `/idea/${featured.id}` : "#"} className="block">
-                      <Card className="p-6 md:p-8 dark:border-neutral-700/50 border-neutral-200 glow-border-pulse card-shine overflow-hidden group">
+                      <Card className="p-6 md:p-8 border-neutral-700/50 glow-border-pulse card-shine overflow-hidden group">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 mb-2">
-                              <p className="text-xs dark:text-neutral-500 text-neutral-400 uppercase tracking-wider">Featured Idea</p>
+                              <p className="text-xs text-neutral-500 uppercase tracking-wider">Featured Idea</p>
                               {featured?.domain && <Badge>{featured.domain}</Badge>}
                             </div>
-                            <h3 className="text-xl md:text-2xl font-semibold dark:text-white text-neutral-900 text-left group-hover:text-indigo-300 transition line-clamp-2">
+                            <h3 className="text-xl md:text-2xl font-semibold text-white text-left group-hover:text-indigo-300 transition line-clamp-2">
                               {title}
                             </h3>
                           </div>
                         </div>
-                        <p className="dark:text-neutral-400 text-neutral-500 text-left mb-6 text-sm leading-relaxed line-clamp-2">
+                        <p className="text-neutral-400 text-left mb-6 text-sm leading-relaxed line-clamp-2">
                           {description}
                         </p>
                         <div className="grid grid-cols-3 gap-4">
@@ -250,12 +250,12 @@ const LandingPage = () => {
                           ].map(({ value, label, color }) => (
                             <motion.div
                               key={label}
-                              className="dark:bg-neutral-800/50 bg-neutral-100 rounded-xl p-4"
+                              className="bg-neutral-800/50 rounded-xl p-4"
                               whileHover={{ scale: 1.05, backgroundColor: "rgba(38,38,38,0.8)" }}
                               transition={{ duration: 0.2 }}
                             >
                               <div className={`text-2xl font-bold ${color} mb-1`}>{value}</div>
-                              <div className="text-xs dark:text-neutral-500 text-neutral-400">{label}</div>
+                              <div className="text-xs text-neutral-500
                             </motion.div>
                           ))}
                         </div>
@@ -280,10 +280,10 @@ const LandingPage = () => {
           >
             <motion.div variants={fadeIn} className="mb-16 max-w-3xl">
               <p className="text-xs uppercase tracking-widest text-amber-400 mb-4 font-semibold">Why InnovateSphere</p>
-              <h2 className="text-4xl md:text-5xl font-light dark:text-white text-neutral-900 mb-6">
+              <h2 className="text-4xl md:text-5xl font-light text-white mb-6">
                 Not another <span className="text-amber-400">chatbot</span>
               </h2>
-              <p className="text-lg dark:text-neutral-300 text-neutral-600 leading-relaxed">
+              <p className="text-lg text-neutral-300 leading-relaxed">
                 Most idea tools give you generic brainstorming lists. InnovateSphere is a research-grade system
                 that generates ideas backed by real evidence, scores their novelty against existing work,
                 and evaluates feasibility — so you start with confidence, not guesswork.
@@ -343,10 +343,10 @@ const LandingPage = () => {
                 >
                   <item.icon className={`w-8 h-8 ${item.color} mb-5`} />
                   <div className="flex items-start gap-3 mb-2">
-                    <span className="text-xs dark:text-neutral-500 text-neutral-400 line-through">{item.problem}</span>
+                    <span className="text-xs text-neutral-500 line-through">{item.problem}</span>
                   </div>
-                  <h3 className="text-lg font-display font-semibold dark:text-white text-neutral-900 mb-3">{item.solution}</h3>
-                  <p className="text-sm dark:text-neutral-400 text-neutral-500 leading-relaxed">{item.description}</p>
+                  <h3 className="text-lg font-display font-semibold text-white mb-3">{item.solution}</h3>
+                  <p className="text-sm text-neutral-400 leading-relaxed">{item.description}</p>
                 </motion.div>
               ))}
             </motion.div>
@@ -354,7 +354,7 @@ const LandingPage = () => {
             <motion.div variants={fadeIn} className="mt-10 text-center">
               <Link
                 to="/how-it-works"
-                className="inline-flex items-center gap-2 text-sm dark:text-neutral-400 text-neutral-500 hover:text-indigo-300 transition group"
+                className="inline-flex items-center gap-2 text-sm text-neutral-400 hover:text-indigo-300 transition group"
               >
                 Learn how it works
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -373,7 +373,7 @@ const LandingPage = () => {
             className="mb-16"
           >
             <p className="text-xs uppercase tracking-widest text-indigo-400 mb-4 font-semibold">Explore Domains</p>
-            <h2 className="text-4xl md:text-5xl font-light dark:text-white text-neutral-900">
+            <h2 className="text-4xl md:text-5xl font-light text-white
               Research across <span className="text-indigo-400">{stats?.total_domains || 0}</span> domains
             </h2>
           </motion.div>
@@ -383,7 +383,7 @@ const LandingPage = () => {
               {[0, 1].map((i) => <SkeletonCard key={i} />)}
             </div>
           ) : topDomains.length === 0 ? (
-            <p className="dark:text-neutral-400 text-neutral-500 text-center py-12">No domains yet.</p>
+            <p className="text-neutral-400 text-center py-12">No domains yet.</p>
           ) : (
             <motion.div
               variants={staggerContainer}
@@ -396,7 +396,7 @@ const LandingPage = () => {
               <motion.div variants={fadeIn}>
                 <Card className="p-6 md:p-8 glow-border overflow-hidden">
                   <p className="text-xs uppercase tracking-widest text-indigo-400 mb-1 font-semibold">Ideas by Domain</p>
-                  <p className="text-sm dark:text-neutral-500 text-neutral-400 mb-6">Number of research ideas generated per domain</p>
+                  <p className="text-sm text-neutral-500 mb-6">Number of research ideas generated per domain</p>
                   <div className="w-full" style={{ height: Math.max(topDomains.length * 52, 200) }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
@@ -444,7 +444,7 @@ const LandingPage = () => {
               <motion.div variants={fadeIn}>
                 <Card className="p-6 md:p-8 glow-border overflow-hidden">
                   <p className="text-xs uppercase tracking-widest text-purple-400 mb-1 font-semibold">Views Distribution</p>
-                  <p className="text-sm dark:text-neutral-500 text-neutral-400 mb-6">Community engagement across domains</p>
+                  <p className="text-sm text-neutral-500 mb-6">Community engagement across domains</p>
                   <div className="w-full" style={{ height: Math.max(topDomains.length * 52, 200) }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
@@ -502,7 +502,7 @@ const LandingPage = () => {
             className="mb-16"
           >
             <p className="text-xs uppercase tracking-widest text-purple-400 mb-4 font-semibold">Most Viewed</p>
-            <h2 className="text-4xl md:text-5xl font-light dark:text-white text-neutral-900">
+            <h2 className="text-4xl md:text-5xl font-light text-white
               Top ideas from the community
             </h2>
           </motion.div>
@@ -512,7 +512,7 @@ const LandingPage = () => {
               {[0, 1, 2].map((i) => <SkeletonCard key={i} />)}
             </div>
           ) : topIdeas.length === 0 ? (
-            <p className="dark:text-neutral-400 text-neutral-500 text-center py-12">No public ideas yet.</p>
+            <p className="text-neutral-400 text-center py-12">No public ideas yet.</p>
           ) : (
             <motion.div
               variants={staggerContainer}
@@ -530,10 +530,10 @@ const LandingPage = () => {
                           <div className="mb-4">
                             <Badge>{idea.domain}</Badge>
                           </div>
-                          <h3 className="text-xl font-semibold dark:text-white text-neutral-900 mb-3 group-hover:text-purple-300 transition line-clamp-2">
+                          <h3 className="text-xl font-semibold text-white mb-3 group-hover:text-purple-300 transition line-clamp-2">
                             {idea.title}
                           </h3>
-                          <p className="text-sm dark:text-neutral-400 text-neutral-500 line-clamp-3 mb-6 leading-relaxed">
+                          <p className="text-sm text-neutral-400 line-clamp-3 mb-6 leading-relaxed">
                             {idea.problem_statement}
                           </p>
                         </div>
@@ -563,7 +563,7 @@ const LandingPage = () => {
               className="mb-16"
             >
               <p className="text-xs uppercase tracking-widest text-emerald-400 mb-4 font-semibold">Quality Analytics</p>
-              <h2 className="text-4xl md:text-5xl font-light dark:text-white text-neutral-900">
+              <h2 className="text-4xl md:text-5xl font-light text-white
                 Novelty vs Quality scores
               </h2>
             </motion.div>
@@ -579,7 +579,7 @@ const LandingPage = () => {
               <motion.div variants={fadeIn}>
                 <Card className="p-6 md:p-8 glow-border overflow-hidden">
                   <p className="text-xs uppercase tracking-widest text-emerald-400 mb-1 font-semibold">Score Profiles</p>
-                  <p className="text-sm dark:text-neutral-500 text-neutral-400 mb-6">Novelty & quality across top ideas</p>
+                  <p className="text-sm text-neutral-500 mb-6">Novelty & quality across top ideas</p>
                   <div className="w-full" style={{ height: 360 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <RadarChart
@@ -619,11 +619,11 @@ const LandingPage = () => {
                   <div className="flex items-center justify-center gap-6 mt-4">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-indigo-500" />
-                      <span className="text-xs dark:text-neutral-400 text-neutral-500">Novelty</span>
+                      <span className="text-xs text-neutral-400
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                      <span className="text-xs dark:text-neutral-400 text-neutral-500">Quality</span>
+                      <span className="text-xs text-neutral-400
                     </div>
                   </div>
                 </Card>
@@ -633,7 +633,7 @@ const LandingPage = () => {
               <motion.div variants={fadeIn}>
                 <Card className="p-6 md:p-8 glow-border overflow-hidden">
                   <p className="text-xs uppercase tracking-widest text-indigo-400 mb-1 font-semibold">Score Comparison</p>
-                  <p className="text-sm dark:text-neutral-500 text-neutral-400 mb-6">Side-by-side quality & novelty for top ideas</p>
+                  <p className="text-sm text-neutral-500 mb-6">Side-by-side quality & novelty for top ideas</p>
                   <div className="w-full" style={{ height: 360 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart
@@ -682,11 +682,11 @@ const LandingPage = () => {
                   <div className="flex items-center justify-center gap-6 mt-4">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-indigo-500" />
-                      <span className="text-xs dark:text-neutral-400 text-neutral-500">Novelty</span>
+                      <span className="text-xs text-neutral-400
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                      <span className="text-xs dark:text-neutral-400 text-neutral-500">Quality</span>
+                      <span className="text-xs text-neutral-400
                     </div>
                   </div>
                 </Card>
@@ -705,7 +705,7 @@ const LandingPage = () => {
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true }}
-              className="text-4xl md:text-5xl font-light dark:text-white text-neutral-900 text-center mb-16"
+              className="text-4xl md:text-5xl font-light text-white text-center mb-16"
             >
               Trusted by the research community
             </motion.h2>

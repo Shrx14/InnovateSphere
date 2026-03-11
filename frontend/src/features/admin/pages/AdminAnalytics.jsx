@@ -5,8 +5,8 @@ import { formatScore } from '../../../lib/formatScore';
 
 const StatCard = ({ label, value }) => (
   <div className="rounded-xl bg-neutral-900 border border-neutral-800 p-6">
-    <p className="text-xs dark:text-neutral-400 text-neutral-500 uppercase tracking-wide">{label}</p>
-    <p className="mt-2 text-2xl font-medium dark:text-white text-neutral-900">{value}</p>
+    <p className="text-xs text-neutral-400 uppercase tracking-wide">{label}</p>
+    <p className="mt-2 text-2xl font-medium text-white
   </div>
 );
 
@@ -93,27 +93,27 @@ const AdminAnalytics = () => {
     return (
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="mb-8">
-          <h1 className="text-3xl font-light dark:text-white text-neutral-900">Admin Analytics</h1>
-          <p className="mt-2 dark:text-neutral-400 text-neutral-500">System-level visibility and oversight</p>
+          <h1 className="text-3xl font-light text-white Analytics</h1>
+          <p className="mt-2 text-neutral-400 visibility and oversight</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="dark:bg-neutral-800 bg-neutral-100 rounded-lg p-6 animate-pulse">
+            <div key={i} className="bg-neutral-800 rounded-lg p-6 animate-pulse">
               <div className="h-4 bg-neutral-700 rounded mb-4"></div>
               <div className="h-6 bg-neutral-700 rounded"></div>
             </div>
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="dark:bg-neutral-800 bg-neutral-100 rounded-lg p-6 animate-pulse">
+          <div className="bg-neutral-800 rounded-lg p-6 animate-pulse">
             <div className="h-4 bg-neutral-700 rounded mb-4"></div>
             <div className="h-32 bg-neutral-700 rounded"></div>
           </div>
-          <div className="dark:bg-neutral-800 bg-neutral-100 rounded-lg p-6 animate-pulse">
+          <div className="bg-neutral-800 rounded-lg p-6 animate-pulse">
             <div className="h-4 bg-neutral-700 rounded mb-4"></div>
             <div className="h-32 bg-neutral-700 rounded"></div>
           </div>
-          <div className="dark:bg-neutral-800 bg-neutral-100 rounded-lg p-6 animate-pulse">
+          <div className="bg-neutral-800 rounded-lg p-6 animate-pulse">
             <div className="h-4 bg-neutral-700 rounded mb-4"></div>
             <div className="h-32 bg-neutral-700 rounded"></div>
           </div>
@@ -125,8 +125,8 @@ const AdminAnalytics = () => {
   return (
     <div className="max-w-7xl mx-auto px-6 py-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-light dark:text-white text-neutral-900">Admin Analytics</h1>
-        <p className="mt-2 dark:text-neutral-400 text-neutral-500">System-level visibility and oversight</p>
+        <h1 className="text-3xl font-light text-white Analytics</h1>
+        <p className="mt-2 text-neutral-400 visibility and oversight</p>
       </div>
 
       {/* KPI Cards */}
@@ -148,7 +148,7 @@ const AdminAnalytics = () => {
               <Line type="monotone" dataKey="count" stroke="#9CA3AF" strokeWidth={2} dot={false} />
             </LineChart>
           ) : (
-            <div className="flex items-center justify-center h-full dark:text-neutral-400 text-neutral-500">
+            <div className="flex items-center justify-center h-full text-neutral-400
               No data available
             </div>
           )}
@@ -158,7 +158,7 @@ const AdminAnalytics = () => {
       {/* Distribution Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6">
-          <h3 className="text-lg font-medium dark:text-white text-neutral-900 mb-4">Novelty Distribution</h3>
+          <h3 className="text-lg font-medium text-white mb-4">Novelty Distribution</h3>
           <ResponsiveContainer width="100%" height={250}>
             {noveltyHistogram.length > 0 ? (
               <BarChart data={noveltyHistogram}>
@@ -168,14 +168,14 @@ const AdminAnalytics = () => {
                 <Bar dataKey="count" fill="#9CA3AF" />
               </BarChart>
             ) : (
-              <div className="flex items-center justify-center h-full dark:text-neutral-400 text-neutral-500">
+              <div className="flex items-center justify-center h-full text-neutral-400
                 No data available
               </div>
             )}
           </ResponsiveContainer>
         </div>
         <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6">
-          <h3 className="text-lg font-medium dark:text-white text-neutral-900 mb-4">Quality Distribution</h3>
+          <h3 className="text-lg font-medium text-white mb-4">Quality Distribution</h3>
           <ResponsiveContainer width="100%" height={250}>
             {qualityHistogram.length > 0 ? (
               <BarChart data={qualityHistogram}>
@@ -185,7 +185,7 @@ const AdminAnalytics = () => {
                 <Bar dataKey="count" fill="#9CA3AF" />
               </BarChart>
             ) : (
-              <div className="flex items-center justify-center h-full dark:text-neutral-400 text-neutral-500">
+              <div className="flex items-center justify-center h-full text-neutral-400
                 No data available
               </div>
             )}
@@ -207,14 +207,14 @@ const AdminAnalytics = () => {
       {data.bias && (
         <>
           <div className="mb-4 mt-8">
-            <h2 className="text-2xl font-light dark:text-white text-neutral-900">Bias Transparency</h2>
-            <p className="mt-1 dark:text-neutral-400 text-neutral-500 text-sm">How HITL verdicts affect scores and generation patterns</p>
+            <h2 className="text-2xl font-light text-white Transparency</h2>
+            <p className="mt-1 text-neutral-400 text-sm">How HITL verdicts affect scores and generation patterns</p>
           </div>
 
           {/* Verdict Breakdown + Penalty Stats */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6">
-              <h3 className="text-lg font-medium dark:text-white text-neutral-900 mb-4">Admin Verdicts</h3>
+              <h3 className="text-lg font-medium text-white mb-4">Admin Verdicts</h3>
               {data.bias.admin_verdicts?.total > 0 ? (
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
@@ -239,7 +239,7 @@ const AdminAnalytics = () => {
             </div>
 
             <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6">
-              <h3 className="text-lg font-medium dark:text-white text-neutral-900 mb-4">Penalty Impact</h3>
+              <h3 className="text-lg font-medium text-white mb-4">Penalty Impact</h3>
               <div className="space-y-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-400">Ideas with active penalties</span>
@@ -272,11 +272,11 @@ const AdminAnalytics = () => {
           {/* Domain Strictness Distribution */}
           {data.bias.domain_strictness_distribution && Object.keys(data.bias.domain_strictness_distribution).length > 0 && (
             <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6 mb-6">
-              <h3 className="text-lg font-medium dark:text-white text-neutral-900 mb-4">Domain Strictness</h3>
+              <h3 className="text-lg font-medium text-white mb-4">Domain Strictness</h3>
               <div className="flex gap-6">
                 {Object.entries(data.bias.domain_strictness_distribution).map(([level, count]) => (
                   <div key={level} className="flex-1 text-center">
-                    <p className="text-2xl font-mono dark:text-white text-neutral-900">{count}</p>
+                    <p className="text-2xl font-mono text-white
                     <p className="text-xs text-neutral-400 uppercase tracking-wide mt-1">{level}</p>
                   </div>
                 ))}
@@ -287,7 +287,7 @@ const AdminAnalytics = () => {
           {/* Penalized Source Domains */}
           {data.bias.bias_impact_by_source && Object.keys(data.bias.bias_impact_by_source).length > 0 && (
             <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6 mb-6">
-              <h3 className="text-lg font-medium dark:text-white text-neutral-900 mb-4">Penalized Source Domains</h3>
+              <h3 className="text-lg font-medium text-white mb-4">Penalized Source Domains</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -316,7 +316,7 @@ const AdminAnalytics = () => {
       )}
 
       {partialError && (
-        <div className="text-center dark:text-neutral-400 text-neutral-500 text-sm">
+        <div className="text-center text-neutral-400 text-sm">
           Some analytics data unavailable
         </div>
       )}

@@ -45,7 +45,7 @@ const steps = [
 
 const HowItWorksPage = () => {
     return (
-        <div className="min-h-screen dark:bg-neutral-950/0 relative">
+        <div className="min-h-screen bg-neutral-950/0 relative">
             <div className="relative z-10 max-w-5xl mx-auto px-6 py-24 md:py-32">
                 {/* Header */}
                 <motion.div
@@ -57,11 +57,11 @@ const HowItWorksPage = () => {
                     <motion.p variants={fadeIn} className="text-xs uppercase tracking-widest text-indigo-400 mb-4 font-semibold">
                         How It Works
                     </motion.p>
-                    <motion.h1 variants={fadeIn} className="text-4xl md:text-5xl font-display font-bold dark:text-white text-neutral-900 mb-6">
+                    <motion.h1 variants={fadeIn} className="text-4xl md:text-5xl font-display font-bold text-white mb-6">
                         From domain to <span className="text-indigo-400">scored idea</span>
                         <br />in minutes
                     </motion.h1>
-                    <motion.p variants={fadeIn} className="text-lg dark:text-neutral-300 text-neutral-600 leading-relaxed max-w-2xl mx-auto">
+                    <motion.p variants={fadeIn} className="text-lg text-neutral-300 leading-relaxed max-w-2xl mx-auto">
                         InnovateSphere automates research ideation with a four-step pipeline that combines
                         AI generation, evidence retrieval, and rigorous scoring.
                     </motion.p>
@@ -89,9 +89,9 @@ const HowItWorksPage = () => {
                             <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2">
                                     <span className={`text-xs font-mono font-bold ${step.color}`}>{step.number}</span>
-                                    <h3 className="text-xl font-display font-semibold dark:text-white text-neutral-900">{step.title}</h3>
+                                    <h3 className="text-xl font-display font-semibold text-white">{step.title}</h3>
                                 </div>
-                                <p className="text-sm dark:text-neutral-400 text-neutral-500 leading-relaxed max-w-xl">{step.description}</p>
+                                <p className="text-sm text-neutral-400 leading-relaxed max-w-xl">{step.description}</p>
                             </div>
                             {i < steps.length - 1 && (
                                 <div className="hidden md:flex items-center absolute -bottom-6 left-12 z-10">
@@ -110,10 +110,10 @@ const HowItWorksPage = () => {
                     viewport={{ once: true }}
                     className="text-center"
                 >
-                    <p className="dark:text-neutral-400 text-neutral-500 mb-6">Ready to generate your first research idea?</p>
+                    <p className="text-neutral-400 mb-6">Ready to generate your first research idea?</p>
                     <Link
                         to="/register"
-                        className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl dark:text-white text-neutral-900 font-semibold transition-all hover:scale-[1.02]"
+                        className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl text-white font-semibold transition-all hover:scale-[1.02]"
                         style={{
                             background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)',
                         }}

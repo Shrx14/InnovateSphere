@@ -79,7 +79,7 @@ def public_ideas():
         user_id = None
         try:
             user_id = get_jwt_identity()
-        except:
+        except Exception:
             pass
         
         domain_id = None

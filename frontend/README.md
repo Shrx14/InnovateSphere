@@ -71,19 +71,19 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/t
 
 ## Backend API configuration for development and production
 
-The frontend calls the backend endpoints under `/api/*`. During development we use the Create React App dev server proxy (set in `package.json`) so requests to `/api` are forwarded to the Flask backend running on `http://localhost:5000`.
+The frontend calls the backend endpoints under `/api/*`. During development the Vite dev server proxies requests to the Flask backend running on `http://localhost:5000` (configured in `vite.config.js`).
 
-For production builds (or if you want explicit control), set the environment variable `REACT_APP_API_BASE_URL` to the base URL of your backend. For example:
+For production builds (or if you want explicit control), set the environment variable `VITE_API_URL` to the base URL of your backend. For example:
 
 Windows PowerShell (development):
 ```powershell
-$env:REACT_APP_API_BASE_URL = 'http://localhost:5000'
-npm start
+$env:VITE_API_URL = 'http://localhost:5000'
+npm run dev
 ```
 
-Or create a `.env.development` file in the `frontend` folder with:
+Or create a `.env` file in the `frontend` folder with:
 ```
-REACT_APP_API_BASE_URL=http://localhost:5000
+VITE_API_URL=http://localhost:5000
 ```
 
-The `NoveltyChecker` component will use `REACT_APP_API_BASE_URL` when present; otherwise it falls back to the CRA proxy or relative paths.
+The frontend will use `VITE_API_URL` when present; otherwise it falls back to the Vite proxy or relative paths.

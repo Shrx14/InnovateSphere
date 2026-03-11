@@ -84,12 +84,12 @@ const NoveltyPage = () => {
       case 'very low':
         return 'bg-red-500/20 border-red-500/50 text-red-300';
       default:
-        return 'bg-neutral-500/20 border-neutral-500/50 dark:text-neutral-300 text-neutral-600';
+        return 'bg-neutral-500/20 border-neutral-500/50 text-neutral-300
     }
   };
 
   return (
-    <div className="min-h-screen dark:bg-neutral-950/0">
+    <div className="min-h-screen">
       <div className="max-w-4xl mx-auto px-6 py-12 md:py-20 relative z-10">
         {/* Header */}
         <motion.div variants={fadeIn} initial="hidden" animate="visible" className="mb-8">
@@ -99,8 +99,8 @@ const NoveltyPage = () => {
               Back to dashboard
             </Link>
           )}
-          <h1 className="text-5xl font-light dark:text-white text-neutral-900 mb-3">Check Novelty</h1>
-          <p className="dark:text-neutral-300 text-neutral-600">Analyze the novelty of any project idea with research-backed scoring</p>
+          <h1 className="text-5xl font-light text-white mb-3">Check Novelty</h1>
+          <p className="text-neutral-300 the novelty of any project idea with research-backed scoring</p>
         </motion.div>
 
         {/* Main Container */}
@@ -110,7 +110,7 @@ const NoveltyPage = () => {
             <form onSubmit={handleCheckNovelty} className="space-y-6">
               {/* Description Field */}
               <div>
-                <label className="block text-sm font-medium dark:text-white text-neutral-900 mb-3">
+                <label className="block text-sm font-medium text-white mb-3">
                   Idea Description
                 </label>
                 <textarea
@@ -120,18 +120,18 @@ const NoveltyPage = () => {
                   rows={8}
                   className="glass-input w-full resize-none text-sm"
                 />
-                <p className="text-xs dark:text-neutral-500 text-neutral-400 mt-2">
+                <p className="text-xs text-neutral-500 mt-2">
                   {description.length} characters
                 </p>
               </div>
 
               {/* Domain Field */}
               <div>
-                <label className="block text-sm font-medium dark:text-white text-neutral-900 mb-3">
+                <label className="block text-sm font-medium text-white mb-3">
                   Domain
                 </label>
                 {loadingDomains ? (
-                  <div className="glass-input w-full bg-neutral-700/50 dark:text-neutral-400 text-neutral-500 flex items-center justify-center py-2">
+                  <div className="glass-input w-full bg-neutral-700/50 text-neutral-400 flex items-center justify-center py-2">
                     Loading domains...
                   </div>
                 ) : domains.length > 0 ? (
@@ -185,10 +185,10 @@ const NoveltyPage = () => {
                     🔍
                   </div>
                 </div>
-                <h3 className="text-lg font-light dark:text-white text-neutral-900 mb-2">
+                <h3 className="text-lg font-light text-white mb-2">
                   Enter an idea to get started
                 </h3>
-                <p className="dark:text-neutral-400 text-neutral-500 text-sm">
+                <p className="text-neutral-400 text-sm">
                   Fill in the form on the left to analyze your project's novelty with research-backed scoring
                 </p>
               </motion.div>
@@ -199,7 +199,7 @@ const NoveltyPage = () => {
                 <div className="inline-block mb-4">
                   <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
                 </div>
-                <p className="dark:text-neutral-300 text-neutral-600">Analyzing novelty...</p>
+                <p className="text-neutral-300 novelty...</p>
               </div>
             )}
 
@@ -207,7 +207,7 @@ const NoveltyPage = () => {
               <div className="space-y-4">
                 {/* Novelty Score Card */}
                 <div className="glass-card-lg p-6 border border-white/10">
-                  <p className="text-xs dark:text-neutral-400 text-neutral-500 uppercase tracking-widest font-semibold mb-3">
+                  <p className="text-xs text-neutral-400 uppercase tracking-widest font-semibold mb-3">
                     Novelty Score
                   </p>
                   <div className="flex items-end gap-4 mb-4">
@@ -222,25 +222,25 @@ const NoveltyPage = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <p className="dark:text-neutral-500 text-neutral-400 text-xs">Confidence</p>
-                      <p className="dark:text-white text-neutral-900 font-medium capitalize">{result.confidence || 'N/A'}</p>
+                      <p className="text-neutral-500 text-xs">Confidence</p>
+                      <p className="text-white font-medium capitalize">{result.confidence || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="dark:text-neutral-500 text-neutral-400 text-xs">Domain Intent</p>
-                      <p className="dark:text-white text-neutral-900 font-medium capitalize">{result.domain_intent || 'N/A'}</p>
+                      <p className="text-neutral-500 text-xs">Domain Intent</p>
+                      <p className="text-white font-medium capitalize">{result.domain_intent || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Evidence Score */}
                 <div className="glass-card-lg p-6 border border-white/10">
-                  <p className="text-xs dark:text-neutral-400 text-neutral-500 uppercase tracking-widest font-semibold mb-3">
+                  <p className="text-xs text-neutral-400 uppercase tracking-widest font-semibold mb-3">
                     Evidence Score
                   </p>
                   <div className="text-3xl font-bold text-purple-300">
                     {typeof result.evidence_score === 'number' ? (result.evidence_score * 100).toFixed(0) : 'N/A'}%
                   </div>
-                  <p className="text-xs dark:text-neutral-400 text-neutral-500 mt-2">
+                  <p className="text-xs text-neutral-400 mt-2">
                     How well supported the idea is by evidence
                   </p>
                 </div>
@@ -248,14 +248,14 @@ const NoveltyPage = () => {
                 {/* Explanation */}
                 {result.insights && (
                   <div className="glass-card-lg p-6 border border-white/10">
-                    <p className="text-xs dark:text-neutral-400 text-neutral-500 uppercase tracking-widest font-semibold mb-3">
+                    <p className="text-xs text-neutral-400 uppercase tracking-widest font-semibold mb-3">
                       Key Insights
                     </p>
-                    <div className="space-y-2 text-sm dark:text-neutral-300 text-neutral-600">
+                    <div className="space-y-2 text-sm text-neutral-300
                       {Object.entries(result.insights).map(([key, value]) => (
                         <div key={key}>
                           <p className="font-medium text-indigo-300 capitalize">{key.replace(/_/g, ' ')}:</p>
-                          <p className="dark:text-neutral-400 text-neutral-500 ml-2">{value}</p>
+                          <p className="text-neutral-400 ml-2">{value}</p>
                         </div>
                       ))}
                     </div>
@@ -265,7 +265,7 @@ const NoveltyPage = () => {
                 {/* Research Sources with Tier-Based Display */}
                 {result.sources && result.sources.length > 0 && (
                   <div className="glass-card-lg p-6 border border-white/10">
-                    <p className="text-xs dark:text-neutral-400 text-neutral-500 uppercase tracking-widest font-semibold mb-4">
+                    <p className="text-xs text-neutral-400 uppercase tracking-widest font-semibold mb-4">
                       Research Sources
                     </p>
                     <SourcesList
@@ -278,17 +278,17 @@ const NoveltyPage = () => {
                 {/* Similar Projects */}
                 {result.similar_projects && result.similar_projects.length > 0 && (
                   <div className="glass-card-lg p-6 border border-white/10">
-                    <p className="text-xs dark:text-neutral-400 text-neutral-500 uppercase tracking-widest font-semibold mb-4">
+                    <p className="text-xs text-neutral-400 uppercase tracking-widest font-semibold mb-4">
                       Similar Projects Found
                     </p>
                     <div className="space-y-3">
                       {result.similar_projects.slice(0, 5).map((proj, idx) => (
                         <div key={idx} className="p-3 bg-white/5 rounded border border-white/5">
-                          <p className="text-sm dark:text-white text-neutral-900 font-medium line-clamp-2">
+                          <p className="text-sm text-white font-medium line-clamp-2">
                             {proj.title || proj.name || 'Untitled'}
                           </p>
                           {proj.similarity && (
-                            <p className="text-xs dark:text-neutral-400 text-neutral-500 mt-1">
+                            <p className="text-xs text-neutral-400 mt-1">
                               Similarity: {(proj.similarity * 100).toFixed(0)}%
                             </p>
                           )}
@@ -310,7 +310,7 @@ const NoveltyPage = () => {
         {/* Quick Links */}
         {user && (
           <div className="mt-12 pt-8 border-t border-white/10">
-            <p className="text-sm dark:text-neutral-400 text-neutral-500 mb-4">Explore more:</p>
+            <p className="text-sm text-neutral-400 mb-4">Explore more:</p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link to="/user/my-ideas" className="text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-2 transition">
                 → View My Ideas

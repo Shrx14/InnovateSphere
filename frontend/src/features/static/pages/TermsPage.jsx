@@ -71,7 +71,7 @@ To the maximum extent permitted by law, InnovateSphere and its team shall not be
 
 const TermsPage = () => {
     return (
-        <div className="min-h-screen dark:bg-neutral-950/0 relative">
+        <div className="min-h-screen bg-neutral-950/0 relative">
             <div className="relative z-10 max-w-3xl mx-auto px-6 py-24 md:py-32">
                 <motion.div
                     variants={staggerContainer}
@@ -81,22 +81,22 @@ const TermsPage = () => {
                     <motion.p variants={fadeIn} className="text-xs uppercase tracking-widest text-indigo-400 mb-4 font-semibold">
                         Legal
                     </motion.p>
-                    <motion.h1 variants={fadeIn} className="text-4xl md:text-5xl font-display font-bold dark:text-white text-neutral-900 mb-4">
+                    <motion.h1 variants={fadeIn} className="text-4xl md:text-5xl font-display font-bold text-white mb-4">
                         Terms of Service
                     </motion.h1>
-                    <motion.p variants={fadeIn} className="text-sm dark:text-neutral-500 text-neutral-400 mb-12">
+                    <motion.p variants={fadeIn} className="text-sm text-neutral-500 mb-12">
                         Last updated: February 2026
                     </motion.p>
 
-                    <motion.p variants={fadeIn} className="dark:text-neutral-300 text-neutral-600 leading-relaxed mb-12">
+                    <motion.p variants={fadeIn} className="text-neutral-300 leading-relaxed mb-12">
                         These Terms of Service govern your use of InnovateSphere. Please read them carefully before using the Platform.
                     </motion.p>
 
                     <div className="space-y-10">
                         {sections.map((section) => (
                             <motion.div key={section.title} variants={fadeIn}>
-                                <h2 className="text-lg font-display font-semibold dark:text-white text-neutral-900 mb-3">{section.title}</h2>
-                                <div className="text-sm dark:text-neutral-400 text-neutral-500 leading-relaxed whitespace-pre-line">
+                                <h2 className="text-lg font-display font-semibold text-white mb-3">{section.title}</h2>
+                                <div className="text-sm text-neutral-400 leading-relaxed whitespace-pre-line">
                                     {section.content}
                                 </div>
                             </motion.div>

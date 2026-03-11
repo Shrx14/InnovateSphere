@@ -130,9 +130,9 @@ const IdeaDetail = () => {
     return (
       <div className="min-h-screen bg-neutral-950">
         <div className="max-w-4xl mx-auto px-6 py-12 md:py-20">
-          <div className="h-6 w-20 dark:bg-neutral-800 bg-neutral-100 rounded mb-8" />
-          <div className="h-10 w-3/4 dark:bg-neutral-800 bg-neutral-100 rounded-lg mb-4" />
-          <div className="h-6 w-48 dark:bg-neutral-800 bg-neutral-100 rounded mb-12" />
+          <div className="h-6 w-20 bg-neutral-800 rounded mb-8" />
+          <div className="h-10 w-3/4 bg-neutral-800 rounded-lg mb-4" />
+          <div className="h-6 w-48 bg-neutral-800 rounded mb-12" />
           <Card className="p-8 mb-8"><SkeletonText lines={4} /></Card>
           <Card className="p-8"><SkeletonText lines={3} /></Card>
         </div>
@@ -179,11 +179,11 @@ const IdeaDetail = () => {
             <div className="flex items-center gap-3 mb-4">
               <Badge>{idea.domain}</Badge>
               {idea.status && <StatusBadge status={idea.status} />}
-              <span className="flex items-center gap-1 text-sm dark:text-neutral-500 text-neutral-400">
+              <span className="flex items-center gap-1 text-sm text-neutral-500
                 <Eye className="w-4 h-4" /> {idea.view_count || 0}
               </span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-light dark:text-white text-neutral-900 leading-tight mb-4">
+            <h1 className="text-4xl md:text-5xl font-light text-white leading-tight mb-4">
               {idea.title}
             </h1>
             {user && (
@@ -206,7 +206,7 @@ const IdeaDetail = () => {
                   }}
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isBookmarked
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-neutral-800 dark:text-neutral-300 text-neutral-600 hover:bg-neutral-700'
+                      : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                     }`}
                 >
                   <Bookmark className="w-4 h-4" fill={isBookmarked ? 'currentColor' : 'none'} />
@@ -217,7 +217,7 @@ const IdeaDetail = () => {
                     navigator.clipboard.writeText(window.location.href);
                     toast.success('Link copied to clipboard');
                   }}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-neutral-800 dark:text-neutral-300 text-neutral-600 hover:bg-neutral-700 transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-colors"
                 >
                   <Share2 className="w-4 h-4" />
                   Share
@@ -232,7 +232,7 @@ const IdeaDetail = () => {
                       toast.error(err.response?.data?.error || 'Failed');
                     }
                   }}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-neutral-800 dark:text-neutral-300 text-neutral-600 hover:bg-neutral-700 transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-colors"
                 >
                   <Users className="w-4 h-4" />
                   Request ({requestedCount})
@@ -247,7 +247,7 @@ const IdeaDetail = () => {
               <h2 className="text-sm font-semibold text-indigo-400 uppercase tracking-widest mb-4">
                 Problem Statement
               </h2>
-              <p className="text-lg dark:text-neutral-200 text-neutral-700 leading-relaxed">{idea.problem_statement}</p>
+              <p className="text-lg text-neutral-200 leading-relaxed">{idea.problem_statement}</p>
             </Card>
           </motion.div>
 
@@ -268,7 +268,7 @@ const IdeaDetail = () => {
                     return (
                       <div
                         key={idx}
-                        className="rounded-xl border border-neutral-800 dark:bg-neutral-900/60 bg-white/60 p-4 hover:border-purple-500/30 transition"
+                        className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 hover:border-purple-500/30 transition"
                       >
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-sm font-semibold text-purple-300">{name}</span>
@@ -282,14 +282,14 @@ const IdeaDetail = () => {
                             </div>
                           )}
                         </div>
-                        {desc && <p className="text-sm dark:text-neutral-400 text-neutral-500 leading-relaxed">{desc}</p>}
-                        {extra && <p className="text-xs dark:text-neutral-500 text-neutral-400 mt-1 italic">{extra}</p>}
+                        {desc && <p className="text-sm text-neutral-400 leading-relaxed">{desc}</p>}
+                        {extra && <p className="text-xs text-neutral-500 mt-1 italic">{extra}</p>}
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <p className="text-base dark:text-neutral-300 text-neutral-600 leading-relaxed">{idea.tech_stack}</p>
+                <p className="text-base text-neutral-300 leading-relaxed">{idea.tech_stack}</p>
               )}
             </Card>
           </motion.div>
@@ -303,7 +303,7 @@ const IdeaDetail = () => {
               {idea.sources && idea.sources.length > 0 ? (
                 <SourcesList sources={idea.sources} evidenceBreakdown={null} />
               ) : (
-                <span className="dark:text-neutral-500 text-neutral-400">No sources available</span>
+                <span className="text-neutral-500 sources available</span>
               )}
             </Card>
           </motion.div>
@@ -313,19 +313,19 @@ const IdeaDetail = () => {
             <Card className="p-6 text-center">
               <div className="text-xs text-indigo-400 uppercase tracking-widest font-semibold mb-3">Novelty Score</div>
               <ScoreDisplay value={idea.novelty_score} size="lg" />
-              <div className="text-sm dark:text-neutral-500 text-neutral-400 mt-2">How novel and original</div>
+              <div className="text-sm text-neutral-500 mt-2">How novel and original</div>
             </Card>
             <Card className="p-6 text-center">
               <div className="text-xs text-purple-400 uppercase tracking-widest font-semibold mb-3">Quality Score</div>
               <ScoreDisplay value={idea.quality_score} size="lg" />
-              <div className="text-sm dark:text-neutral-500 text-neutral-400 mt-2">Overall quality & viability</div>
+              <div className="text-sm text-neutral-500 mt-2">Overall quality & viability</div>
             </Card>
             <Card className="p-6 text-center">
               <div className="text-xs text-pink-400 uppercase tracking-widest font-semibold mb-3">Trust Signal</div>
               <div className="flex justify-center mb-2">
                 <ShieldCheck className="w-10 h-10 text-emerald-400" />
               </div>
-              <div className="text-sm dark:text-neutral-500 text-neutral-400">Backed by research</div>
+              <div className="text-sm text-neutral-500 by research</div>
             </Card>
           </motion.div>
 
@@ -341,7 +341,7 @@ const IdeaDetail = () => {
                     </h2>
                     <div className="grid md:grid-cols-2 gap-6">
                       <div>
-                        <p className="dark:text-neutral-300 text-neutral-600 leading-relaxed mb-4 whitespace-pre-line">
+                        <p className="text-neutral-300 leading-relaxed mb-4 whitespace-pre-line">
                           {typeof noveltyBreakdown.explanation === 'object'
                             ? (noveltyBreakdown.explanation.full_narrative || noveltyBreakdown.explanation.summary || JSON.stringify(noveltyBreakdown.explanation))
                             : noveltyBreakdown.explanation}
@@ -350,7 +350,7 @@ const IdeaDetail = () => {
                           {noveltyBreakdown.signal_breakdown?.signals &&
                             Object.entries(noveltyBreakdown.signal_breakdown.signals).map(([key, value]) => (
                               <div key={key} className="flex justify-between items-center text-sm">
-                                <span className="dark:text-neutral-400 text-neutral-500">{key.replace(/_/g, " ")}</span>
+                                <span className="text-neutral-400 " ")}</span>
                                 <span
                                   className={cn(
                                     "font-mono font-bold",
@@ -366,15 +366,15 @@ const IdeaDetail = () => {
                       </div>
                       <div className="space-y-3">
                         <div className="flex justify-between items-center text-sm">
-                          <span className="dark:text-neutral-400 text-neutral-500">Evidence Strength</span>
-                          <span className="font-semibold dark:text-neutral-200 text-neutral-700">{noveltyBreakdown.evidence_strength}</span>
+                          <span className="text-neutral-400 Strength</span>
+                          <span className="font-semibold text-neutral-200
                         </div>
                         <div className="flex justify-between items-center text-sm">
-                          <span className="dark:text-neutral-400 text-neutral-500">Sources Analyzed</span>
-                          <span className="font-semibold dark:text-neutral-200 text-neutral-700">{noveltyBreakdown.sources_analyzed}</span>
+                          <span className="text-neutral-400 Analyzed</span>
+                          <span className="font-semibold text-neutral-200
                         </div>
                         <div className="flex justify-between items-center text-sm">
-                          <span className="dark:text-neutral-400 text-neutral-500">Hallucination Risk</span>
+                          <span className="text-neutral-400 Risk</span>
                           <span
                             className={cn(
                               "font-semibold",
@@ -402,7 +402,7 @@ const IdeaDetail = () => {
                   </h2>
                   <div className="flex items-center gap-6">
                     <StarRating value={rating} onChange={setRating} disabled={submittingReview} />
-                    <span className="dark:text-neutral-500 text-neutral-400 text-sm">
+                    <span className="text-neutral-500 text-sm">
                       {rating ? `${rating}/5` : "Select a rating"}
                     </span>
                   </div>
@@ -425,7 +425,7 @@ const IdeaDetail = () => {
                     <h2 className="text-sm font-semibold text-indigo-400 uppercase tracking-widest mb-4">
                       Why This Is Novel
                     </h2>
-                    <p className="text-base dark:text-neutral-300 text-neutral-600 leading-relaxed whitespace-pre-line">
+                    <p className="text-base text-neutral-300 leading-relaxed whitespace-pre-line">
                       {typeof idea.novelty_explanation === 'object'
                         ? (idea.novelty_explanation.full_narrative || idea.novelty_explanation.summary || '')
                         : idea.novelty_explanation}
@@ -444,18 +444,18 @@ const IdeaDetail = () => {
                     <div className="space-y-3">
                       {idea.hallucination_risk_level && (
                         <div className="flex justify-between items-center">
-                          <span className="dark:text-neutral-400 text-neutral-500 flex items-center gap-2">
+                          <span className="text-neutral-400 flex items-center gap-2">
                             <AlertTriangle className="w-4 h-4" /> Hallucination Risk
                           </span>
-                          <span className="font-medium dark:text-neutral-300 text-neutral-600">{typeof idea.hallucination_risk_level === 'object' ? JSON.stringify(idea.hallucination_risk_level) : idea.hallucination_risk_level}</span>
+                          <span className="font-medium text-neutral-300 idea.hallucination_risk_level === 'object' ? JSON.stringify(idea.hallucination_risk_level) : idea.hallucination_risk_level}</span>
                         </div>
                       )}
                       {idea.evidence_strength && (
                         <div className="flex justify-between items-center">
-                          <span className="dark:text-neutral-400 text-neutral-500 flex items-center gap-2">
+                          <span className="text-neutral-400 flex items-center gap-2">
                             <ShieldCheck className="w-4 h-4" /> Evidence Strength
                           </span>
-                          <span className="font-medium dark:text-neutral-300 text-neutral-600">{typeof idea.evidence_strength === 'object' ? JSON.stringify(idea.evidence_strength) : idea.evidence_strength}</span>
+                          <span className="font-medium text-neutral-300 idea.evidence_strength === 'object' ? JSON.stringify(idea.evidence_strength) : idea.evidence_strength}</span>
                         </div>
                       )}
                     </div>
@@ -466,7 +466,7 @@ const IdeaDetail = () => {
               {/* Quick Reactions */}
               <motion.div variants={fadeIn}>
                 <Card className="p-6">
-                  <h2 className="text-sm font-semibold dark:text-neutral-300 text-neutral-600 uppercase tracking-widest mb-4">
+                  <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-widest mb-4">
                     Quick Reactions
                   </h2>
                   <div className="flex flex-wrap gap-3">
@@ -487,7 +487,7 @@ const IdeaDetail = () => {
                             toast.error(err.response?.data?.error || 'Failed');
                           }
                         }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium dark:text-white text-neutral-900 transition-colors ${color}`}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${color}`}
                       >
                         {label}
                       </button>
@@ -499,22 +499,22 @@ const IdeaDetail = () => {
               {/* Detailed Feedback Section */}
               <motion.div variants={fadeIn}>
                 <Card className="p-8">
-                  <h2 className="text-sm font-semibold dark:text-neutral-300 text-neutral-600 uppercase tracking-widest mb-6">
+                  <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-widest mb-6">
                     Share Your Feedback
                   </h2>
-                  <p className="dark:text-neutral-400 text-neutral-500 mb-6">
+                  <p className="text-neutral-400 mb-6">
                     Help improve the system by providing feedback on this idea.
                   </p>
 
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium dark:text-neutral-300 text-neutral-600 mb-3">
+                      <label className="block text-sm font-medium text-neutral-300 mb-3">
                         Feedback Type
                       </label>
                       <select
                         value={feedbackType}
                         onChange={(e) => setFeedbackType(e.target.value)}
-                        className="w-full h-10 rounded-lg border border-neutral-700 dark:bg-neutral-800 bg-neutral-100 px-3 py-2 text-sm dark:text-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full h-10 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       >
                         <option value="">Select feedback type...</option>
                         <option value="factual_error">Report factual error</option>
@@ -527,7 +527,7 @@ const IdeaDetail = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium dark:text-neutral-300 text-neutral-600 mb-3">
+                      <label className="block text-sm font-medium text-neutral-300 mb-3">
                         Comment (Optional)
                       </label>
                       <Textarea
@@ -556,7 +556,7 @@ const IdeaDetail = () => {
           {!user && (
             <motion.div variants={fadeIn}>
               <Card className="p-8 border-indigo-500/20 bg-indigo-500/5 text-center">
-                <p className="dark:text-neutral-300 text-neutral-600 mb-4">
+                <p className="text-neutral-300 mb-4">
                   Sign in to provide feedback and see detailed analysis.
                 </p>
                 <Button asChild>
