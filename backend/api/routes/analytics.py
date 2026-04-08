@@ -1,15 +1,46 @@
 """
 Analytics endpoints (admin and user)
 """
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 from sqlalchemy import func, case
+from backend.core.config import Config
 from backend.core.db import db
 from backend.core.app import cache, User
 from backend.core.models import ProjectIdea, Domain, IdeaRequest, IdeaReview, IdeaFeedback, AdminVerdict, GenerationTrace
 from backend.utils import require_admin, db_retry
+from backend.evaluation.service import evaluate_idea_batch, get_reference_eval_index
+from backend.semantic.embedder import get_embedder
 
 analytics_bp = Blueprint("analytics", __name__)
+
+
+def _build_eval_payload(idea: ProjectIdea) -> dict:
+    payload = {}
+    if isinstance(getattr(idea, "problem_statement_json", None), dict):
+        payload.update(idea.problem_statement_json)
+
+    payload.setdefault("title", idea.title)
+    payload.setdefault("problem_statement", idea.problem_statement)
+
+    tech_stack_json = getattr(idea, "tech_stack_json", None)
+    if isinstance(tech_stack_json, list):
+        payload.setdefault("tech_stack", tech_stack_json)
+    else:
+        payload.setdefault("tech_stack", idea.tech_stack)
+
+    return payload
+
+
+def _bucket_scores(values: list[float], bucket_size: int = 10) -> list[dict]:
+    buckets = {i: 0 for i in range(0, 101, bucket_size)}
+    for val in values:
+        if not isinstance(val, (int, float)):
+            continue
+        pct = max(0.0, min(100.0, float(val) * 100.0))
+        bucket = int(min(100, (pct // bucket_size) * bucket_size))
+        buckets[bucket] = buckets.get(bucket, 0) + 1
+    return [{"range": f"{k}-{k + bucket_size}", "count": v} for k, v in buckets.items()]
 
 
 @analytics_bp.route("/api/analytics/admin/kpis", methods=["GET"])
@@ -65,6 +96,71 @@ def admin_kpis():
         "total_reviews": total_reviews,
         "total_feedbacks": total_feedbacks,
         "feedback_distribution": feedback_distribution
+    }), 200
+
+
+@analytics_bp.route("/api/analytics/admin/evaluation", methods=["GET"])
+@jwt_required()
+@db_retry()
+def admin_evaluation_metrics():
+    if not require_admin():
+        return jsonify({"error": "Admin access required"}), 403
+
+    try:
+        limit_raw = request.args.get("limit", Config.EVAL_ANALYTICS_MAX_IDEAS)
+        limit = min(int(limit_raw), Config.EVAL_ANALYTICS_MAX_IDEAS)
+    except Exception:
+        limit = Config.EVAL_ANALYTICS_MAX_IDEAS
+
+    ideas = (
+        ProjectIdea.query
+        .order_by(ProjectIdea.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    payloads = [_build_eval_payload(idea) for idea in ideas]
+    if not payloads:
+        return jsonify({
+            "aggregate": {
+                "ins_mean": None,
+                "cs_mean": None,
+                "ids": 0.0,
+                "rr": 0.0,
+                "idea_count": 0,
+                "reference_index_loaded": False,
+                "sample_size": 0,
+            },
+            "distributions": {
+                "ins": [],
+                "cs": [],
+            }
+        }), 200
+
+    reference_index = get_reference_eval_index()
+    embedder = get_embedder()
+
+    eval_results = evaluate_idea_batch(
+        payloads,
+        reference_index=reference_index,
+        k=max(1, getattr(Config, "EVAL_REFERENCE_NEIGHBORS", 5)),
+        embedder=embedder,
+    )
+
+    per_idea = eval_results.get("per_idea", [])
+    ins_values = [row.get("ins") for row in per_idea if isinstance(row.get("ins"), float)]
+    cs_values = [row.get("cs") for row in per_idea if isinstance(row.get("cs"), float)]
+
+    aggregate = eval_results.get("aggregate", {})
+    aggregate["reference_index_loaded"] = reference_index is not None
+    aggregate["sample_size"] = len(payloads)
+
+    return jsonify({
+        "aggregate": aggregate,
+        "distributions": {
+            "ins": _bucket_scores(ins_values),
+            "cs": _bucket_scores(cs_values),
+        }
     }), 200
 
 

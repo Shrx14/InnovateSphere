@@ -135,6 +135,12 @@ class Config:
     HYBRID_MAX_SOURCES_FOR_PROMPT = int(os.getenv("HYBRID_MAX_SOURCES_FOR_PROMPT", 5))
 
     # =========================================================
+    # GCR Mode (Generate -> Critique -> Refine)
+    # =========================================================
+    # When enabled: uses a 3-pass GCR pipeline with retrieval + novelty.
+    GCR_MODE = os.getenv("GCR_MODE", "false").lower() in ("1", "true", "yes")
+
+    # =========================================================
     # Demo Mode (for fast presentation/demo)
     # =========================================================
     # When enabled: skips novelty analysis, runs single LLM pass, reduces retrieval
@@ -179,6 +185,7 @@ class Config:
     EVAL_REFERENCE_INDEX_PATH = os.getenv("EVAL_REFERENCE_INDEX_PATH", "")
     EVAL_REFERENCE_METADATA_PATH = os.getenv("EVAL_REFERENCE_METADATA_PATH", "")
     EVAL_REFERENCE_NEIGHBORS = int(os.getenv("EVAL_REFERENCE_NEIGHBORS", 5))
+    EVAL_ANALYTICS_MAX_IDEAS = int(os.getenv("EVAL_ANALYTICS_MAX_IDEAS", 200))
 
     # =========================================================
     # Observability / Logging
@@ -260,6 +267,8 @@ class Config:
         """Returns a string label for the currently active pipeline mode."""
         if Config.DEMO_MODE:
             return "demo"
+        if Config.GCR_MODE:
+            return "gcr"
         if Config.HYBRID_MODE:
             return "hybrid"
         return "production"

@@ -317,6 +317,187 @@ Rules:
   NEVER use vague categories like "AI", "ML", "NLP", "Cloud Services", "Big Data", "Analytics" as technology names.
 """
 
+# ==============================
+# GCR MODE PROMPTS (Generate -> Critique -> Refine)
+# ==============================
+
+GCR_GENERATOR_SYSTEM = """
+You are an innovation architect specializing in evidence-grounded project design.
+
+Generate ONE feasible, novel project idea grounded in the provided sources and novelty gaps.
+Return ONLY valid JSON. No markdown, no explanations.
+"""
+
+GCR_GENERATOR_PROMPT_TEMPLATE = """
+User Query: {query}
+Domain: {domain}
+
+Novelty Signals:
+{novelty}
+
+Key Novelty Gaps:
+{novelty_gaps}
+
+Available Sources:
+{sources}
+
+Return STRICT JSON:
+{{
+  "title": "Short, descriptive project title",
+  "problem_statement": "Clear 1-2 sentence problem this idea solves",
+  "novelty_reason": "Why this combination of ideas is novel (reference the gaps)",
+  "modules": [
+    {{
+      "name": "Module name",
+      "responsibility": "What this module does"
+    }}
+  ],
+  "tech_stack": [
+    {{
+      "component": "Technical category (e.g. Backend, Frontend, ML/AI, Database, DevOps, Sensors, Blockchain)",
+      "technologies": ["SpecificLanguageOrFramework", "SpecificLibrary"],
+      "rationale": "Why these specific tools were chosen for this project"
+    }}
+  ],
+  "key_innovations": [
+    "Innovation 1: How this differs from existing solutions",
+    "Innovation 2: Novel approach or technique"
+  ],
+  "implementation_complexity": "low | medium | high",
+  "estimated_timeline_weeks": 8,
+  "risks": ["Risk 1", "Risk 2"],
+  "self_critique": {{
+    "expert_challenge": "Hardest expert-level objection",
+    "expert_response": "Concrete response to that objection",
+    "implementation_challenge": "Most difficult engineering challenge",
+    "evidence_gap": "What additional evidence is still missing",
+    "confidence": "high | medium | low",
+    "confidence_reason": "One sentence confidence rationale"
+  }},
+  "source_references": [
+    {{
+      "title": "Source title",
+      "url": "Source URL",
+      "relevance": "How this source informed the idea"
+    }}
+  ]
+}}
+
+Rules:
+- Output ONLY valid JSON
+- Use only the provided sources for source_references
+- Combine at least two novelty gaps
+- Modules must be implementable and specific
+- tech_stack technologies must be specific software (no vague categories)
+"""
+
+GCR_CRITIC_SYSTEM = """
+You are a strict technical critic.
+
+Your task is to audit the proposed idea for evidence grounding, novelty risk, feasibility,
+and internal coherence. Do NOT rewrite the idea. Return ONLY valid JSON.
+"""
+
+GCR_CRITIC_PROMPT_TEMPLATE = """
+Draft Idea:
+{idea}
+
+Novelty Context:
+{novelty}
+
+Constraints:
+{constraints}
+
+Available Sources:
+{sources}
+
+Return STRICT JSON:
+{{
+  "blocking_issues": ["Issue 1", "Issue 2"],
+  "evidence_gaps": ["Missing evidence for claim X"],
+  "novelty_risks": ["Why this might be derivative"],
+  "feasibility_risks": ["Main engineering risk"],
+  "coherence_risks": ["Mismatched modules or tech"],
+  "grounding_issues": ["Claims that lack support from provided sources"],
+  "improvements": ["Specific, actionable fix"],
+  "confidence": "high | medium | low",
+  "confidence_reason": "One sentence rationale"
+}}
+
+Rules:
+- Do NOT provide a rewritten idea
+- Focus on issues and fixes only
+- Use only provided sources as evidence
+"""
+
+GCR_REFINER_SYSTEM = """
+You are a senior architect refining a draft using a critic's feedback.
+
+Return a corrected, improved idea that resolves the critique while staying grounded
+in the provided sources. Output ONLY valid JSON. No markdown, no explanations.
+"""
+
+GCR_REFINER_PROMPT_TEMPLATE = """
+Draft Idea:
+{idea}
+
+Critic Feedback:
+{critique}
+
+Novelty Context:
+{novelty}
+
+Available Sources:
+{sources}
+
+Return STRICT JSON (same schema as the draft idea):
+{{
+  "title": "Short, descriptive project title",
+  "problem_statement": "Clear 1-2 sentence problem this idea solves",
+  "novelty_reason": "Why this combination of ideas is novel (reference the gaps)",
+  "modules": [
+    {{
+      "name": "Module name",
+      "responsibility": "What this module does"
+    }}
+  ],
+  "tech_stack": [
+    {{
+      "component": "Technical category",
+      "technologies": ["SpecificLanguageOrFramework", "SpecificLibrary"],
+      "rationale": "Why these specific tools were chosen for this project"
+    }}
+  ],
+  "key_innovations": [
+    "Innovation 1",
+    "Innovation 2"
+  ],
+  "implementation_complexity": "low | medium | high",
+  "estimated_timeline_weeks": 8,
+  "risks": ["Risk 1", "Risk 2"],
+  "self_critique": {{
+    "expert_challenge": "Hardest expert-level objection",
+    "expert_response": "Concrete response to that objection",
+    "implementation_challenge": "Most difficult engineering challenge",
+    "evidence_gap": "What additional evidence is still missing",
+    "confidence": "high | medium | low",
+    "confidence_reason": "One sentence confidence rationale"
+  }},
+  "source_references": [
+    {{
+      "title": "Source title",
+      "url": "Source URL",
+      "relevance": "How this source informed the idea"
+    }}
+  ]
+}}
+
+Rules:
+- Fix or remove claims flagged in the critique
+- Ensure all claims are grounded in the provided sources
+- Use only provided sources for source_references
+"""
+
 # Load active prompts from DB
 _ACTIVE = get_active_prompt_version()
 

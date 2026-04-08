@@ -1,11 +1,61 @@
 from __future__ import annotations
 
 from typing import Any
+import logging
+import threading
 
 import numpy as np
 
+from backend.core.config import Config
 from backend.evaluation.faiss_index import FaissReferenceIndex
 from backend.evaluation.metrics import compute_cs, compute_ids, compute_ins, compute_rr
+
+
+logger = logging.getLogger(__name__)
+
+_reference_eval_index = None
+_reference_eval_index_lock = threading.Lock()
+_reference_eval_index_attempted = False
+
+
+def get_reference_eval_index() -> FaissReferenceIndex | None:
+    """Lazy-load FAISS reference index for optional evaluation metrics."""
+    global _reference_eval_index
+    global _reference_eval_index_attempted
+
+    if not getattr(Config, "ENABLE_EVALUATION_FRAMEWORK", False):
+        return None
+
+    if _reference_eval_index is not None:
+        return _reference_eval_index
+
+    if _reference_eval_index_attempted:
+        return None
+
+    with _reference_eval_index_lock:
+        if _reference_eval_index is not None:
+            return _reference_eval_index
+        if _reference_eval_index_attempted:
+            return None
+
+        _reference_eval_index_attempted = True
+
+        index_path = getattr(Config, "EVAL_REFERENCE_INDEX_PATH", "")
+        if not index_path:
+            logger.info("[EVAL] Evaluation framework enabled but EVAL_REFERENCE_INDEX_PATH is not set")
+            return None
+
+        try:
+            _reference_eval_index = FaissReferenceIndex.load(
+                index_path=index_path,
+                metadata_path=getattr(Config, "EVAL_REFERENCE_METADATA_PATH", "") or None,
+            )
+            logger.info("[EVAL] Loaded FAISS reference index from %s", index_path)
+        except Exception as exc:
+            logger.warning("[EVAL] Failed to load FAISS reference index: %s", exc)
+            _reference_eval_index = None
+
+        return _reference_eval_index
 
 
 def _idea_text_from_payload(payload: dict[str, Any]) -> str:

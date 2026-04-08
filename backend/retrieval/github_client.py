@@ -274,10 +274,11 @@ def search_github(query, domain, max_results=5, fetch_limit=20, final_top_n=5):
     
     Improved ranking strategy:
     - Fetches up to `fetch_limit` results ordered by RELEVANCE (best-match from GitHub API)
-    - Locally sorts the fetched results by star count (descending)
-    - Returns the top `final_top_n` most-starred results
+    - Prioritizes earlier query variations first
+    - Within each variation, sorts by star count (descending)
+    - Returns the top `final_top_n` results
     
-    This ensures we get both relevance AND quality (star count) in the final selection.
+    This balances relevance (variation priority) and quality (star count).
     
     Args:
         query: Search query string
@@ -287,7 +288,7 @@ def search_github(query, domain, max_results=5, fetch_limit=20, final_top_n=5):
         final_top_n: How many results to return after star-sorting (default 5)
     
     Returns:
-        A list of normalized source dictionaries, ordered by relevance (variation priority + position first), then stars.
+        A list of normalized source dictionaries, ordered by variation priority then star count.
 
     """
     try:
@@ -418,16 +419,14 @@ def search_github(query, domain, max_results=5, fetch_limit=20, final_top_n=5):
                 logger.info("[GitHub] most effective variation: '%s' with %d new results", 
                            best_variation, variation_effectiveness[best_variation])
             
-            # Sort results: Use variation priority + position as primary (relevance), stars as tiebreaker
-            # Earlier variations = more relevant, earlier position = more relevant
-            # Stars only used to break ties when relevance is equal
-            # This ensures 0-star but highly-relevant repos aren't buried
+            # Sort results: variation priority first, then stars, then position within variation
+            # Earlier variations = more relevant; stars refine ordering within a variation.
             sorted_results = sorted(
                 aggregated.values(),
                 key=lambda r: (
                     r.get('metadata', {}).get('variation_index', 999),  # Lower index = earlier variation = more relevant
-                    r.get('metadata', {}).get('position_in_result', 999),  # Lower position = more relevant within variation
-                    -r.get('metadata', {}).get('stars', 0)  # Higher stars = better (negative for descending)
+                    -r.get('metadata', {}).get('stars', 0),  # Higher stars = better (negative for descending)
+                    r.get('metadata', {}).get('position_in_result', 999)  # Lower position = more relevant within variation
                 )
             )
             final_results = sorted_results[:final_top_n]
