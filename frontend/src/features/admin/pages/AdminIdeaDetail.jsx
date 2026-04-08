@@ -113,7 +113,7 @@ const AdminIdeaDetail = () => {
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-6 py-12">
-        <div className="text-center text-neutral-400 idea details...</div>
+        <div className="text-center text-neutral-400">Loading idea details...</div>
       </div>
     );
   }
@@ -129,7 +129,7 @@ const AdminIdeaDetail = () => {
   if (!idea) {
     return (
       <div className="max-w-7xl mx-auto px-6 py-12">
-        <div className="text-center text-neutral-400 not found.</div>
+        <div className="text-center text-neutral-400">Idea not found.</div>
       </div>
     );
   }
@@ -157,14 +157,14 @@ const AdminIdeaDetail = () => {
           ← Back to review queue
         </button>
         <div className="flex items-center gap-3">
-          <h1 className="text-4xl font-light text-white
+          <h1 className="text-4xl font-light text-white">{idea.title}</h1>
           {idea.is_human_verified && (
             <span className="px-2 py-1 text-xs bg-green-500/20 text-green-400 border border-green-500/30 rounded">
               Human Verified
             </span>
           )}
         </div>
-        <p className="mt-2 text-neutral-400
+        <p className="mt-2 text-neutral-400">
           Domain: {idea.domain} • Created: {new Date(idea.created_at).toLocaleDateString()}
           {idea.ai_pipeline_version && ` • Pipeline: ${idea.ai_pipeline_version}`}
         </p>
@@ -207,7 +207,7 @@ const AdminIdeaDetail = () => {
                 })}
               </div>
             ) : (
-              <p className="text-neutral-300
+              <p className="text-neutral-300">{idea.tech_stack}</p>
             )}
           </div>
 
@@ -261,14 +261,14 @@ const AdminIdeaDetail = () => {
                 ))}
               </div>
             ) : (
-              <p className="text-neutral-400 sources available.</p>
+              <p className="text-neutral-400">No sources available.</p>
             )}
           </div>
 
           {/* Generation Trace Viewer */}
           <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-medium text-white Trace</h2>
+              <h2 className="text-xl font-medium text-white">Generation Trace</h2>
               <button
                 onClick={fetchTrace}
                 disabled={traceLoading}
@@ -331,7 +331,7 @@ const AdminIdeaDetail = () => {
                 ))}
               </div>
             ) : (
-              <p className="text-neutral-400 feedback yet.</p>
+              <p className="text-neutral-400">No feedback yet.</p>
             )}
           </div>
         </div>
@@ -343,19 +343,19 @@ const AdminIdeaDetail = () => {
             <h2 className="text-xl font-medium text-white mb-4">Trust Signals</h2>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-neutral-300 Score</span>
+                <span className="text-neutral-300">Quality Score</span>
                 <span className="text-white font-medium">{formatScore(idea.quality_score)}/10</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-300 Confidence</span>
+                <span className="text-neutral-300">Novelty Confidence</span>
                 <span className="text-white font-medium capitalize">{idea.novelty_confidence}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-300 Strength</span>
+                <span className="text-neutral-300">Evidence Strength</span>
                 <span className="text-white font-medium capitalize">{idea.evidence_strength}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-300 Risk</span>
+                <span className="text-neutral-300">Hallucination Risk</span>
                 <span className={`font-medium capitalize ${
                   idea.hallucination_risk_level === 'high' ? 'text-red-400' :
                   idea.hallucination_risk_level === 'medium' ? 'text-yellow-400' : 'text-green-400'
@@ -365,7 +365,7 @@ const AdminIdeaDetail = () => {
               </div>
               {idea.admin_verdict && (
                 <div className="flex justify-between">
-                  <span className="text-neutral-300 Verdict</span>
+                  <span className="text-neutral-300">Admin Verdict</span>
                   <span className={`font-medium capitalize ${
                     idea.admin_verdict === 'validated' ? 'text-green-400' :
                     idea.admin_verdict === 'rejected' ? 'text-red-400' : 'text-yellow-400'
@@ -423,7 +423,7 @@ const AdminIdeaDetail = () => {
                     className={`w-full p-3 rounded border text-left transition-colors ${
                       verdict === 'validated'
                         ? 'border-green-500 bg-green-500/10 text-green-400'
-                        : 'border-neutral-600 hover:border-green-500 text-neutral-300
+                        : 'border-neutral-600 hover:border-green-500 text-neutral-300'
                     }`}
                   >
                     ✅ Validate - Publish this idea
@@ -433,7 +433,7 @@ const AdminIdeaDetail = () => {
                     className={`w-full p-3 rounded border text-left transition-colors ${
                       verdict === 'downgraded'
                         ? 'border-yellow-500 bg-yellow-500/10 text-yellow-400'
-                        : 'border-neutral-600 hover:border-yellow-500 text-neutral-300
+                        : 'border-neutral-600 hover:border-yellow-500 text-neutral-300'
                     }`}
                   >
                     ⚠️ Downgrade - Keep but flag for improvement
@@ -443,7 +443,7 @@ const AdminIdeaDetail = () => {
                     className={`w-full p-3 rounded border text-left transition-colors ${
                       verdict === 'rejected'
                         ? 'border-red-500 bg-red-500/10 text-red-400'
-                        : 'border-neutral-600 hover:border-red-500 text-neutral-300
+                        : 'border-neutral-600 hover:border-red-500 text-neutral-300'
                     }`}
                   >
                     ❌ Reject - Remove from platform

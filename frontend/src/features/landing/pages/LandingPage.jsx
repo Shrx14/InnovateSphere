@@ -171,7 +171,7 @@ const LandingPage = () => {
             variants={fadeIn}
             className="text-6xl md:text-7xl font-light tracking-tight mb-8 leading-tight"
           >
-            <span className="text-white ideas</span>
+            <span className="text-white">Generate research ideas</span>
             <br />
             <span className="gradient-text-animated">
               from research evidence
@@ -255,7 +255,7 @@ const LandingPage = () => {
                               transition={{ duration: 0.2 }}
                             >
                               <div className={`text-2xl font-bold ${color} mb-1`}>{value}</div>
-                              <div className="text-xs text-neutral-500
+                              <div className="text-xs text-neutral-500">{label}</div>
                             </motion.div>
                           ))}
                         </div>
@@ -373,7 +373,7 @@ const LandingPage = () => {
             className="mb-16"
           >
             <p className="text-xs uppercase tracking-widest text-indigo-400 mb-4 font-semibold">Explore Domains</p>
-            <h2 className="text-4xl md:text-5xl font-light text-white
+            <h2 className="text-4xl md:text-5xl font-light text-white">
               Research across <span className="text-indigo-400">{stats?.total_domains || 0}</span> domains
             </h2>
           </motion.div>
@@ -502,7 +502,7 @@ const LandingPage = () => {
             className="mb-16"
           >
             <p className="text-xs uppercase tracking-widest text-purple-400 mb-4 font-semibold">Most Viewed</p>
-            <h2 className="text-4xl md:text-5xl font-light text-white
+            <h2 className="text-4xl md:text-5xl font-light text-white">
               Top ideas from the community
             </h2>
           </motion.div>
@@ -563,7 +563,7 @@ const LandingPage = () => {
               className="mb-16"
             >
               <p className="text-xs uppercase tracking-widest text-emerald-400 mb-4 font-semibold">Quality Analytics</p>
-              <h2 className="text-4xl md:text-5xl font-light text-white
+              <h2 className="text-4xl md:text-5xl font-light text-white">
                 Novelty vs Quality scores
               </h2>
             </motion.div>
@@ -619,11 +619,11 @@ const LandingPage = () => {
                   <div className="flex items-center justify-center gap-6 mt-4">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-indigo-500" />
-                      <span className="text-xs text-neutral-400
+                      <span className="text-xs text-neutral-400">Novelty</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                      <span className="text-xs text-neutral-400
+                      <span className="text-xs text-neutral-400">Quality</span>
                     </div>
                   </div>
                 </Card>
@@ -682,11 +682,11 @@ const LandingPage = () => {
                   <div className="flex items-center justify-center gap-6 mt-4">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-indigo-500" />
-                      <span className="text-xs text-neutral-400
+                      <span className="text-xs text-neutral-400">Novelty</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                      <span className="text-xs text-neutral-400
+                      <span className="text-xs text-neutral-400">Quality</span>
                     </div>
                   </div>
                 </Card>

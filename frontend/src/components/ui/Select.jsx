@@ -58,7 +58,7 @@ const Select = ({
                         ? 'border-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.15)]'
                         : 'border-neutral-700/50 hover:border-neutral-600',
                     disabled && 'opacity-50 cursor-not-allowed',
-                    value ? 'text-white : 'text-neutral-400'
+                    value ? 'text-white' : 'text-neutral-400'
                 )}
             >
                 <span className="truncate">{displayLabel}</span>
@@ -98,7 +98,7 @@ const Select = ({
                                             'w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors duration-100',
                                             isSelected
                                                 ? 'bg-indigo-500/15 text-indigo-500 dark:text-indigo-300'
-                                                : 'text-neutral-300 hover:bg-neutral-800/60 hover:text-white
+                                                : 'text-neutral-300 hover:bg-neutral-800/60 hover:text-white'
                                         )}
                                     >
                                         <span className="flex-1 truncate">{optLabel}</span>

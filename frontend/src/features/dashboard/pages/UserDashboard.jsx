@@ -116,7 +116,7 @@ export default function UserDashboard() {
         {/* Header */}
         <motion.div variants={fadeIn} initial="hidden" animate="visible" className="mb-12">
           <h1 className="text-5xl md:text-6xl font-light text-white mb-2">Your Ideas</h1>
-          <p className="text-xl text-neutral-300
+          <p className="text-xl text-neutral-300">
             Track the status and performance of your generated ideas.
           </p>
         </motion.div>
@@ -129,7 +129,7 @@ export default function UserDashboard() {
           className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-12"
         >
           {[
-            { label: 'Total Ideas', value: ideas.length, color: 'text-white },
+            { label: 'Total Ideas', value: ideas.length, color: 'text-white' },
             { label: 'Validated', value: grouped.validated.length, color: 'text-emerald-400' },
             { label: 'Pending', value: grouped.pending.length, color: 'text-yellow-400' },
             { label: 'Rejected', value: grouped.rejected.length, color: 'text-red-400' },
@@ -137,7 +137,7 @@ export default function UserDashboard() {
             <motion.div key={stat.label} variants={fadeIn} whileHover={cardHover} whileTap={cardTap}>
               <Card className="p-6 text-center glow-border card-shine overflow-hidden">
                 <div className={cn('text-3xl font-bold mb-2', stat.color)}>{stat.value}</div>
-                <p className="text-sm text-neutral-400
+                <p className="text-sm text-neutral-400">{stat.label}</p>
               </Card>
             </motion.div>
           ))}

@@ -179,7 +179,7 @@ const IdeaDetail = () => {
             <div className="flex items-center gap-3 mb-4">
               <Badge>{idea.domain}</Badge>
               {idea.status && <StatusBadge status={idea.status} />}
-              <span className="flex items-center gap-1 text-sm text-neutral-500
+              <span className="flex items-center gap-1 text-sm text-neutral-500">
                 <Eye className="w-4 h-4" /> {idea.view_count || 0}
               </span>
             </div>
@@ -303,7 +303,7 @@ const IdeaDetail = () => {
               {idea.sources && idea.sources.length > 0 ? (
                 <SourcesList sources={idea.sources} evidenceBreakdown={null} />
               ) : (
-                <span className="text-neutral-500 sources available</span>
+                <span className="text-neutral-500">No sources available</span>
               )}
             </Card>
           </motion.div>
@@ -325,7 +325,7 @@ const IdeaDetail = () => {
               <div className="flex justify-center mb-2">
                 <ShieldCheck className="w-10 h-10 text-emerald-400" />
               </div>
-              <div className="text-sm text-neutral-500 by research</div>
+              <div className="text-sm text-neutral-500">Backed by research</div>
             </Card>
           </motion.div>
 
@@ -350,7 +350,7 @@ const IdeaDetail = () => {
                           {noveltyBreakdown.signal_breakdown?.signals &&
                             Object.entries(noveltyBreakdown.signal_breakdown.signals).map(([key, value]) => (
                               <div key={key} className="flex justify-between items-center text-sm">
-                                <span className="text-neutral-400 " ")}</span>
+                                <span className="text-neutral-400">{key.replace(/_/g, " ")}</span>
                                 <span
                                   className={cn(
                                     "font-mono font-bold",
@@ -366,15 +366,15 @@ const IdeaDetail = () => {
                       </div>
                       <div className="space-y-3">
                         <div className="flex justify-between items-center text-sm">
-                          <span className="text-neutral-400 Strength</span>
-                          <span className="font-semibold text-neutral-200
+                          <span className="text-neutral-400">Evidence Strength</span>
+                          <span className="font-semibold text-neutral-200">{noveltyBreakdown.evidence_strength || '—'}</span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
-                          <span className="text-neutral-400 Analyzed</span>
-                          <span className="font-semibold text-neutral-200
+                          <span className="text-neutral-400">Sources Analyzed</span>
+                          <span className="font-semibold text-neutral-200">{noveltyBreakdown.sources_analyzed || '—'}</span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
-                          <span className="text-neutral-400 Risk</span>
+                          <span className="text-neutral-400">Hallucination Risk</span>
                           <span
                             className={cn(
                               "font-semibold",
@@ -447,7 +447,7 @@ const IdeaDetail = () => {
                           <span className="text-neutral-400 flex items-center gap-2">
                             <AlertTriangle className="w-4 h-4" /> Hallucination Risk
                           </span>
-                          <span className="font-medium text-neutral-300 idea.hallucination_risk_level === 'object' ? JSON.stringify(idea.hallucination_risk_level) : idea.hallucination_risk_level}</span>
+                          <span className="font-medium text-neutral-300">{typeof idea.hallucination_risk_level === 'object' ? JSON.stringify(idea.hallucination_risk_level) : idea.hallucination_risk_level}</span>
                         </div>
                       )}
                       {idea.evidence_strength && (
@@ -455,7 +455,7 @@ const IdeaDetail = () => {
                           <span className="text-neutral-400 flex items-center gap-2">
                             <ShieldCheck className="w-4 h-4" /> Evidence Strength
                           </span>
-                          <span className="font-medium text-neutral-300 idea.evidence_strength === 'object' ? JSON.stringify(idea.evidence_strength) : idea.evidence_strength}</span>
+                          <span className="font-medium text-neutral-300">{typeof idea.evidence_strength === 'object' ? JSON.stringify(idea.evidence_strength) : idea.evidence_strength}</span>
                         </div>
                       )}
                     </div>

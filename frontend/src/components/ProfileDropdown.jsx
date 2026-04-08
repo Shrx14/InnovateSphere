@@ -64,7 +64,7 @@ const ProfileDropdown = () => {
                         className="absolute right-0 mt-2 w-64 rounded-xl overflow-hidden shadow-xl shadow-black/40 border border-neutral-800 dark:bg-neutral-900 bg-white z-[100]"
                     >
                         {/* User info header */}
-                        <div className="px-4 py-3 border-b border-neutral-800
+                        <div className="px-4 py-3 border-b border-neutral-800">
                             <div className="flex items-center gap-3">
                                 <div
                                     className="flex items-center justify-center w-10 h-10 rounded-full text-white text-sm font-semibold shrink-0"
@@ -94,7 +94,7 @@ const ProfileDropdown = () => {
                                     onClick={() => setOpen(false)}
                                     className="flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-300 hover:text-white hover:bg-white/5 transition-colors duration-150"
                                 >
-                                    <Icon className="w-4 h-4 text-neutral-500 />
+                                    <Icon className="w-4 h-4 text-neutral-500" />
                                     {label}
                                 </Link>
                             ))}

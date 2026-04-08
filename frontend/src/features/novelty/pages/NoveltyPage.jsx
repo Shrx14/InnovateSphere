@@ -84,7 +84,7 @@ const NoveltyPage = () => {
       case 'very low':
         return 'bg-red-500/20 border-red-500/50 text-red-300';
       default:
-        return 'bg-neutral-500/20 border-neutral-500/50 text-neutral-300
+        return 'bg-neutral-500/20 border-neutral-500/50 text-neutral-300';
     }
   };
 
@@ -100,7 +100,7 @@ const NoveltyPage = () => {
             </Link>
           )}
           <h1 className="text-5xl font-light text-white mb-3">Check Novelty</h1>
-          <p className="text-neutral-300 the novelty of any project idea with research-backed scoring</p>
+          <p className="text-neutral-300">Check the novelty of any project idea with research-backed scoring</p>
         </motion.div>
 
         {/* Main Container */}
@@ -199,7 +199,7 @@ const NoveltyPage = () => {
                 <div className="inline-block mb-4">
                   <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
                 </div>
-                <p className="text-neutral-300 novelty...</p>
+                <p className="text-neutral-300">Analyzing novelty...</p>
               </div>
             )}
 
@@ -251,7 +251,7 @@ const NoveltyPage = () => {
                     <p className="text-xs text-neutral-400 uppercase tracking-widest font-semibold mb-3">
                       Key Insights
                     </p>
-                    <div className="space-y-2 text-sm text-neutral-300
+                    <div className="space-y-2 text-sm text-neutral-300">
                       {Object.entries(result.insights).map(([key, value]) => (
                         <div key={key}>
                           <p className="font-medium text-indigo-300 capitalize">{key.replace(/_/g, ' ')}:</p>

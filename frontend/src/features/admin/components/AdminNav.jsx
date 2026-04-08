@@ -13,7 +13,7 @@ const AdminNav = () => {
         </Link>
 
         <nav aria-label="Admin navigation">
-          <ul className="flex items-center gap-6 text-sm text-neutral-400
+          <ul className="flex items-center gap-6 text-sm text-neutral-400">
             <li>
               <Link to="/admin/review" className="hover:text-neutral-200 transition">
                 Review Queue

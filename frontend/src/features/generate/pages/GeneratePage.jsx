@@ -32,7 +32,7 @@ const GeneratePage = () => {
           <h1 className="text-5xl md:text-6xl font-light text-white mb-4">
             Generate Idea
           </h1>
-          <p className="text-xl text-neutral-300
+          <p className="text-xl text-neutral-300">
             Create innovative project ideas evaluated with research evidence and real-time novelty scoring.
           </p>
         </motion.div>
@@ -69,7 +69,7 @@ const GeneratePage = () => {
                           variants={fadeIn}
                           initial="hidden"
                           animate="visible"
-                          className="flex items-center gap-2 text-sm text-neutral-400
+                          className="flex items-center gap-2 text-sm text-neutral-400"
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                           Found {gen.sourcesCount} relevant sources
@@ -80,7 +80,7 @@ const GeneratePage = () => {
                           variants={fadeIn}
                           initial="hidden"
                           animate="visible"
-                          className="flex items-center gap-2 text-sm text-neutral-400
+                          className="flex items-center gap-2 text-sm text-neutral-400"
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
                           Novelty: {formatScore(gen.noveltyScore)}/10
@@ -177,7 +177,7 @@ const GeneratePage = () => {
                   </div>
 
                   {/* Divider */}
-                  <div className="h-px bg-neutral-800 />
+                  <div className="h-px bg-neutral-800" />
 
                   {/* Metrics */}
                   <motion.div
@@ -191,7 +191,7 @@ const GeneratePage = () => {
                         <div className="text-lg font-bold text-white mb-1">
                           {gen.result.domain}
                         </div>
-                        <p className="text-xs text-neutral-500
+                        <p className="text-xs text-neutral-500">Domain</p>
                       </Card>
                     </motion.div>
                     <motion.div variants={fadeIn}>
@@ -207,7 +207,7 @@ const GeneratePage = () => {
                     <motion.div variants={fadeIn}>
                       <Card className="p-4 text-center bg-neutral-900/50">
                         <div className="text-lg font-bold text-emerald-400 mb-1">Saved</div>
-                        <p className="text-xs text-neutral-500
+                        <p className="text-xs text-neutral-500">Status</p>
                       </Card>
                     </motion.div>
                   </motion.div>
@@ -326,12 +326,12 @@ const GeneratePage = () => {
                       className="resize-none"
                     />
                     <div className="flex justify-between items-center mt-2">
-                      <p className="text-xs text-neutral-500
+                      <p className="text-xs text-neutral-500">
                         Be specific about the problem you're solving
                       </p>
                       <p className={cn(
                         'text-xs font-medium',
-                        gen.query.length > 1800 ? 'text-yellow-400' : 'text-neutral-500
+                        gen.query.length > 1800 ? 'text-yellow-400' : 'text-neutral-500'
                       )}>
                         {gen.query.length}/2000
                       </p>

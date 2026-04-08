@@ -10,7 +10,7 @@ const Skeleton = React.forwardRef(({ className, ...props }, ref) => (
     variants={skeletonPulse}
     initial="initial"
     animate="animate"
-    className={cn('rounded-lg bg-neutral-800 className)}
+    className={cn('rounded-lg bg-neutral-800', className)}
     aria-hidden="true"
     {...props}
   />

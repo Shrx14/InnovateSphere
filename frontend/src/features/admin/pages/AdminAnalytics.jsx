@@ -6,7 +6,7 @@ import { formatScore } from '../../../lib/formatScore';
 const StatCard = ({ label, value }) => (
   <div className="rounded-xl bg-neutral-900 border border-neutral-800 p-6">
     <p className="text-xs text-neutral-400 uppercase tracking-wide">{label}</p>
-    <p className="mt-2 text-2xl font-medium text-white
+    <p className="mt-2 text-2xl font-medium text-white">{value}</p>
   </div>
 );
 
@@ -93,8 +93,8 @@ const AdminAnalytics = () => {
     return (
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="mb-8">
-          <h1 className="text-3xl font-light text-white Analytics</h1>
-          <p className="mt-2 text-neutral-400 visibility and oversight</p>
+          <h1 className="text-3xl font-light text-white">Platform Analytics</h1>
+          <p className="mt-2 text-neutral-400">Full visibility and oversight</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {[...Array(4)].map((_, i) => (
@@ -125,8 +125,8 @@ const AdminAnalytics = () => {
   return (
     <div className="max-w-7xl mx-auto px-6 py-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-light text-white Analytics</h1>
-        <p className="mt-2 text-neutral-400 visibility and oversight</p>
+        <h1 className="text-3xl font-light text-white">Platform Analytics</h1>
+        <p className="mt-2 text-neutral-400">Full visibility and oversight</p>
       </div>
 
       {/* KPI Cards */}
@@ -148,7 +148,7 @@ const AdminAnalytics = () => {
               <Line type="monotone" dataKey="count" stroke="#9CA3AF" strokeWidth={2} dot={false} />
             </LineChart>
           ) : (
-            <div className="flex items-center justify-center h-full text-neutral-400
+            <div className="flex items-center justify-center h-full text-neutral-400">
               No data available
             </div>
           )}
@@ -168,7 +168,7 @@ const AdminAnalytics = () => {
                 <Bar dataKey="count" fill="#9CA3AF" />
               </BarChart>
             ) : (
-              <div className="flex items-center justify-center h-full text-neutral-400
+              <div className="flex items-center justify-center h-full text-neutral-400">
                 No data available
               </div>
             )}
@@ -185,7 +185,7 @@ const AdminAnalytics = () => {
                 <Bar dataKey="count" fill="#9CA3AF" />
               </BarChart>
             ) : (
-              <div className="flex items-center justify-center h-full text-neutral-400
+              <div className="flex items-center justify-center h-full text-neutral-400">
                 No data available
               </div>
             )}
@@ -207,7 +207,7 @@ const AdminAnalytics = () => {
       {data.bias && (
         <>
           <div className="mb-4 mt-8">
-            <h2 className="text-2xl font-light text-white Transparency</h2>
+            <h2 className="text-2xl font-light text-white">Bias Transparency</h2>
             <p className="mt-1 text-neutral-400 text-sm">How HITL verdicts affect scores and generation patterns</p>
           </div>
 
@@ -276,7 +276,7 @@ const AdminAnalytics = () => {
               <div className="flex gap-6">
                 {Object.entries(data.bias.domain_strictness_distribution).map(([level, count]) => (
                   <div key={level} className="flex-1 text-center">
-                    <p className="text-2xl font-mono text-white
+                    <p className="text-2xl font-mono text-white">{count}</p>
                     <p className="text-xs text-neutral-400 uppercase tracking-wide mt-1">{level}</p>
                   </div>
                 ))}

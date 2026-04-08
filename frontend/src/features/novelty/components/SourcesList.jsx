@@ -87,7 +87,7 @@ const SourcesList = ({ sources, evidenceBreakdown }) => {
             <h3 className="text-sm font-semibold text-white flex-1">
               {tierConfig.supporting.label}
             </h3>
-            <span className="text-xs px-2 py-1 bg-white/10 rounded-full font-semibold text-white
+            <span className="text-xs px-2 py-1 bg-white/10 rounded-full font-semibold text-white">
               {sourcesByTier.supporting.length}
             </span>
           </div>
@@ -110,7 +110,7 @@ const SourcesList = ({ sources, evidenceBreakdown }) => {
             <h3 className="text-sm font-semibold text-white flex-1">
               {tierConfig.contextual.label}
             </h3>
-            <span className="text-xs px-2 py-1 bg-white/10 rounded-full font-semibold text-white
+            <span className="text-xs px-2 py-1 bg-white/10 rounded-full font-semibold text-white">
               {sourcesByTier.contextual.length}
             </span>
           </summary>
@@ -136,7 +136,7 @@ const SourcesList = ({ sources, evidenceBreakdown }) => {
             <h3 className="text-sm font-semibold text-neutral-400 flex-1">
               {tierConfig.peripheral.label}
             </h3>
-            <span className="text-xs px-2 py-1 bg-white/10 rounded-full font-semibold text-neutral-400
+            <span className="text-xs px-2 py-1 bg-white/10 rounded-full font-semibold text-neutral-400">
               {sourcesByTier.peripheral.length}
             </span>
           </button>
@@ -157,7 +157,7 @@ const SourcesList = ({ sources, evidenceBreakdown }) => {
       {/* Evidence breakdown summary */}
       {evidenceBreakdown && (
         <div className="p-3 bg-white/5 rounded border border-white/10 text-center">
-          <p className="text-xs text-neutral-400
+          <p className="text-xs text-neutral-400">
             <span className="text-emerald-400 font-semibold">{evidenceBreakdown.supporting || 0}</span> supporting •{' '}
             <span className="text-amber-400 font-semibold">{evidenceBreakdown.contextual || 0}</span> contextual •{' '}
             <span className="text-neutral-500 font-semibold">{evidenceBreakdown.peripheral || 0}</span> peripheral

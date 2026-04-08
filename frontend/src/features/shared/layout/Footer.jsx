@@ -34,7 +34,7 @@ const Footer = ({ hideGetStarted = false }) => {
     };
 
     return (
-        <footer className="relative z-10 border-t border-neutral-800/60
+        <footer className="relative z-10 border-t border-neutral-800/60">
             <div className="max-w-7xl mx-auto px-6 pt-16 pb-8">
                 {/* Main grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 mb-16">
@@ -47,7 +47,7 @@ const Footer = ({ hideGetStarted = false }) => {
                                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)',
                                 }}
                             >
-                                <Sparkles className="w-4 h-4 text-white />
+                                <Sparkles className="w-4 h-4 text-white" />
                             </div>
                             <span className="text-base font-display font-semibold bg-gradient-to-r dark:from-neutral-100 dark:to-neutral-400 from-neutral-800 to-neutral-500 bg-clip-text text-transparent">
                                 InnovateSphere
@@ -132,7 +132,7 @@ const Footer = ({ hideGetStarted = false }) => {
                     <p className="text-xs text-neutral-500 text-neutral-500">
                         © {new Date().getFullYear()} InnovateSphere. All rights reserved.
                     </p>
-                    <p className="text-xs dark:text-neutral-600 text-neutral-400
+                    <p className="text-xs dark:text-neutral-600 text-neutral-400">
                         Built with purpose by Shreyas, Bethuel & Vedant
                     </p>
                 </div>
