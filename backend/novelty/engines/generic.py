@@ -1,7 +1,14 @@
 from backend.novelty.normalization import determine_level
 
 class GenericNoveltyEngine:
-    def analyze(self, description: str, domain: str, problem_class: str = "general"):
+    def analyze(
+        self,
+        description: str,
+        domain: str,
+        problem_class: str = "general",
+        preloaded_sources=None,
+        query_text: str | None = None,
+    ):
         length_factor = min(len(description.split()) / 50, 1.0)
         score = 15 + length_factor * 25
 

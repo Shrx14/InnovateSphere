@@ -198,22 +198,32 @@ HYBRID_PASS1_SYSTEM = DEFAULT_PASS1_SYSTEM  # reuse — already well-tuned
 
 HYBRID_PASS1_PROMPT_TEMPLATE = """
 Domain: {domain}
+User Query: {query}
 
 Retrieved Sources (title + summary):
 {sources}
 
 Return STRICT JSON with the following structure:
 {{
-  "common_patterns": [
-    "Frequently used approach or technique observed across sources"
-  ],
-  "overused_ideas": [
-    "Ideas that appear repeatedly and are well-established"
-  ],
-  "gaps": [
+  "existing_approaches": [
     {{
-      "gap": "Clearly stated missing capability or limitation",
-      "why_it_matters": "Why this gap is significant"
+      "approach": "Specific technique or method",
+      "limitation": "Concrete technical limitation",
+      "papers": [0]
+    }}
+  ],
+  "underexplored_intersections": [
+    {{
+      "intersection": "Concept A + Concept B",
+      "why_unexplored": "Technical barrier or hidden assumption",
+      "opportunity_signal": "Evidence hint from the provided sources"
+    }}
+  ],
+  "constrained_novelty_zones": [
+    {{
+      "zone": "Specific sub-problem",
+      "current_best": "What current solutions already do",
+      "gap_type": "efficiency | accuracy | scalability | interpretability | generalization"
     }}
   ]
 }}
@@ -223,6 +233,7 @@ Rules:
 - List at most 3 items per field
 - Keep descriptions concise (1 sentence each)
 - No speculative claims, no solutions
+- Use source indices in "papers" when possible
 """
 
 HYBRID_PASS2_SYSTEM = """
@@ -232,6 +243,7 @@ Your task is to synthesise ONE novel, feasible project idea that:
 - Combines at least two under-explored elements identified in the analysis
 - Is technically realistic and implementable
 - References the provided sources where relevant
+- Includes a concise self-critique covering expert and implementation risks
 
 Output ONLY valid JSON. No markdown, no explanations.
 """
@@ -274,6 +286,14 @@ Return STRICT JSON:
   "implementation_complexity": "low | medium | high",
   "estimated_timeline_weeks": 8,
   "risks": ["Risk 1", "Risk 2"],
+  "self_critique": {{
+    "expert_challenge": "Hardest expert-level objection",
+    "expert_response": "Concrete response to that objection",
+    "implementation_challenge": "Most difficult engineering challenge",
+    "evidence_gap": "What additional evidence is still missing",
+    "confidence": "high | medium | low",
+    "confidence_reason": "One sentence confidence rationale"
+  }},
   "source_references": [
     {{
       "title": "Source title",
@@ -289,6 +309,7 @@ Rules:
 - Every module and tech choice should be justified
 - source_references should list sources that informed your design
 - Be specific and actionable — modules should be implementable
+- self_critique must be specific and technically grounded
 - tech_stack "technologies" must list SPECIFIC software: programming languages (Python, Go, Rust, Java),
   frameworks (FastAPI, Django, Flask, React, Next.js, Express.js), libraries (PyTorch, TensorFlow,
   scikit-learn, spaCy, LangChain, Pandas), databases (PostgreSQL, MongoDB, Redis, Neo4j),

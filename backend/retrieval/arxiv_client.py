@@ -6,26 +6,9 @@ import logging
 import datetime
 import time
 from backend.utils import map_domain_to_external_category
+from backend.retrieval.keyword_extractor import extract_key_terms_tfidf
 
 logger = logging.getLogger(__name__)
-
-# Stop words to filter out when extracting key terms
-STOP_WORDS = {
-    'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from',
-    'has', 'he', 'in', 'is', 'it', 'of', 'on', 'or', 'the', 'to',
-    'was', 'will', 'with', 'that', 'this', 'have', 'do', 'does',
-    'did', 'which', 'who', 'when', 'where', 'why', 'how'
-}
-
-# Additional generic verbs and filler words that don't help search
-GENERIC_VERBS = {
-    'help', 'helps', 'develop', 'develops', 'create', 'creates',
-    'build', 'builds', 'make', 'makes', 'provide', 'provides',
-    'support', 'manage', 'enable', 'improve', 'enhance', 'many',
-    'individuals', 'people', 'users', 'solution', 'system', 'platform',
-    'application', 'app', 'using', 'based', 'approach', 'method'
-}
-
 
 def _extract_academic_keywords_with_llm(description: str, domain: str, max_keywords: int = 5) -> dict:
     """
@@ -76,7 +59,12 @@ Return valid JSON with this exact format:
     "search_strategy": "Brief explanation of why these terms enable finding relevant research papers"
 }}"""
         
-        response = generate_json(prompt, max_tokens=400, temperature=0.1)
+        response = generate_json(
+            prompt,
+            max_tokens=400,
+            temperature=0.1,
+            task_type="retrieval_keywords",
+        )
         if isinstance(response, dict):
             compound_terms = response.get("compound_terms", [])
             simple_terms = response.get("simple_terms", [])
@@ -112,7 +100,7 @@ Return valid JSON with this exact format:
         logger.debug("[arXiv] LLM keyword extraction failed: %s - falling back to heuristic", str(e))
     
     # Fallback to heuristic extraction if LLM fails
-    fallback_terms = _extract_key_terms_heuristic(description, max_terms=max_keywords)
+    fallback_terms = extract_key_terms_tfidf(description, max_terms=max_keywords)
     return {
         "compound_terms": fallback_terms[:2],
         "simple_terms": fallback_terms[2:5],
@@ -122,40 +110,11 @@ Return valid JSON with this exact format:
 
 def _extract_key_terms_heuristic(query, max_terms=5):
     """
-    Extract key terms from a query by filtering stop words and scoring by position and length.
-    Fallback heuristic when LLM-based extraction is unavailable.
+    Extract key terms from a query using TF-IDF-style scoring.
+
+    Keeps function name for backward compatibility with existing callers.
     """
-    if not query:
-        return []
-    
-    # Split into words and convert to lowercase
-    words = query.lower().split()
-    
-    # Score each word by position and length
-    scored_terms = []
-    for i, w in enumerate(words):
-        cleaned = w.strip('.,!?;:')
-        # Skip stop words, generic verbs, and very short words
-        if (cleaned.lower() in STOP_WORDS 
-            or cleaned.lower() in GENERIC_VERBS 
-            or len(cleaned) <= 3):
-            continue
-        
-        # Position bonus: earlier words score higher
-        position_bonus = 1.0 / (1 + 0.5 * i)
-        
-        # Length bonus: longer words are more specific/technical
-        length_bonus = min(len(cleaned) / 15.0, 1.0)
-        
-        # Combined score
-        score = position_bonus * 2.0 + length_bonus * 0.5
-        scored_terms.append((cleaned, score))
-    
-    # Sort by score descending, take top max_terms
-    scored_terms.sort(key=lambda x: x[1], reverse=True)
-    result = [term for term, _ in scored_terms[:max_terms]]
-    
-    return result
+    return extract_key_terms_tfidf(query, max_terms=max_terms)
 
 
 def _generate_arxiv_query_variations(query, domain, problem_class="general"):

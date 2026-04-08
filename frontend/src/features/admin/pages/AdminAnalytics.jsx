@@ -195,11 +195,12 @@ const AdminAnalytics = () => {
 
       {/* Extra KPI Row (from server KPIs) */}
       {data.kpis && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <StatCard label="Avg novelty" value={formatScore(Math.round(data.kpis.avg_novelty))} />
-          <StatCard label="Rejection rate" value={`${(data.kpis.rejection_rate * 100).toFixed(1)}%`} />
+          <StatCard label="Rejection rate" value={`${Number(data.kpis.rejection_rate || 0).toFixed(1)}%`} />
           <StatCard label="Avg rating" value={`${data.kpis.avg_rating?.toFixed(1) ?? 'N/A'} / 5`} />
           <StatCard label="Total reviews" value={data.kpis.total_reviews} />
+          <StatCard label="Total feedback" value={data.kpis.total_feedbacks ?? 0} />
         </div>
       )}
 

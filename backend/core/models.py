@@ -598,6 +598,20 @@ class NoveltyBreakdown(db.Model):
     )
 
 
+class JobState(db.Model):
+    """Durable storage for async generation job state snapshots."""
+    __tablename__ = "job_states"
+
+    job_id = db.Column(db.String(36), primary_key=True)
+    payload = db.Column(db.JSON, nullable=False)
+    created_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=_utcnow, onupdate=_utcnow, nullable=False)
+
+    __table_args__ = (
+        db.Index("idx_job_states_updated_at", "updated_at"),
+    )
+
+
 class TokenBlocklist(db.Model):
     __tablename__ = "token_blocklist"
 

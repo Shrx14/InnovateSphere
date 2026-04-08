@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect } from 'react';
 
-const ThemeContext = createContext({ theme: 'dark', toggleTheme: () => {} });
+const ThemeContext = createContext({ theme: 'dark' });
 
 export const useTheme = () => useContext(ThemeContext);
 
@@ -11,7 +11,7 @@ export const ThemeProvider = ({ children }) => {
     }, []);
 
     return (
-        <ThemeContext.Provider value={{ theme: 'dark', toggleTheme: () => {} }}>
+        <ThemeContext.Provider value={{ theme: 'dark' }}>
             {children}
         </ThemeContext.Provider>
     );

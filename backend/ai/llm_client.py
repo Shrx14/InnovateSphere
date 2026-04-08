@@ -8,6 +8,7 @@ import requests
 from typing import Dict, Any, Optional
 
 from backend.core.config import Config
+from backend.ai.model_routing import resolve_model_for_task
 
 
 logger = logging.getLogger(__name__)
@@ -41,18 +42,21 @@ def generate_json(
     *,
     max_tokens: int = 1200,
     temperature: float = 0.2,
+    model_override: Optional[str] = None,
+    task_type: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Provider-agnostic JSON generation.
     ALWAYS returns parsed JSON or raises a hard error.
     """
     provider = Config.LLM_PROVIDER.lower()
+    effective_model = resolve_model_for_task(task_type=task_type, model_override=model_override)
 
     try:
         if provider == "ollama":
-            return _generate_ollama(prompt, max_tokens, temperature)
+            return _generate_ollama(prompt, max_tokens, temperature, effective_model)
         elif provider == "openai":
-            return _generate_openai(prompt, max_tokens, temperature)
+            return _generate_openai(prompt, max_tokens, temperature, effective_model)
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")
     except TransientLLMError:
@@ -62,7 +66,8 @@ def generate_json(
             logger.info(f"Transient LLM failure from {provider}; attempting fallback to {fb}")
             try:
                 if fb == "openai":
-                    out = _generate_openai(prompt, max_tokens, temperature)
+                    # Use provider defaults for fallback model to avoid cross-provider model mismatch.
+                    out = _generate_openai(prompt, max_tokens, temperature, None)
                     # mark output as coming from fallback for observability
                     if isinstance(out, dict):
                         out["from_fallback"] = True
@@ -111,6 +116,7 @@ def _generate_ollama(
     prompt: str,
     max_tokens: int,
     temperature: float,
+    model_name: Optional[str],
 ) -> Dict[str, Any]:
     # Trace id for correlating provider requests/logs
     trace_id = str(uuid.uuid4())
@@ -123,7 +129,7 @@ def _generate_ollama(
         )
     
     payload = {
-        "model": Config.LLM_MODEL_NAME,
+        "model": model_name or Config.LLM_MODEL_NAME,
         "prompt": _wrap_json_prompt(prompt),
         "stream": False,
         "format": "json",
@@ -232,6 +238,7 @@ def _generate_openai(
     prompt: str,
     max_tokens: int,
     temperature: float,
+    model_name: Optional[str],
 ) -> Dict[str, Any]:
     try:
         import openai
@@ -258,7 +265,7 @@ def _generate_openai(
     for attempt in range(max_retries + 1):
         try:
             resp = client.chat.completions.create(
-                model=getattr(Config, "OPENAI_MODEL_NAME", "gpt-4o-mini"),
+                model=model_name or getattr(Config, "OPENAI_MODEL_NAME", "gpt-4o-mini"),
                 messages=[
                     {
                         "role": "system",

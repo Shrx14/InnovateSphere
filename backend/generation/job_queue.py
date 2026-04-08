@@ -24,6 +24,91 @@ class JobQueue:
         self._jobs: Dict[str, Dict[str, Any]] = {}
         self._lock = Lock()
         self.max_age_minutes = max_age_minutes
+        self._persistence_enabled = True
+        self._db_failure_logged = False
+
+    def _persist_job_snapshot(self, job_id: str) -> None:
+        """Persist the latest in-memory snapshot for a job to PostgreSQL."""
+        if not self._persistence_enabled:
+            return
+
+        try:
+            from backend.core.db import db
+            from backend.core.models import JobState
+
+            payload = self._jobs.get(job_id)
+            if payload is None:
+                return
+
+            state = JobState.query.get(job_id)
+            if state is None:
+                db.session.add(JobState(job_id=job_id, payload=payload))
+            else:
+                state.payload = payload
+            db.session.commit()
+        except Exception as exc:
+            try:
+                from backend.core.db import db
+                db.session.rollback()
+            except Exception:
+                pass
+
+            if not self._db_failure_logged:
+                logger.warning("[Job Queue] PostgreSQL persistence unavailable, using memory fallback: %s", exc)
+                self._db_failure_logged = True
+
+    def _load_job_snapshot(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """Load job snapshot from PostgreSQL when it is missing in process memory."""
+        if not self._persistence_enabled:
+            return None
+
+        try:
+            from backend.core.models import JobState
+
+            state = JobState.query.get(job_id)
+            if not state or not isinstance(state.payload, dict):
+                return None
+            return dict(state.payload)
+        except Exception:
+            return None
+
+    def _delete_job_snapshot(self, job_id: str) -> None:
+        if not self._persistence_enabled:
+            return
+
+        try:
+            from backend.core.db import db
+            from backend.core.models import JobState
+
+            state = JobState.query.get(job_id)
+            if state is not None:
+                db.session.delete(state)
+                db.session.commit()
+        except Exception:
+            try:
+                from backend.core.db import db
+                db.session.rollback()
+            except Exception:
+                pass
+
+    def count_running_jobs(self) -> int:
+        """Count running jobs across memory and persisted snapshots."""
+        with self._lock:
+            local_running = sum(1 for j in self._jobs.values() if j.get("status") == "running")
+
+        if local_running > 0:
+            return local_running
+
+        if not self._persistence_enabled:
+            return 0
+
+        try:
+            from backend.core.models import JobState
+
+            persisted_running = JobState.query.all()
+            return sum(1 for state in persisted_running if isinstance(state.payload, dict) and state.payload.get("status") == "running")
+        except Exception:
+            return 0
     
     def create_job(self, query: str, domain_id: Optional[int], user_id: int) -> str:
         """
@@ -80,6 +165,8 @@ class JobQueue:
                 "error": None,
                 "error_trace": None
             }
+
+            self._persist_job_snapshot(job_id)
         
         logger.info(f"[Job Queue] Created job {job_id} for user={user_id} query='{query[:50]}...'")
         return job_id
@@ -97,7 +184,12 @@ class JobQueue:
         with self._lock:
             job = self._jobs.get(job_id)
             if not job:
-                return None
+                loaded = self._load_job_snapshot(job_id)
+                if loaded is not None:
+                    self._jobs[job_id] = loaded
+                    job = loaded
+                else:
+                    return None
             # Return a copy to avoid external mutations
             return dict(job)
     
@@ -139,6 +231,8 @@ class JobQueue:
             
             if error:
                 job["error"] = error
+
+            self._persist_job_snapshot(job_id)
             
             logger.debug(f"[Job Queue] Updated job {job_id}: status={status} phase={phase} progress={progress}%")
             return True
@@ -167,6 +261,7 @@ class JobQueue:
             job = self._jobs[job_id]
             if key in job["intermediate_results"]:
                 job["intermediate_results"][key] = value
+                self._persist_job_snapshot(job_id)
                 logger.debug(f"[Job Queue] Stored intermediate {key} for job {job_id}")
                 return True
             
@@ -193,6 +288,8 @@ class JobQueue:
             job["phase"] = 4
             job["progress"] = 100
             job["completed_at"] = datetime.utcnow().isoformat()
+
+            self._persist_job_snapshot(job_id)
             
             logger.info(f"[Job Queue] Job {job_id} completed successfully")
             return True
@@ -218,6 +315,8 @@ class JobQueue:
             job["error"] = error
             job["error_trace"] = trace
             job["completed_at"] = datetime.utcnow().isoformat()
+
+            self._persist_job_snapshot(job_id)
             
             logger.error(f"[Job Queue] Job {job_id} failed: {error}")
             return True
@@ -237,6 +336,7 @@ class JobQueue:
             if job_id not in self._jobs:
                 return False
             self._jobs[job_id]["phase_names"] = phase_names
+            self._persist_job_snapshot(job_id)
             return True
     
     def cleanup_old_jobs(self) -> int:
@@ -258,6 +358,7 @@ class JobQueue:
             
             for job_id in to_remove:
                 del self._jobs[job_id]
+                self._delete_job_snapshot(job_id)
             
             if to_remove:
                 logger.info(f"[Job Queue] Cleaned up {len(to_remove)} jobs older than {self.max_age_minutes} minutes")

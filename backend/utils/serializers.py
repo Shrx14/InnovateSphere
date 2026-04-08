@@ -74,6 +74,11 @@ def serialize_full_idea(idea):
             "novelty_explanation": idea.novelty_context.get('explanation', 'Novelty evaluated based on multi-source analysis across research papers, code repositories, and prior work.') if idea.novelty_context else 'Novelty evaluated based on multi-source analysis across research papers, code repositories, and prior work.',
             "admin_verdict": idea.admin_verdict.verdict if idea.admin_verdict else None,
             "warning": "This idea is experimental and under review." if idea.admin_verdict and idea.admin_verdict.verdict == "rejected" else None,
+            "evaluation_metrics": (
+                idea.novelty_context.get("evaluation", {})
+                if isinstance(idea.novelty_context, dict)
+                else {}
+            ),
         }
     )
     return data

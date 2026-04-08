@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional, List
 import json
 import logging
+import threading
 from datetime import datetime, timedelta
 
 from backend.core.config import Config
@@ -16,8 +17,54 @@ from backend.generation.job_queue import get_job_queue
 
 logger = logging.getLogger(__name__)
 
+_reference_eval_index = None
+_reference_eval_index_lock = threading.Lock()
+_reference_eval_index_attempted = False
+
 from backend.retrieval.orchestrator import retrieve_sources
 from backend.semantic.filter import filter_by_semantic_similarity
+
+
+def _get_reference_eval_index():
+    """Lazy-load FAISS reference index for optional evaluation metrics."""
+    global _reference_eval_index
+    global _reference_eval_index_attempted
+
+    if not getattr(Config, "ENABLE_EVALUATION_FRAMEWORK", False):
+        return None
+
+    if _reference_eval_index is not None:
+        return _reference_eval_index
+
+    if _reference_eval_index_attempted:
+        return None
+
+    with _reference_eval_index_lock:
+        if _reference_eval_index is not None:
+            return _reference_eval_index
+        if _reference_eval_index_attempted:
+            return None
+
+        _reference_eval_index_attempted = True
+
+        index_path = getattr(Config, "EVAL_REFERENCE_INDEX_PATH", "")
+        if not index_path:
+            logger.info("[EVAL] Evaluation framework enabled but EVAL_REFERENCE_INDEX_PATH is not set")
+            return None
+
+        try:
+            from backend.evaluation.faiss_index import FaissReferenceIndex
+
+            _reference_eval_index = FaissReferenceIndex.load(
+                index_path=index_path,
+                metadata_path=getattr(Config, "EVAL_REFERENCE_METADATA_PATH", "") or None,
+            )
+            logger.info("[EVAL] Loaded FAISS reference index from %s", index_path)
+        except Exception as exc:
+            logger.warning("[EVAL] Failed to load FAISS reference index: %s", exc)
+            _reference_eval_index = None
+
+        return _reference_eval_index
 
 
 def _get_domain_threshold(domain_name: str, cap: float = 0.4) -> float:
@@ -194,6 +241,20 @@ def check_evidence_sufficiency(
     return None
 
 
+def _select_novelty_text_for_idea(idea_payload: Dict[str, Any], fallback_query: str) -> str:
+    """Pick the best text span for idea-grounded novelty scoring."""
+    if not isinstance(idea_payload, dict):
+        return fallback_query
+
+    candidates = [
+        idea_payload.get("problem_statement"),
+        idea_payload.get("novelty_reason"),
+        idea_payload.get("title"),
+    ]
+    merged = "\n".join(str(c).strip() for c in candidates if c and str(c).strip())
+    return merged if merged else fallback_query
+
+
 # HITL guardrails (domain-level safety)
 def check_hitl_guardrails(domain_id: int):
     cutoff = datetime.utcnow() - timedelta(days=30)
@@ -296,7 +357,10 @@ def multi_pass_llm_generate(
             "\n".join(f"[{i}] {s['title']} ({s['source_type']})" for i, s in enumerate(sources)),
         )
 
-        analysis = generate_json(pass1_system + pass1_body)
+        analysis = generate_json(
+            pass1_system + pass1_body,
+            task_type="generation_analysis",
+        )
     except (RuntimeError, ValueError) as e:
         logger.error(f"PASS 1 LLM generation failed: {e}")
         raise RuntimeError("Idea generation failed (PHASE 2 - Landscape Analysis): LLM error") from e
@@ -309,7 +373,10 @@ def multi_pass_llm_generate(
         pass2_body = PASS2_PROMPT_TEMPLATE
         pass2_body = pass2_body.replace("{analysis}", json.dumps(analysis))
         pass2_body = pass2_body.replace("{context}", query)
-        idea = generate_json(PASS2_SYSTEM + pass2_body)
+        idea = generate_json(
+            PASS2_SYSTEM + pass2_body,
+            task_type="generation_synthesis",
+        )
     except (RuntimeError, ValueError) as e:
         logger.error(f"PASS 2 LLM generation failed: {e}")
         raise RuntimeError("Idea generation failed (PHASE 3 - Problem Framing): LLM error") from e
@@ -326,7 +393,10 @@ def multi_pass_llm_generate(
             "{sources}",
             "\n".join(f"[{i}] {s['title']} — {s['url']}" for i, s in enumerate(sources)),
         )
-        evidence = generate_json(PASS3_SYSTEM + pass3_body)
+        evidence = generate_json(
+            PASS3_SYSTEM + pass3_body,
+            task_type="generation_validation",
+        )
     except (RuntimeError, ValueError) as e:
         logger.error(f"PASS 3 LLM generation failed: {e}")
         raise RuntimeError("Idea generation failed (PHASE 3 - Evidence Validation): LLM error") from e
@@ -358,7 +428,10 @@ def multi_pass_llm_generate(
         pass4_body = pass4_body.replace("{analysis}", json.dumps(analysis))
         pass4_body = pass4_body.replace("{evidence}", json.dumps(evidence))
         pass4_body = pass4_body.replace("{novelty}", json.dumps(novelty))
-        final = generate_json(PASS4_SYSTEM + pass4_body)
+        final = generate_json(
+            PASS4_SYSTEM + pass4_body,
+            task_type="generation_assembly",
+        )
     except (RuntimeError, ValueError) as e:
         logger.error(f"PASS 4 LLM generation failed: {e}")
         raise RuntimeError("Idea generation failed (PHASE 4 - Output Synthesis): LLM error") from e
@@ -478,11 +551,17 @@ def generate_hybrid(
         return {"error": f"Retrieval error: {e}"}
 
     # =============================================
-    # Phase 1  — Novelty analysis  (30-50%)
+    # Phase 1  — Novelty precheck (query-grounded)  (30-50%)
     # =============================================
     try:
-        novelty_input = "\n".join(f"[{s['source_type']}] {s['title']}" for s in ranked)
-        novelty = analyze_novelty(novelty_input, domain.name)
+        novelty = analyze_novelty(
+            query,
+            domain.name,
+            preloaded_sources=ranked,
+            query_text=query,
+        )
+        novelty["scoring_mode"] = "query_precheck"
+        novelty["input_text"] = query
 
         if job_queue:
             job_queue.set_intermediate_result(job_id, "novelty", novelty)
@@ -522,21 +601,49 @@ def generate_hybrid(
         if constraints.get("domain_strictness", 1.0) > 1.0:
             pass1_system += "\n\nADDITIONAL: Use conservative analysis; require stronger evidence."
 
-        pass1_body = HYBRID_PASS1_PROMPT_TEMPLATE.replace("{domain}", domain.name).replace("{sources}", sources_text)
+        pass1_body = (
+            HYBRID_PASS1_PROMPT_TEMPLATE
+            .replace("{domain}", domain.name)
+            .replace("{query}", query)
+            .replace("{sources}", sources_text)
+        )
         prompt_len = len(pass1_system + pass1_body)
         logger.info("[HYBRID] Pass 1 prompt length: %d chars", prompt_len)
 
         try:
-            analysis = generate_json(pass1_system + pass1_body, max_tokens=800, temperature=0.2)
+            analysis = generate_json(
+                pass1_system + pass1_body,
+                max_tokens=800,
+                temperature=0.2,
+                task_type="generation_analysis",
+            )
         except Exception as e:
             logger.warning("[HYBRID] Pass 1 failed (%s); using novelty insights as fallback", e)
             # Fallback: construct analysis from novelty insights
             insights = novelty.get("insights", {})
             analysis = {
-                "common_patterns": [str(insights.get("similarity", "common patterns detected"))],
-                "overused_ideas": [],
-                "gaps": [{"gap": g, "why_it_matters": "Identified by novelty analysis"}
-                         for g in truncate_novelty_gaps(novelty.get("gaps", []), max_items=3)]
+                "existing_approaches": [
+                    {
+                        "approach": str(insights.get("summary", "common baseline approach"))[:180],
+                        "limitation": "Derived from novelty precheck due to pass-1 fallback",
+                        "papers": [0],
+                    }
+                ],
+                "underexplored_intersections": [
+                    {
+                        "intersection": "Cross-domain synthesis",
+                        "why_unexplored": "Limited direct evidence across retrieved sources",
+                        "opportunity_signal": "Novelty precheck indicates room for differentiation",
+                    }
+                ],
+                "constrained_novelty_zones": [
+                    {
+                        "zone": g,
+                        "current_best": "Existing approaches cluster around similar implementations",
+                        "gap_type": "generalization",
+                    }
+                    for g in truncate_novelty_gaps(novelty.get("gaps", []), max_items=3)
+                ],
             }
 
         if job_queue:
@@ -544,8 +651,19 @@ def generate_hybrid(
 
         # --- Pass 2: Grounded Generation ---
         # Extract novelty gaps for prompt
-        raw_gaps = analysis.get("gaps", [])
-        gap_strings = truncate_novelty_gaps(raw_gaps, max_items=3, max_words=50)
+        raw_zones = analysis.get("constrained_novelty_zones", [])
+        gap_strings = []
+        for z in raw_zones[:3]:
+            if isinstance(z, dict):
+                zone = str(z.get("zone", "")).strip()
+                gap_type = str(z.get("gap_type", "")).strip()
+                if zone:
+                    gap_strings.append(f"{zone} ({gap_type})" if gap_type else zone)
+
+        # Backward compatibility with earlier pass1 schema
+        if not gap_strings:
+            raw_gaps = analysis.get("gaps", [])
+            gap_strings = truncate_novelty_gaps(raw_gaps, max_items=3, max_words=50)
         if not gap_strings:
             # Fallback: use novelty insights
             for k, v in novelty.get("insights", {}).items():
@@ -565,7 +683,12 @@ def generate_hybrid(
         prompt_len = len(HYBRID_PASS2_SYSTEM + pass2_body)
         logger.info("[HYBRID] Pass 2 prompt length: %d chars", prompt_len)
 
-        idea_raw = generate_json(HYBRID_PASS2_SYSTEM + pass2_body, max_tokens=1000, temperature=0.3)
+        idea_raw = generate_json(
+            HYBRID_PASS2_SYSTEM + pass2_body,
+            max_tokens=1000,
+            temperature=0.3,
+            task_type="generation_synthesis",
+        )
 
     except TransientLLMError as e:
         logger.error("[HYBRID] LLM transient error: %s", e)
@@ -608,10 +731,51 @@ def generate_hybrid(
         if "problem_statement" not in parsed_dict:
             parsed_dict["problem_statement"] = query
 
+    evaluation_metrics: Dict[str, Any] = {}
+
     # Pattern rejection
     pattern_check = is_rejected_pattern(parsed_dict, constraints)
     if pattern_check:
         return pattern_check
+
+    # Final novelty score for idea generation must be idea-grounded.
+    novelty_input = _select_novelty_text_for_idea(parsed_dict, query)
+    try:
+        novelty = analyze_novelty(
+            novelty_input,
+            domain.name,
+            preloaded_sources=ranked,
+            query_text=query,
+        )
+        novelty["scoring_mode"] = "generated_idea"
+        novelty["input_text"] = novelty_input
+        novelty["query_text"] = query
+    except Exception as e:
+        logger.warning("[HYBRID] Idea-grounded novelty failed (%s); using precheck novelty", e)
+        novelty["scoring_mode"] = novelty.get("scoring_mode", "query_precheck")
+
+    try:
+        reference_index = _get_reference_eval_index()
+        if reference_index is not None:
+            from backend.evaluation.metrics import compute_cs, compute_ins
+
+            eval_text = _select_novelty_text_for_idea(parsed_dict, query)
+            evaluation_metrics = {
+                "ins": round(
+                    compute_ins(
+                        eval_text,
+                        reference_index,
+                        k=max(1, getattr(Config, "EVAL_REFERENCE_NEIGHBORS", 5)),
+                    ),
+                    4,
+                ),
+                "cs": round(compute_cs(parsed_dict), 4),
+            }
+    except Exception as e:
+        logger.warning("[HYBRID] Evaluation metrics failed: %s", e)
+
+    if job_queue:
+        job_queue.set_intermediate_result(job_id, "novelty", novelty)
 
     # Grounding enforcement for hybrid mode (was previously skipped)
     try:
@@ -657,6 +821,8 @@ def generate_hybrid(
         idea.quality_score_cached = idea.quality_score
         idea.novelty_score_cached = round(novelty.get("novelty_score", 0))
         novelty["input_text"] = novelty_input  # Store for rescore parity
+        if evaluation_metrics:
+            novelty["evaluation"] = evaluation_metrics
         idea.novelty_context = novelty
 
         # Persist sources
@@ -771,6 +937,7 @@ def generate_hybrid(
             "llm_calls": 2,
             "hitl_influenced": bool(constraints.get("source_penalties")),
             "domain_strictness": constraints.get("domain_strictness", 1.0),
+            "evaluation_metrics": evaluation_metrics,
         },
     }
 
@@ -828,7 +995,8 @@ def generate_direct_to_llm(
         result = generate_json(
             prompt_combined,
             temperature=0.7,
-            max_tokens=2000
+            max_tokens=2000,
+            task_type="generation_synthesis",
         )
         
         logger.info(f"[DEMO MODE] LLM returned valid JSON for direct generation")
@@ -1041,10 +1209,14 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
                 "confidence_hint": "Low (mocked for demo)"
             }
         else:
-            novelty_input = "\n".join(
-                f"[{s['source_type']}] {s['title']}" for s in ranked
+            novelty = analyze_novelty(
+                query,
+                domain.name,
+                preloaded_sources=ranked,
+                query_text=query,
             )
-            novelty = analyze_novelty(novelty_input, domain.name)
+            novelty["input_text"] = query
+            novelty["scoring_mode"] = "query_precheck"
 
         # Update job status: novelty analysis complete
         if job_queue:
@@ -1124,6 +1296,20 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
     if pattern_check:
         return pattern_check
 
+    novelty_input = _select_novelty_text_for_idea(parsed, query)
+    try:
+        novelty = analyze_novelty(
+            novelty_input,
+            domain.name,
+            preloaded_sources=ranked,
+            query_text=query,
+        )
+        novelty["input_text"] = novelty_input
+        novelty["query_text"] = query
+        novelty["scoring_mode"] = "generated_idea"
+    except Exception as e:
+        logger.warning("Final novelty scoring failed; using precheck score: %s", e)
+
     # Persist idea + sources (with transaction protection)
     try:
         # Build title safely
@@ -1167,11 +1353,11 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
 
         idea.quality_score_cached = idea.quality_score
         
-        # Safely get novelty score
+        # Keep cache score sourced from novelty analyzer for consistency.
         novelty_pos = parsed.get("novelty_positioning", {})
-        idea.novelty_score_cached = round(novelty_pos.get("novelty_score", 0) if isinstance(novelty_pos, dict) else 0)
+        fallback_novelty = novelty_pos.get("novelty_score", 0) if isinstance(novelty_pos, dict) else 0
+        idea.novelty_score_cached = round(novelty.get("novelty_score", fallback_novelty))
 
-        novelty["input_text"] = novelty_input  # Store for rescore parity
         idea.novelty_context = novelty
 
         # Add sources
@@ -1252,7 +1438,10 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
 
     result = {
         "idea": parsed,
-        "novelty_score": parsed.get("novelty_positioning", {}).get("novelty_score", novelty.get("novelty_score", 0)),
+        "novelty_score": novelty.get(
+            "novelty_score",
+            parsed.get("novelty_positioning", {}).get("novelty_score", 0),
+        ),
         "generation_metadata": {
             "hitl_influenced": True,
             "penalized_sources_count": penalized_sources_count,

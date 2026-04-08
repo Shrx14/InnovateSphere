@@ -31,7 +31,12 @@ def _summarize_query_with_llm(original_query: str, max_chars: int = 120) -> str:
             f"Query: {original_query}\n"
         )
 
-        resp = generate_json(prompt, max_tokens=200, temperature=0.0)
+        resp = generate_json(
+            prompt,
+            max_tokens=200,
+            temperature=0.0,
+            task_type="query_summarization",
+        )
         if isinstance(resp, dict):
             summary = resp.get("summary") or resp.get("query") or resp.get("q")
             if summary and isinstance(summary, str):

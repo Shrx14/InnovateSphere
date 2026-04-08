@@ -1,6 +1,6 @@
 import numpy as np
 import logging
-from backend.semantic.embedder import Embedder
+from backend.semantic.embedder import get_embedder
 
 
 logger = logging.getLogger(__name__)
@@ -107,12 +107,12 @@ def filter_by_semantic_similarity(query_text, sources, threshold, problem_class=
     - 'noise': 0.4x (heavy penalty)
     """
     try:
-        embedder = Embedder()
+        embedder = get_embedder()
 
-        query_emb = embedder.embed_texts([query_text])[0]
+        query_emb = embedder.encode([query_text], normalize_embeddings=True)[0]
 
         texts = [s.get("summary") or s.get("title") or "" for s in sources]
-        source_embs = embedder.embed_texts(texts)
+        source_embs = embedder.encode(texts, normalize_embeddings=True)
 
         for src, emb in zip(sources, source_embs):
             sim = _cosine_similarity(query_emb, emb)

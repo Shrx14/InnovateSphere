@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -58,6 +58,47 @@ const IdeaDetail = () => {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [requestedCount, setRequestedCount] = useState(0);
+  const [reviewsMeta, setReviewsMeta] = useState({ average: null, total: 0, mine: null });
+  const [feedbackCounts, setFeedbackCounts] = useState({});
+
+  const loadEngagementData = useCallback(async () => {
+    if (!user || !id) return;
+
+    try {
+      const [feedbackRes, reviewsRes] = await Promise.all([
+        api.get(`/ideas/${id}/feedbacks`),
+        api.get(`/ideas/${id}/reviews`),
+      ]);
+
+      const byType = feedbackRes.data.by_type || {};
+      const bookmarks = Array.isArray(byType.bookmark) ? byType.bookmark : [];
+      const mineBookmarked = bookmarks.some((entry) => String(entry.user_id) === String(user.id));
+      setIsBookmarked(mineBookmarked);
+
+      const counts = Object.fromEntries(
+        Object.entries(byType).map(([type, entries]) => [type, Array.isArray(entries) ? entries.length : 0])
+      );
+      setFeedbackCounts(counts);
+
+      const reviews = Array.isArray(reviewsRes.data.reviews) ? reviewsRes.data.reviews : [];
+      const mine = reviews.find((r) => String(r.user_id) === String(user.id)) || null;
+      setReviewsMeta({
+        average: reviewsRes.data.average_rating ?? null,
+        total: reviewsRes.data.total_reviews ?? reviews.length,
+        mine,
+      });
+
+      if (mine) {
+        setRating(mine.rating || 0);
+        setReviewComment(mine.comment || "");
+      } else {
+        setRating(0);
+        setReviewComment("");
+      }
+    } catch {
+      // Non-blocking: detail page should still render without engagement metadata.
+    }
+  }, [id, user]);
 
   useEffect(() => {
     const endpoint = user ? `/ideas/${id}` : `/public/ideas/${id}`;
@@ -71,16 +112,17 @@ const IdeaDetail = () => {
       })
       .catch(() => setLoading(false));
 
-    // Check bookmark status for authenticated users
-    if (user) {
-      api.get(`/ideas/${id}/feedbacks`)
-        .then(res => {
-          const bookmarks = (res.data.by_type?.bookmark || []);
-          setIsBookmarked(bookmarks.length > 0);
-        })
-        .catch(() => { });
-    }
   }, [id, user]);
+
+  useEffect(() => {
+    if (!user) {
+      setIsBookmarked(false);
+      setReviewsMeta({ average: null, total: 0, mine: null });
+      setFeedbackCounts({});
+      return;
+    }
+    loadEngagementData();
+  }, [user, loadEngagementData]);
 
   // Fetch novelty breakdown for authenticated users
   useEffect(() => {
@@ -103,8 +145,14 @@ const IdeaDetail = () => {
       toast.success("Thank you! Feedback submitted successfully.");
       setFeedbackType("");
       setFeedbackComment("");
+      await loadEngagementData();
     } catch (err) {
-      toast.error(err.response?.data?.error || "Submission failed");
+      if (err.response?.status === 409) {
+        toast.info("You already submitted this feedback type.");
+        await loadEngagementData();
+      } else {
+        toast.error(err.response?.data?.error || "Submission failed");
+      }
     } finally {
       setSubmittingFeedback(false);
     }
@@ -118,7 +166,8 @@ const IdeaDetail = () => {
         rating,
         comment: reviewComment || null,
       });
-      toast.success("Review submitted!");
+      await loadEngagementData();
+      toast.success(reviewsMeta.mine ? "Review updated!" : "Review submitted!");
     } catch (err) {
       toast.error(err.response?.data?.error || "Submission failed");
     } finally {
@@ -194,13 +243,26 @@ const IdeaDetail = () => {
                       if (isBookmarked) {
                         await api.delete(`/ideas/${id}/feedback?feedback_type=bookmark`);
                         setIsBookmarked(false);
+                        setFeedbackCounts((prev) => ({
+                          ...prev,
+                          bookmark: Math.max(0, (prev.bookmark || 0) - 1),
+                        }));
                         toast.success('Bookmark removed');
                       } else {
                         await api.post(`/ideas/${id}/feedback`, { feedback_type: 'bookmark' });
                         setIsBookmarked(true);
+                        setFeedbackCounts((prev) => ({
+                          ...prev,
+                          bookmark: (prev.bookmark || 0) + 1,
+                        }));
                         toast.success('Idea bookmarked');
                       }
                     } catch (err) {
+                      if (err.response?.status === 409) {
+                        setIsBookmarked(true);
+                        toast.info('Already bookmarked');
+                        return;
+                      }
                       toast.error(err.response?.data?.error || 'Failed');
                     }
                   }}
@@ -229,6 +291,14 @@ const IdeaDetail = () => {
                       setRequestedCount(res.data.requested_count);
                       toast.success('Interest recorded!');
                     } catch (err) {
+                      if (err.response?.status === 409) {
+                        const count = err.response?.data?.requested_count;
+                        if (typeof count === 'number') {
+                          setRequestedCount(count);
+                        }
+                        toast.info('You already requested this idea.');
+                        return;
+                      }
                       toast.error(err.response?.data?.error || 'Failed');
                     }
                   }}
@@ -309,7 +379,7 @@ const IdeaDetail = () => {
           </motion.div>
 
           {/* Metrics Cards */}
-          <motion.div variants={fadeIn} className="grid md:grid-cols-3 gap-6">
+          <motion.div variants={fadeIn} className="grid md:grid-cols-4 gap-6">
             <Card className="p-6 text-center">
               <div className="text-xs text-indigo-400 uppercase tracking-widest font-semibold mb-3">Novelty Score</div>
               <ScoreDisplay value={idea.novelty_score} size="lg" />
@@ -327,7 +397,57 @@ const IdeaDetail = () => {
               </div>
               <div className="text-sm text-neutral-500">Backed by research</div>
             </Card>
+            <Card className="p-6 text-center">
+              <div className="text-xs text-yellow-400 uppercase tracking-widest font-semibold mb-3">Community Rating</div>
+              <div className="text-3xl font-semibold text-yellow-300">
+                {reviewsMeta.average != null ? `${reviewsMeta.average.toFixed(1)}/5` : (idea.average_rating != null ? `${Number(idea.average_rating).toFixed(1)}/5` : '—')}
+              </div>
+              <div className="text-sm text-neutral-500 mt-2">{reviewsMeta.total || (idea.reviews?.length || 0)} reviews</div>
+            </Card>
           </motion.div>
+
+          {user && (
+            <motion.div variants={fadeIn}>
+              <Card className="p-8">
+                <h2 className="text-sm font-semibold text-neutral-300 uppercase tracking-widest mb-4">
+                  Performance Metrics
+                </h2>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                  <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
+                    <div className="text-xs text-neutral-500 uppercase tracking-wide mb-1">Views</div>
+                    <div className="text-xl font-semibold text-neutral-100">{idea.view_count || 0}</div>
+                  </div>
+                  <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
+                    <div className="text-xs text-neutral-500 uppercase tracking-wide mb-1">Interest Requests</div>
+                    <div className="text-xl font-semibold text-neutral-100">{requestedCount || 0}</div>
+                  </div>
+                  <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
+                    <div className="text-xs text-neutral-500 uppercase tracking-wide mb-1">Average Rating</div>
+                    <div className="text-xl font-semibold text-neutral-100">{reviewsMeta.average != null ? `${reviewsMeta.average.toFixed(1)}/5` : '—'}</div>
+                  </div>
+                  <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
+                    <div className="text-xs text-neutral-500 uppercase tracking-wide mb-1">Feedback Events</div>
+                    <div className="text-xl font-semibold text-neutral-100">{Object.values(feedbackCounts).reduce((sum, n) => sum + (Number(n) || 0), 0)}</div>
+                  </div>
+                </div>
+
+                {idea.evaluation_metrics && (idea.evaluation_metrics.ins != null || idea.evaluation_metrics.cs != null) && (
+                  <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-neutral-800">
+                    <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
+                      <div className="text-xs text-neutral-500 uppercase tracking-wide mb-1">INS</div>
+                      <div className="text-xl font-semibold text-indigo-300">{Number(idea.evaluation_metrics.ins).toFixed(3)}</div>
+                      <div className="text-xs text-neutral-500 mt-1">Idea Novelty Score (reference-index distance)</div>
+                    </div>
+                    <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
+                      <div className="text-xs text-neutral-500 uppercase tracking-wide mb-1">CS</div>
+                      <div className="text-xl font-semibold text-emerald-300">{Number(idea.evaluation_metrics.cs).toFixed(3)}</div>
+                      <div className="text-xs text-neutral-500 mt-1">Coherence Score (internal consistency)</div>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </motion.div>
+          )}
 
           {/* Authenticated user sections */}
           {user && (
@@ -406,6 +526,12 @@ const IdeaDetail = () => {
                       {rating ? `${rating}/5` : "Select a rating"}
                     </span>
                   </div>
+                  {reviewsMeta.mine && (
+                    <p className="text-xs text-neutral-500 mt-3 flex items-center gap-2">
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      Existing review detected. Submitting again will update your rating.
+                    </p>
+                  )}
                   <Textarea
                     value={reviewComment}
                     onChange={(e) => setReviewComment(e.target.value.slice(0, 1000))}
@@ -413,7 +539,7 @@ const IdeaDetail = () => {
                     className="mt-4 h-20 resize-none"
                   />
                   <Button onClick={handleReviewSubmit} disabled={!rating || submittingReview} className="mt-4">
-                    {submittingReview ? "Submitting..." : "Submit Rating"}
+                    {submittingReview ? "Submitting..." : reviewsMeta.mine ? "Update Rating" : "Submit Rating"}
                   </Button>
                 </Card>
               </motion.div>
@@ -473,7 +599,6 @@ const IdeaDetail = () => {
                     {[
                       { type: 'upvote', label: '👍 Upvote', color: 'bg-emerald-600 hover:bg-emerald-500' },
                       { type: 'downvote', label: '👎 Downvote', color: 'bg-red-600 hover:bg-red-500' },
-                      { type: 'bookmark', label: '🔖 Bookmark', color: 'bg-indigo-600 hover:bg-indigo-500' },
                       { type: 'helpful', label: '✅ Helpful', color: 'bg-blue-600 hover:bg-blue-500' },
                       { type: 'not_helpful', label: '❌ Not Helpful', color: 'bg-neutral-600 hover:bg-neutral-500' },
                     ].map(({ type, label, color }) => (
@@ -482,9 +607,15 @@ const IdeaDetail = () => {
                         onClick={async () => {
                           try {
                             await api.post(`/ideas/${id}/feedback`, { feedback_type: type });
+                            await loadEngagementData();
                             toast.success(`${label.split(' ').slice(1).join(' ')} recorded!`);
                           } catch (err) {
-                            toast.error(err.response?.data?.error || 'Failed');
+                            if (err.response?.status === 409) {
+                              toast.info('Already recorded');
+                              await loadEngagementData();
+                            } else {
+                              toast.error(err.response?.data?.error || 'Failed');
+                            }
                           }
                         }}
                         className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${color}`}

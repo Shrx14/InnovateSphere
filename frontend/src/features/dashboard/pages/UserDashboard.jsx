@@ -5,6 +5,7 @@ import { Sparkles, ArrowRight, ChevronRight, Bookmark } from 'lucide-react';
 
 import { useIdeas } from '@/hooks/useIdeas';
 import api from '@/lib/api';
+import { formatScore } from '@/lib/formatScore';
 
 import { fadeIn, staggerContainer, cardHover, cardTap } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -43,6 +44,13 @@ export default function UserDashboard() {
   const [sortBy, setSortBy] = useState('recent');
   const [bookmarkedIdeas, setBookmarkedIdeas] = useState([]);
   const [loadingBookmarks, setLoadingBookmarks] = useState(true);
+
+  const avgNoveltyRaw = ideas.length
+    ? ideas.reduce((sum, i) => sum + (Number(i.novelty_score) || 0), 0) / ideas.length
+    : null;
+  const avgQualityRaw = ideas.length
+    ? ideas.reduce((sum, i) => sum + (Number(i.quality_score) || 0), 0) / ideas.length
+    : null;
 
   // Fetch bookmarked ideas
   useEffect(() => {
@@ -126,13 +134,15 @@ export default function UserDashboard() {
           variants={staggerContainer}
           initial="hidden"
           animate="visible"
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-12"
+          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6 mb-12"
         >
           {[
             { label: 'Total Ideas', value: ideas.length, color: 'text-white' },
             { label: 'Validated', value: grouped.validated.length, color: 'text-emerald-400' },
             { label: 'Pending', value: grouped.pending.length, color: 'text-yellow-400' },
             { label: 'Rejected', value: grouped.rejected.length, color: 'text-red-400' },
+            { label: 'Avg Novelty', value: avgNoveltyRaw != null ? `${formatScore(avgNoveltyRaw)}/10` : '—', color: 'text-indigo-300' },
+            { label: 'Avg Quality', value: avgQualityRaw != null ? `${formatScore(avgQualityRaw)}/10` : '—', color: 'text-purple-300' },
           ].map(stat => (
             <motion.div key={stat.label} variants={fadeIn} whileHover={cardHover} whileTap={cardTap}>
               <Card className="p-6 text-center glow-border card-shine overflow-hidden">

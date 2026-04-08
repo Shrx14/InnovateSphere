@@ -8,25 +8,9 @@ import logging
 import datetime
 from backend.utils import map_domain_to_external_category
 from backend.ai.llm_client import generate_json
+from backend.retrieval.keyword_extractor import extract_key_terms_tfidf
 
 logger = logging.getLogger(__name__)
-
-# Stop words to filter out when extracting key terms
-STOP_WORDS = {
-    'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from',
-    'has', 'he', 'in', 'is', 'it', 'of', 'on', 'or', 'the', 'to',
-    'was', 'will', 'with', 'that', 'this', 'have', 'do', 'does',
-    'did', 'which', 'who', 'when', 'where', 'why', 'how'
-}
-
-# Additional generic verbs and filler words that don't help search
-GENERIC_VERBS = {
-    'help', 'helps', 'develop', 'develops', 'create', 'creates',
-    'build', 'builds', 'make', 'makes', 'provide', 'provides',
-    'support', 'manage', 'enable', 'improve', 'enhance', 'many',
-    'individuals', 'people', 'users', 'solution', 'system'
-}
-
 
 def _extract_semantic_keywords_with_llm(description: str, domain: str, max_keywords: int = 5) -> dict:
     """
@@ -74,7 +58,12 @@ Return valid JSON with this exact format:
     "search_strategy": "Brief explanation of why this mix enables finding similar projects"
 }}"""
         
-        response = generate_json(prompt, max_tokens=400, temperature=0.1)
+        response = generate_json(
+            prompt,
+            max_tokens=400,
+            temperature=0.1,
+            task_type="retrieval_keywords",
+        )
         if isinstance(response, dict):
             simple_terms = response.get("simple_terms", [])
             compound_terms = response.get("compound_terms", [])
@@ -110,7 +99,7 @@ Return valid JSON with this exact format:
         logger.debug("[GitHub] LLM keyword extraction failed: %s - falling back to heuristic", str(e))
     
     # Fallback to heuristic extraction if LLM fails
-    fallback_terms = _extract_key_terms(description, max_terms=max_keywords)
+    fallback_terms = extract_key_terms_tfidf(description, max_terms=max_keywords)
     return {
         "simple_terms": fallback_terms[:3],
         "compound_terms": fallback_terms[3:5],
@@ -121,11 +110,10 @@ Return valid JSON with this exact format:
 
 def _extract_key_terms(query, max_terms=5):
     """
-    Extract key terms from a query by filtering stop words and scoring by position and length.
-    This is a fallback heuristic when LLM-based extraction is unavailable.
-    Returns a list of meaningful terms, prioritizing:
-    1. Position (earlier words are more likely to be core concepts)
-    2. Length (longer words are more specific/technical)
+    Extract key terms from a query using TF-IDF-style scoring.
+
+    The extractor mixes unigrams, bigrams, and trigrams and prioritizes
+    technically discriminative terms.
     
     Args:
         query: Original search query string
@@ -137,36 +125,7 @@ def _extract_key_terms(query, max_terms=5):
     if not query:
         return []
     
-    # Split into words and convert to lowercase
-    words = query.lower().split()
-    
-    # Score each word by position and length
-    scored_terms = []
-    for i, w in enumerate(words):
-        cleaned = w.strip('.,!?;:')
-        # Skip stop words, generic verbs, and very short words
-        if (cleaned.lower() in STOP_WORDS 
-            or cleaned.lower() in GENERIC_VERBS 
-            or len(cleaned) <= 3):
-            continue
-        
-        # Position bonus: earlier words score higher (first word: 1.0, second: 0.67, third: 0.5)
-        # This reflects that important concepts usually appear first
-        position_bonus = 1.0 / (1 + 0.5 * i)
-        
-        # Length bonus: longer words are more specific/technical
-        # Example: "personalization" (14 chars) scores higher than "fitness" (7 chars)
-        length_bonus = min(len(cleaned) / 15.0, 1.0)  # Cap at 1.0 for words longer than 15 chars
-        
-        # Combined score: position is primary, length is secondary
-        score = position_bonus * 2.0 + length_bonus * 0.5
-        scored_terms.append((cleaned, score))
-    
-    # Sort by score descending, take top max_terms
-    scored_terms.sort(key=lambda x: x[1], reverse=True)
-    result = [term for term, _ in scored_terms[:max_terms]]
-    
-    return result
+    return extract_key_terms_tfidf(query, max_terms=max_terms)
 
 
 # Technical domain synonym mappings for query variation fallback
