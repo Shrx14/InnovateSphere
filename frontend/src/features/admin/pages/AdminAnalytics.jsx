@@ -17,7 +17,8 @@ const AdminAnalytics = () => {
     distributions: { novelty: [], quality: [] },
     userDomains: [],
     bias: null,
-    kpis: null
+    kpis: null,
+    evaluation: null
   });
   const [loading, setLoading] = useState(true);
   const [partialError, setPartialError] = useState(false);
@@ -36,7 +37,8 @@ const AdminAnalytics = () => {
       { key: 'distributions', url: '/admin/distributions' },
       { key: 'userDomains', url: '/admin/user-domains' },
       { key: 'bias', url: '/analytics/admin/bias-transparency' },
-      { key: 'kpis', url: '/analytics/admin/kpis' }
+      { key: 'kpis', url: '/analytics/admin/kpis' },
+      { key: 'evaluation', url: '/analytics/admin/evaluation' }
     ];
 
     const results = {};
@@ -60,7 +62,8 @@ const AdminAnalytics = () => {
       distributions: results.distributions || { novelty: [], quality: [] },
       userDomains: results.userDomains?.user_domains || [],
       bias: results.bias || null,
-      kpis: results.kpis || null
+      kpis: results.kpis || null,
+      evaluation: results.evaluation || null
     });
 
     setLoading(false);
@@ -85,9 +88,14 @@ const AdminAnalytics = () => {
     ? data.userDomains.reduce((max, d) => (d.user_count || 0) > (max.user_count || 0) ? d : max).name
     : 'No data available';
 
+  const toScore = (raw) => (raw == null || Number.isNaN(raw)) ? null : Math.round(raw * 100);
+  const toPercent = (raw) => (raw == null || Number.isNaN(raw)) ? '—' : `${(Number(raw) * 100).toFixed(1)}%`;
+
   // Backend returns pre-bucketed {range, count} objects — use directly as chart data
   const noveltyHistogram = data.distributions.novelty.map(b => ({ bin: b.range, count: b.count }));
   const qualityHistogram = data.distributions.quality.map(b => ({ bin: b.range, count: b.count }));
+  const insHistogram = data.evaluation?.distributions?.ins?.map(b => ({ bin: b.range, count: b.count })) || [];
+  const csHistogram = data.evaluation?.distributions?.cs?.map(b => ({ bin: b.range, count: b.count })) || [];
 
   if (loading) {
     return (
@@ -193,13 +201,88 @@ const AdminAnalytics = () => {
         </div>
       </div>
 
+      {/* Evaluation Framework */}
+      {data.evaluation && (
+        <>
+          <div className="mb-4 mt-8">
+            <h2 className="text-2xl font-light text-white">Evaluation Framework</h2>
+            <p className="mt-1 text-neutral-400 text-sm">INS, CS, IDS, and RR metrics across recent ideas</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
+            <StatCard
+              label="INS mean"
+              value={formatScore(toScore(data.evaluation.aggregate?.ins_mean))}
+            />
+            <StatCard
+              label="CS mean"
+              value={formatScore(toScore(data.evaluation.aggregate?.cs_mean))}
+            />
+            <StatCard
+              label="IDS (diversity)"
+              value={toPercent(data.evaluation.aggregate?.ids)}
+            />
+            <StatCard
+              label="RR (redundancy)"
+              value={toPercent(data.evaluation.aggregate?.rr)}
+            />
+            <StatCard
+              label="Sample size"
+              value={data.evaluation.aggregate?.sample_size ?? 0}
+            />
+            <StatCard
+              label="Reference index"
+              value={data.evaluation.aggregate?.reference_index_loaded ? 'Loaded' : 'Missing'}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6">
+              <h3 className="text-lg font-medium text-white mb-4">INS Distribution</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                {insHistogram.length > 0 ? (
+                  <BarChart data={insHistogram}>
+                    <CartesianGrid stroke="#374151" />
+                    <XAxis dataKey="bin" stroke="#9CA3AF" />
+                    <YAxis stroke="#9CA3AF" />
+                    <Bar dataKey="count" fill="#9CA3AF" />
+                  </BarChart>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-neutral-400">
+                    No data available
+                  </div>
+                )}
+              </ResponsiveContainer>
+            </div>
+            <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-6">
+              <h3 className="text-lg font-medium text-white mb-4">CS Distribution</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                {csHistogram.length > 0 ? (
+                  <BarChart data={csHistogram}>
+                    <CartesianGrid stroke="#374151" />
+                    <XAxis dataKey="bin" stroke="#9CA3AF" />
+                    <YAxis stroke="#9CA3AF" />
+                    <Bar dataKey="count" fill="#9CA3AF" />
+                  </BarChart>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-neutral-400">
+                    No data available
+                  </div>
+                )}
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Extra KPI Row (from server KPIs) */}
       {data.kpis && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <StatCard label="Avg novelty" value={formatScore(Math.round(data.kpis.avg_novelty))} />
-          <StatCard label="Rejection rate" value={`${(data.kpis.rejection_rate * 100).toFixed(1)}%`} />
+          <StatCard label="Rejection rate" value={`${Number(data.kpis.rejection_rate || 0).toFixed(1)}%`} />
           <StatCard label="Avg rating" value={`${data.kpis.avg_rating?.toFixed(1) ?? 'N/A'} / 5`} />
           <StatCard label="Total reviews" value={data.kpis.total_reviews} />
+          <StatCard label="Total feedback" value={data.kpis.total_feedbacks ?? 0} />
         </div>
       )}
 

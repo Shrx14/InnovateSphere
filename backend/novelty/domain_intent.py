@@ -196,7 +196,12 @@ Project Description:
 Return JSON:
 {{"problem_class": "one_of_above", "confidence": 0.0_to_1.0, "reasoning": "brief reason"}}"""
         
-        response = generate_json(prompt, max_tokens=150, temperature=0.1)
+        response = generate_json(
+            prompt,
+            max_tokens=150,
+            temperature=0.1,
+            task_type="problem_classification",
+        )
         if isinstance(response, dict):
             problem_class = response.get("problem_class", "general")
             confidence = float(response.get("confidence", 0.0))

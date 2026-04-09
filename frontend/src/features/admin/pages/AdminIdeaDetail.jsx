@@ -152,7 +152,7 @@ const AdminIdeaDetail = () => {
       <div className="mb-8">
         <button
           onClick={() => navigate('/admin')}
-          className="text-neutral-400 dark:hover:text-white text-neutral-900 mb-4 inline-flex items-center"
+          className="text-neutral-400 hover:text-white mb-4 inline-flex items-center"
         >
           ← Back to review queue
         </button>
@@ -282,6 +282,22 @@ const AdminIdeaDetail = () => {
                 <div className="text-xs text-neutral-500 mb-2">
                   Pipeline: {trace.ai_pipeline_version} • Bias: {trace.bias_profile_version || 'None'}
                 </div>
+                {trace.timings_ms && (
+                  <div className="grid sm:grid-cols-4 gap-2 text-xs mb-3">
+                    <div className="rounded bg-neutral-800 px-2 py-1 text-neutral-300">
+                      Retrieval: <span className="font-mono">{trace.timings_ms.retrieval ?? 0}ms</span>
+                    </div>
+                    <div className="rounded bg-neutral-800 px-2 py-1 text-neutral-300">
+                      Analysis: <span className="font-mono">{trace.timings_ms.analysis ?? 0}ms</span>
+                    </div>
+                    <div className="rounded bg-neutral-800 px-2 py-1 text-neutral-300">
+                      Generation: <span className="font-mono">{trace.timings_ms.generation ?? 0}ms</span>
+                    </div>
+                    <div className="rounded bg-neutral-800 px-2 py-1 text-neutral-300">
+                      Total: <span className="font-mono">{trace.timings_ms.total ?? 0}ms</span>
+                    </div>
+                  </div>
+                )}
                 {['phase_0', 'phase_1', 'phase_2', 'phase_3', 'phase_4', 'phase_5'].map(phaseKey => {
                   const phase = trace[phaseKey];
                   if (!phase) return null;
@@ -343,8 +359,24 @@ const AdminIdeaDetail = () => {
             <h2 className="text-xl font-medium text-white mb-4">Trust Signals</h2>
             <div className="space-y-3">
               <div className="flex justify-between">
+                <span className="text-neutral-300">Novelty Score</span>
+                <span className="text-white font-medium">{formatScore(idea.novelty_score)}/10</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-neutral-300">Quality Score</span>
                 <span className="text-white font-medium">{formatScore(idea.quality_score)}/10</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-300">Average Rating</span>
+                <span className="text-white font-medium">{idea.average_rating != null ? `${Number(idea.average_rating).toFixed(1)} / 5` : '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-300">Requests</span>
+                <span className="text-white font-medium">{idea.requested_count ?? 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-300">Reviews</span>
+                <span className="text-white font-medium">{idea.reviews?.length ?? 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-300">Novelty Confidence</span>
@@ -376,6 +408,26 @@ const AdminIdeaDetail = () => {
               )}
             </div>
           </div>
+
+          {(idea.evaluation_metrics?.ins != null || idea.evaluation_metrics?.cs != null) && (
+            <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-6">
+              <h2 className="text-xl font-medium text-white mb-4">Evaluation Metrics</h2>
+              <div className="space-y-3">
+                {idea.evaluation_metrics?.ins != null && (
+                  <div className="flex justify-between">
+                    <span className="text-neutral-300">INS</span>
+                    <span className="text-indigo-300 font-mono">{Number(idea.evaluation_metrics.ins).toFixed(3)}</span>
+                  </div>
+                )}
+                {idea.evaluation_metrics?.cs != null && (
+                  <div className="flex justify-between">
+                    <span className="text-neutral-300">CS</span>
+                    <span className="text-emerald-300 font-mono">{Number(idea.evaluation_metrics.cs).toFixed(3)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Admin Quick Actions */}
           <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-6">

@@ -29,7 +29,7 @@ def system_under_load() -> bool:
     try:
         from backend.generation.job_queue import get_job_queue
         jq = get_job_queue()
-        active = sum(1 for j in jq._jobs.values() if j.get("status") == "running")
+        active = jq.count_running_jobs()
         return active >= 5
     except Exception:
         return False
@@ -39,7 +39,13 @@ def _cache_key(description: str, domain: str) -> str:
     return hashlib.sha256(f"{domain}:{description}".encode()).hexdigest()
 
 
-def analyze_novelty(description: str, domain: str, bypass_cache: bool = False) -> dict:
+def analyze_novelty(
+    description: str,
+    domain: str,
+    bypass_cache: bool = False,
+    preloaded_sources: list | None = None,
+    query_text: str | None = None,
+) -> dict:
     """Analyze novelty of an idea description within a domain.
 
     Routes through the domain intent router to detect problem_class,
@@ -58,9 +64,12 @@ def analyze_novelty(description: str, domain: str, bypass_cache: bool = False) -
     """
     import time
 
+    # Preloaded sources are request-scoped and should not be globally cached.
+    use_cache = preloaded_sources is None and query_text is None
+
     # Check cache (10 min TTL) — thread-safe
     key = _cache_key(description, domain)
-    if not bypass_cache:
+    if use_cache and not bypass_cache:
         with _cache_lock:
             if key in _novelty_cache:
                 cached_result, expiry = _novelty_cache[key]
@@ -85,7 +94,13 @@ def analyze_novelty(description: str, domain: str, bypass_cache: bool = False) -
     if system_under_load():
         logger.warning("System under load — running novelty with reduced source limit")
 
-    result = analyzer.analyze(description, used_domain, problem_class=problem_class)
+    result = analyzer.analyze(
+        description,
+        used_domain,
+        problem_class=problem_class,
+        preloaded_sources=preloaded_sources,
+        query_text=query_text,
+    )
 
     # Attach routing metadata for audit
     result["routing"] = {
@@ -96,14 +111,15 @@ def analyze_novelty(description: str, domain: str, bypass_cache: bool = False) -
     }
 
     # Store in cache (10 min TTL) — thread-safe
-    with _cache_lock:
-        _novelty_cache[key] = (result, time.time() + 600)
+    if use_cache:
+        with _cache_lock:
+            _novelty_cache[key] = (result, time.time() + 600)
 
-        # Evict stale entries if cache grows too large
-        if len(_novelty_cache) > 200:
-            now = time.time()
-            stale = [k for k, (_, exp) in _novelty_cache.items() if now >= exp]
-            for k in stale:
-                del _novelty_cache[k]
+            # Evict stale entries if cache grows too large
+            if len(_novelty_cache) > 200:
+                now = time.time()
+                stale = [k for k, (_, exp) in _novelty_cache.items() if now >= exp]
+                for k in stale:
+                    del _novelty_cache[k]
 
     return result

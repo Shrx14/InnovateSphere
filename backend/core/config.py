@@ -67,6 +67,11 @@ class Config:
     # - strong enough for semantic narrowing
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
     EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", 384))
+    EMBEDDING_BACKEND = os.getenv("EMBEDDING_BACKEND", "auto")  # auto | sentence-transformers | onnx
+    EMBEDDING_ONNX_MODEL_PATH = os.getenv("EMBEDDING_ONNX_MODEL_PATH", "")
+    EMBEDDING_ONNX_TOKENIZER = os.getenv(
+        "EMBEDDING_ONNX_TOKENIZER", "sentence-transformers/all-MiniLM-L6-v2"
+    )
 
     # =========================================================
     # LLM Configuration
@@ -82,6 +87,23 @@ class Config:
 
     # OpenAI (optional, paid)
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+
+    # Optional per-task model routing (disabled by default to preserve current behavior)
+    ENABLE_HETEROGENEOUS_MODELS = os.getenv("ENABLE_HETEROGENEOUS_MODELS", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    LLM_FAST_MODEL_NAME = os.getenv("LLM_FAST_MODEL_NAME", "llama3.2:3b")
+    LLM_QUALITY_MODEL_NAME = os.getenv("LLM_QUALITY_MODEL_NAME", LLM_MODEL_NAME)
+    LLM_FAST_TASK_TYPES = {
+        t.strip().lower()
+        for t in os.getenv(
+            "LLM_FAST_TASK_TYPES",
+            "retrieval_keywords,query_summarization,problem_classification",
+        ).split(",")
+        if t.strip()
+    }
 
     # LLM runtime safety
     LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", 60))
@@ -113,6 +135,12 @@ class Config:
     HYBRID_MAX_SOURCES_FOR_PROMPT = int(os.getenv("HYBRID_MAX_SOURCES_FOR_PROMPT", 5))
 
     # =========================================================
+    # GCR Mode (Generate -> Critique -> Refine)
+    # =========================================================
+    # When enabled: uses a 3-pass GCR pipeline with retrieval + novelty.
+    GCR_MODE = os.getenv("GCR_MODE", "false").lower() in ("1", "true", "yes")
+
+    # =========================================================
     # Demo Mode (for fast presentation/demo)
     # =========================================================
     # When enabled: skips novelty analysis, runs single LLM pass, reduces retrieval
@@ -136,6 +164,28 @@ class Config:
     # Ideas below this threshold are rejected pre-LLM to avoid generating rehashed ideas
     # Only enforced in hybrid/production modes (demo bypasses)
     MIN_NOVELTY_SCORE = int(os.getenv("MIN_NOVELTY_SCORE", 25))
+
+    # Contrastive novelty signal (domain-vs-approach separation)
+    NOVELTY_ENABLE_CONTRASTIVE = os.getenv("NOVELTY_ENABLE_CONTRASTIVE", "true").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    NOVELTY_CONTRASTIVE_WEIGHT = float(os.getenv("NOVELTY_CONTRASTIVE_WEIGHT", 10.0))
+    NOVELTY_CONTRASTIVE_MIN_DOMAIN_SIM = float(
+        os.getenv("NOVELTY_CONTRASTIVE_MIN_DOMAIN_SIM", 0.35)
+    )
+
+    # Evaluation framework (FAISS reference index)
+    ENABLE_EVALUATION_FRAMEWORK = os.getenv("ENABLE_EVALUATION_FRAMEWORK", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    EVAL_REFERENCE_INDEX_PATH = os.getenv("EVAL_REFERENCE_INDEX_PATH", "")
+    EVAL_REFERENCE_METADATA_PATH = os.getenv("EVAL_REFERENCE_METADATA_PATH", "")
+    EVAL_REFERENCE_NEIGHBORS = int(os.getenv("EVAL_REFERENCE_NEIGHBORS", 5))
+    EVAL_ANALYTICS_MAX_IDEAS = int(os.getenv("EVAL_ANALYTICS_MAX_IDEAS", 200))
 
     # =========================================================
     # Observability / Logging
@@ -217,6 +267,8 @@ class Config:
         """Returns a string label for the currently active pipeline mode."""
         if Config.DEMO_MODE:
             return "demo"
+        if Config.GCR_MODE:
+            return "gcr"
         if Config.HYBRID_MODE:
             return "hybrid"
         return "production"

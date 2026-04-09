@@ -135,6 +135,12 @@ def admin_get_generation_trace(idea_id):
             },
             "constraints_active": trace.constraints_active,
             "bias_penalties_applied": trace.bias_penalties_applied,
+            "timings_ms": {
+                "retrieval": trace.retrieval_time_ms,
+                "analysis": trace.analysis_time_ms,
+                "generation": trace.generation_time_ms,
+                "total": (trace.retrieval_time_ms or 0) + (trace.analysis_time_ms or 0) + (trace.generation_time_ms or 0),
+            },
             "created_at": trace.created_at.isoformat() if trace.created_at else None
         }
     }), 200
@@ -248,6 +254,7 @@ def admin_idea_detail(idea_id):
         "tech_stack": idea.tech_stack,
         "tech_stack_json": idea.tech_stack_json,
         "domain": idea.domain.name if idea.domain else None,
+        "novelty_score": idea.novelty_score_cached,
         "ai_pipeline_version": idea.ai_pipeline_version,
         "is_ai_generated": idea.is_ai_generated,
         "is_public": idea.is_public,
@@ -275,6 +282,11 @@ def admin_idea_detail(idea_id):
         "average_rating": round(sum(r.rating for r in idea.reviews) / len(idea.reviews), 1) if idea.reviews else None,
         "requested_count": len(idea.requests),
         "quality_score": idea.quality_score,
+        "evaluation_metrics": (
+            idea.novelty_context.get("evaluation", {})
+            if isinstance(idea.novelty_context, dict)
+            else {}
+        ),
         "novelty_confidence": idea.novelty_confidence,
         "evidence_strength": idea.evidence_strength,
         "hallucination_risk_level": idea.hallucination_risk_level,
@@ -386,8 +398,10 @@ def admin_rescore_idea(idea_id):
         # Use the original novelty input text stored during generation for parity,
         # falling back to problem_statement/title if not available
         original_input = None
+        original_query = None
         if idea.novelty_context and isinstance(idea.novelty_context, dict):
             original_input = idea.novelty_context.get("input_text")
+            original_query = idea.novelty_context.get("query_text")
         if not original_input:
             original_input = idea.problem_statement or idea.title
 
@@ -395,6 +409,7 @@ def admin_rescore_idea(idea_id):
             original_input,
             idea.domain.name if idea.domain else "generic",
             bypass_cache=True,
+            query_text=original_query,
         )
 
         old_novelty = idea.novelty_score_cached

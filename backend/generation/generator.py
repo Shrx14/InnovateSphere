@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 from backend.retrieval.orchestrator import retrieve_sources
 from backend.semantic.filter import filter_by_semantic_similarity
+from backend.evaluation.service import get_reference_eval_index
 
 
 def _get_domain_threshold(domain_name: str, cap: float = 0.4) -> float:
@@ -87,6 +88,12 @@ from backend.ai.prompts import (
     HYBRID_PASS1_PROMPT_TEMPLATE,
     HYBRID_PASS2_SYSTEM,
     HYBRID_PASS2_PROMPT_TEMPLATE,
+    GCR_GENERATOR_SYSTEM,
+    GCR_GENERATOR_PROMPT_TEMPLATE,
+    GCR_CRITIC_SYSTEM,
+    GCR_CRITIC_PROMPT_TEMPLATE,
+    GCR_REFINER_SYSTEM,
+    GCR_REFINER_PROMPT_TEMPLATE,
 )
 from .schemas import validate_generated_idea, validate_hybrid_idea
 from .constraints import build_hitl_constraints, is_rejected_pattern, filter_hallucinated_sources
@@ -194,6 +201,51 @@ def check_evidence_sufficiency(
     return None
 
 
+def _select_novelty_text_for_idea(idea_payload: Dict[str, Any], fallback_query: str) -> str:
+    """Pick the best text span for idea-grounded novelty scoring."""
+    if not isinstance(idea_payload, dict):
+        return fallback_query
+
+    candidates = [
+        idea_payload.get("problem_statement"),
+        idea_payload.get("novelty_reason"),
+        idea_payload.get("title"),
+    ]
+    merged = "\n".join(str(c).strip() for c in candidates if c and str(c).strip())
+    return merged if merged else fallback_query
+
+
+def _compute_evaluation_metrics(idea_payload: Dict[str, Any], query: str) -> Dict[str, Any]:
+    """Compute evaluation metrics (INS/CS) when the framework is enabled."""
+    if not getattr(Config, "ENABLE_EVALUATION_FRAMEWORK", False):
+        return {}
+    if not isinstance(idea_payload, dict):
+        return {}
+
+    metrics: Dict[str, Any] = {}
+    try:
+        from backend.evaluation.metrics import compute_cs, compute_ins
+
+        metrics["cs"] = round(compute_cs(idea_payload), 4)
+
+        reference_index = get_reference_eval_index()
+        if reference_index is not None:
+            eval_text = _select_novelty_text_for_idea(idea_payload, query)
+            metrics["ins"] = round(
+                compute_ins(
+                    eval_text,
+                    reference_index,
+                    k=max(1, getattr(Config, "EVAL_REFERENCE_NEIGHBORS", 5)),
+                ),
+                4,
+            )
+    except Exception as e:
+        logger.warning("[EVAL] Evaluation metrics failed: %s", e)
+        return {}
+
+    return metrics
+
+
 # HITL guardrails (domain-level safety)
 def check_hitl_guardrails(domain_id: int):
     cutoff = datetime.utcnow() - timedelta(days=30)
@@ -296,7 +348,10 @@ def multi_pass_llm_generate(
             "\n".join(f"[{i}] {s['title']} ({s['source_type']})" for i, s in enumerate(sources)),
         )
 
-        analysis = generate_json(pass1_system + pass1_body)
+        analysis = generate_json(
+            pass1_system + pass1_body,
+            task_type="generation_analysis",
+        )
     except (RuntimeError, ValueError) as e:
         logger.error(f"PASS 1 LLM generation failed: {e}")
         raise RuntimeError("Idea generation failed (PHASE 2 - Landscape Analysis): LLM error") from e
@@ -309,7 +364,10 @@ def multi_pass_llm_generate(
         pass2_body = PASS2_PROMPT_TEMPLATE
         pass2_body = pass2_body.replace("{analysis}", json.dumps(analysis))
         pass2_body = pass2_body.replace("{context}", query)
-        idea = generate_json(PASS2_SYSTEM + pass2_body)
+        idea = generate_json(
+            PASS2_SYSTEM + pass2_body,
+            task_type="generation_synthesis",
+        )
     except (RuntimeError, ValueError) as e:
         logger.error(f"PASS 2 LLM generation failed: {e}")
         raise RuntimeError("Idea generation failed (PHASE 3 - Problem Framing): LLM error") from e
@@ -326,7 +384,10 @@ def multi_pass_llm_generate(
             "{sources}",
             "\n".join(f"[{i}] {s['title']} — {s['url']}" for i, s in enumerate(sources)),
         )
-        evidence = generate_json(PASS3_SYSTEM + pass3_body)
+        evidence = generate_json(
+            PASS3_SYSTEM + pass3_body,
+            task_type="generation_validation",
+        )
     except (RuntimeError, ValueError) as e:
         logger.error(f"PASS 3 LLM generation failed: {e}")
         raise RuntimeError("Idea generation failed (PHASE 3 - Evidence Validation): LLM error") from e
@@ -358,7 +419,10 @@ def multi_pass_llm_generate(
         pass4_body = pass4_body.replace("{analysis}", json.dumps(analysis))
         pass4_body = pass4_body.replace("{evidence}", json.dumps(evidence))
         pass4_body = pass4_body.replace("{novelty}", json.dumps(novelty))
-        final = generate_json(PASS4_SYSTEM + pass4_body)
+        final = generate_json(
+            PASS4_SYSTEM + pass4_body,
+            task_type="generation_assembly",
+        )
     except (RuntimeError, ValueError) as e:
         logger.error(f"PASS 4 LLM generation failed: {e}")
         raise RuntimeError("Idea generation failed (PHASE 4 - Output Synthesis): LLM error") from e
@@ -478,11 +542,17 @@ def generate_hybrid(
         return {"error": f"Retrieval error: {e}"}
 
     # =============================================
-    # Phase 1  — Novelty analysis  (30-50%)
+    # Phase 1  — Novelty precheck (query-grounded)  (30-50%)
     # =============================================
     try:
-        novelty_input = "\n".join(f"[{s['source_type']}] {s['title']}" for s in ranked)
-        novelty = analyze_novelty(novelty_input, domain.name)
+        novelty = analyze_novelty(
+            query,
+            domain.name,
+            preloaded_sources=ranked,
+            query_text=query,
+        )
+        novelty["scoring_mode"] = "query_precheck"
+        novelty["input_text"] = query
 
         if job_queue:
             job_queue.set_intermediate_result(job_id, "novelty", novelty)
@@ -522,21 +592,49 @@ def generate_hybrid(
         if constraints.get("domain_strictness", 1.0) > 1.0:
             pass1_system += "\n\nADDITIONAL: Use conservative analysis; require stronger evidence."
 
-        pass1_body = HYBRID_PASS1_PROMPT_TEMPLATE.replace("{domain}", domain.name).replace("{sources}", sources_text)
+        pass1_body = (
+            HYBRID_PASS1_PROMPT_TEMPLATE
+            .replace("{domain}", domain.name)
+            .replace("{query}", query)
+            .replace("{sources}", sources_text)
+        )
         prompt_len = len(pass1_system + pass1_body)
         logger.info("[HYBRID] Pass 1 prompt length: %d chars", prompt_len)
 
         try:
-            analysis = generate_json(pass1_system + pass1_body, max_tokens=800, temperature=0.2)
+            analysis = generate_json(
+                pass1_system + pass1_body,
+                max_tokens=800,
+                temperature=0.2,
+                task_type="generation_analysis",
+            )
         except Exception as e:
             logger.warning("[HYBRID] Pass 1 failed (%s); using novelty insights as fallback", e)
             # Fallback: construct analysis from novelty insights
             insights = novelty.get("insights", {})
             analysis = {
-                "common_patterns": [str(insights.get("similarity", "common patterns detected"))],
-                "overused_ideas": [],
-                "gaps": [{"gap": g, "why_it_matters": "Identified by novelty analysis"}
-                         for g in truncate_novelty_gaps(novelty.get("gaps", []), max_items=3)]
+                "existing_approaches": [
+                    {
+                        "approach": str(insights.get("summary", "common baseline approach"))[:180],
+                        "limitation": "Derived from novelty precheck due to pass-1 fallback",
+                        "papers": [0],
+                    }
+                ],
+                "underexplored_intersections": [
+                    {
+                        "intersection": "Cross-domain synthesis",
+                        "why_unexplored": "Limited direct evidence across retrieved sources",
+                        "opportunity_signal": "Novelty precheck indicates room for differentiation",
+                    }
+                ],
+                "constrained_novelty_zones": [
+                    {
+                        "zone": g,
+                        "current_best": "Existing approaches cluster around similar implementations",
+                        "gap_type": "generalization",
+                    }
+                    for g in truncate_novelty_gaps(novelty.get("gaps", []), max_items=3)
+                ],
             }
 
         if job_queue:
@@ -544,8 +642,19 @@ def generate_hybrid(
 
         # --- Pass 2: Grounded Generation ---
         # Extract novelty gaps for prompt
-        raw_gaps = analysis.get("gaps", [])
-        gap_strings = truncate_novelty_gaps(raw_gaps, max_items=3, max_words=50)
+        raw_zones = analysis.get("constrained_novelty_zones", [])
+        gap_strings = []
+        for z in raw_zones[:3]:
+            if isinstance(z, dict):
+                zone = str(z.get("zone", "")).strip()
+                gap_type = str(z.get("gap_type", "")).strip()
+                if zone:
+                    gap_strings.append(f"{zone} ({gap_type})" if gap_type else zone)
+
+        # Backward compatibility with earlier pass1 schema
+        if not gap_strings:
+            raw_gaps = analysis.get("gaps", [])
+            gap_strings = truncate_novelty_gaps(raw_gaps, max_items=3, max_words=50)
         if not gap_strings:
             # Fallback: use novelty insights
             for k, v in novelty.get("insights", {}).items():
@@ -565,7 +674,12 @@ def generate_hybrid(
         prompt_len = len(HYBRID_PASS2_SYSTEM + pass2_body)
         logger.info("[HYBRID] Pass 2 prompt length: %d chars", prompt_len)
 
-        idea_raw = generate_json(HYBRID_PASS2_SYSTEM + pass2_body, max_tokens=1000, temperature=0.3)
+        idea_raw = generate_json(
+            HYBRID_PASS2_SYSTEM + pass2_body,
+            max_tokens=1000,
+            temperature=0.3,
+            task_type="generation_synthesis",
+        )
 
     except TransientLLMError as e:
         logger.error("[HYBRID] LLM transient error: %s", e)
@@ -608,10 +722,33 @@ def generate_hybrid(
         if "problem_statement" not in parsed_dict:
             parsed_dict["problem_statement"] = query
 
+    evaluation_metrics: Dict[str, Any] = {}
+
     # Pattern rejection
     pattern_check = is_rejected_pattern(parsed_dict, constraints)
     if pattern_check:
         return pattern_check
+
+    # Final novelty score for idea generation must be idea-grounded.
+    novelty_input = _select_novelty_text_for_idea(parsed_dict, query)
+    try:
+        novelty = analyze_novelty(
+            novelty_input,
+            domain.name,
+            preloaded_sources=ranked,
+            query_text=query,
+        )
+        novelty["scoring_mode"] = "generated_idea"
+        novelty["input_text"] = novelty_input
+        novelty["query_text"] = query
+    except Exception as e:
+        logger.warning("[HYBRID] Idea-grounded novelty failed (%s); using precheck novelty", e)
+        novelty["scoring_mode"] = novelty.get("scoring_mode", "query_precheck")
+
+    evaluation_metrics = _compute_evaluation_metrics(parsed_dict, query)
+
+    if job_queue:
+        job_queue.set_intermediate_result(job_id, "novelty", novelty)
 
     # Grounding enforcement for hybrid mode (was previously skipped)
     try:
@@ -657,6 +794,8 @@ def generate_hybrid(
         idea.quality_score_cached = idea.quality_score
         idea.novelty_score_cached = round(novelty.get("novelty_score", 0))
         novelty["input_text"] = novelty_input  # Store for rescore parity
+        if evaluation_metrics:
+            novelty["evaluation"] = evaluation_metrics
         idea.novelty_context = novelty
 
         # Persist sources
@@ -771,6 +910,7 @@ def generate_hybrid(
             "llm_calls": 2,
             "hitl_influenced": bool(constraints.get("source_penalties")),
             "domain_strictness": constraints.get("domain_strictness", 1.0),
+            "evaluation_metrics": evaluation_metrics,
         },
     }
 
@@ -780,6 +920,436 @@ def generate_hybrid(
         job_queue.set_final_result(job_id, result)
 
     logger.info("[HYBRID] Generation completed: idea_id=%s novelty=%.1f", idea.id, novelty.get("novelty_score", 0))
+    return result
+
+
+# ================================================================
+# GCR MODE: Generate -> Critique -> Refine (3-pass pipeline)
+# ================================================================
+def generate_gcr(
+    query: str, domain_id: int, user_id: int, job_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    GCR pipeline: real retrieval + novelty, then 3 LLM passes.
+
+    Pass 1: Generate draft idea
+    Pass 2: Critique draft idea
+    Pass 3: Refine into final idea
+    """
+    from backend.utils.common import truncate_source_for_prompt, truncate_novelty_gaps
+
+    logger.info("[GCR] Starting 3-pass generation: query='%s'", query[:80])
+    job_queue = get_job_queue() if job_id else None
+
+    if job_queue:
+        job_queue.set_phase_names(job_id, {
+            0: "Retrieving sources",
+            1: "Analyzing novelty",
+            2: "Drafting idea",
+            3: "Critiquing draft",
+            4: "Refining & saving",
+        })
+
+    # --- Abuse check ---
+    try:
+        from backend.core.abuse import check_generation_rate, record_abuse_event
+        if check_generation_rate(user_id):
+            try:
+                record_abuse_event(user_id, "generation_blocked", {"query": query[:200]})
+            except Exception:
+                pass
+            return {"error": "rate_limited"}
+        try:
+            record_abuse_event(user_id, "generation_attempt", {"query": query[:200]})
+        except Exception:
+            pass
+    except Exception:
+        logger.exception("Abuse subsystem error; continuing generation")
+
+    # --- Domain lookup ---
+    domain = Domain.query.get(domain_id)
+    if not domain:
+        return {"error": "Invalid domain_id"}
+
+    if job_queue:
+        job_queue.update_job_status(job_id, "running", 0, 5)
+
+    guardrail = check_hitl_guardrails(domain_id)
+    if guardrail:
+        return guardrail
+
+    # =============================================
+    # Phase 0  — Retrieve sources (0-30%)
+    # =============================================
+    try:
+        if job_queue:
+            job_queue.update_job_status(job_id, "running", 0, 10)
+
+        retrieved = retrieve_sources(query=query, domain=domain.name)
+        raw_sources = retrieved.get("sources", []) if retrieved else []
+        raw_sources = filter_hallucinated_sources(raw_sources)
+        logger.info("[GCR] Retrieved %d raw sources (post-hallucination filter)", len(raw_sources))
+
+        if not raw_sources:
+            logger.warning("[GCR] No sources for query='%s'", query[:60])
+            return {"error": "No sources found for topic. Please try a different topic."}
+
+        threshold = _get_domain_threshold(domain.name, cap=0.4)
+        filtered = _filter_with_fallback(query, raw_sources, threshold)
+
+        ranked = rank_sources(filtered)
+        if not ranked:
+            return {"error": "Could not rank sources. Please try again."}
+
+        if job_queue:
+            job_queue.set_intermediate_result(job_id, "sources", ranked)
+            job_queue.update_job_status(job_id, "running", 0, 30)
+
+    except Exception as e:
+        logger.error("[GCR] Retrieval error: %s", e)
+        if job_queue:
+            job_queue.set_job_error(job_id, f"Retrieval error: {e}")
+        return {"error": f"Retrieval error: {e}"}
+
+    # =============================================
+    # Phase 1  — Novelty precheck (30-50%)
+    # =============================================
+    try:
+        novelty = analyze_novelty(
+            query,
+            domain.name,
+            preloaded_sources=ranked,
+            query_text=query,
+        )
+        novelty["scoring_mode"] = "query_precheck"
+        novelty["input_text"] = query
+
+        if job_queue:
+            job_queue.set_intermediate_result(job_id, "novelty", novelty)
+            job_queue.update_job_status(job_id, "running", 1, 50)
+
+    except Exception as e:
+        logger.error("[GCR] Novelty error: %s", e)
+        novelty = {"novelty_score": 50, "confidence": "Low", "insights": {}, "sources": []}
+
+    gate_error = check_evidence_sufficiency(ranked, novelty.get("novelty_score", 0))
+    if gate_error:
+        return {"error": gate_error}
+
+    # HITL constraints
+    try:
+        constraints = build_hitl_constraints(domain.name, ranked)
+    except Exception:
+        constraints = {"source_penalties": {}, "pattern_penalties": [], "domain_strictness": 1.0}
+
+    # Prepare truncated sources for prompt
+    top_sources = ranked[: Config.HYBRID_MAX_SOURCES_FOR_PROMPT]
+    source_lines = []
+    for i, s in enumerate(top_sources):
+        source_lines.append(f"[{i}] ({s.get('source_type','?').upper()}) {truncate_source_for_prompt(s)}")
+    sources_text = "\n".join(source_lines)
+
+    raw_gaps = novelty.get("gaps", [])
+    gap_strings = truncate_novelty_gaps(raw_gaps, max_items=3, max_words=50)
+    if not gap_strings:
+        for k, v in novelty.get("insights", {}).items():
+            gap_strings.append(str(v)[:200])
+            if len(gap_strings) >= 3:
+                break
+    novelty_gaps_text = "\n".join(f"- {g}" for g in gap_strings) if gap_strings else "No specific gaps identified"
+
+    # =============================================
+    # Phase 2  — Draft generation (50-70%)
+    # =============================================
+    try:
+        if job_queue:
+            job_queue.update_job_status(job_id, "running", 2, 60)
+
+        draft_body = (
+            GCR_GENERATOR_PROMPT_TEMPLATE
+            .replace("{query}", query)
+            .replace("{domain}", domain.name)
+            .replace("{novelty}", json.dumps(novelty, default=str))
+            .replace("{novelty_gaps}", novelty_gaps_text)
+            .replace("{sources}", sources_text)
+        )
+
+        draft_idea = generate_json(
+            GCR_GENERATOR_SYSTEM + draft_body,
+            max_tokens=1000,
+            temperature=0.35,
+            task_type="generation_gcr_generate",
+        )
+
+    except TransientLLMError as e:
+        logger.error("[GCR] LLM transient error: %s", e)
+        if job_queue:
+            job_queue.set_job_error(job_id, str(e) or "LLM transient failure")
+        return {"error": str(e) or "LLM transient failure", "transient": True}
+    except Exception as e:
+        logger.error("[GCR] Draft generation failed: %s", e)
+        if job_queue:
+            job_queue.set_job_error(job_id, str(e) or "LLM generation failed")
+        return {"error": str(e) or "LLM generation failed"}
+
+    # =============================================
+    # Phase 3  — Critique (70-80%)
+    # =============================================
+    critique = {}
+    try:
+        if job_queue:
+            job_queue.update_job_status(job_id, "running", 3, 72)
+
+        critic_body = (
+            GCR_CRITIC_PROMPT_TEMPLATE
+            .replace("{idea}", json.dumps(draft_idea, default=str))
+            .replace("{novelty}", json.dumps(novelty, default=str))
+            .replace("{constraints}", json.dumps(constraints, default=str))
+            .replace("{sources}", sources_text)
+        )
+
+        critique = generate_json(
+            GCR_CRITIC_SYSTEM + critic_body,
+            max_tokens=600,
+            temperature=0.2,
+            task_type="generation_gcr_critic",
+        )
+    except Exception as e:
+        logger.warning("[GCR] Critique failed: %s", e)
+        critique = {"blocking_issues": ["Critique failed"], "confidence": "low", "confidence_reason": str(e)[:120]}
+
+    # =============================================
+    # Phase 4  — Refine & save (80-100%)
+    # =============================================
+    try:
+        if job_queue:
+            job_queue.update_job_status(job_id, "running", 4, 85)
+
+        refine_body = (
+            GCR_REFINER_PROMPT_TEMPLATE
+            .replace("{idea}", json.dumps(draft_idea, default=str))
+            .replace("{critique}", json.dumps(critique, default=str))
+            .replace("{novelty}", json.dumps(novelty, default=str))
+            .replace("{sources}", sources_text)
+        )
+
+        refined_idea = generate_json(
+            GCR_REFINER_SYSTEM + refine_body,
+            max_tokens=1100,
+            temperature=0.25,
+            task_type="generation_gcr_refine",
+        )
+
+    except Exception as e:
+        logger.warning("[GCR] Refiner failed: %s", e)
+        refined_idea = draft_idea if isinstance(draft_idea, dict) else {}
+
+    if not isinstance(refined_idea, dict):
+        refined_idea = draft_idea if isinstance(draft_idea, dict) else {}
+
+    # Validate via relaxed schema
+    try:
+        parsed = validate_hybrid_idea(refined_idea)
+        parsed_dict = parsed.model_dump()
+    except Exception as e:
+        logger.warning("[GCR] Schema validation partial fail: %s", e)
+        parsed_dict = refined_idea if isinstance(refined_idea, dict) else {}
+        if "title" not in parsed_dict:
+            parsed_dict["title"] = f"Idea: {query[:80]}"
+        if "problem_statement" not in parsed_dict:
+            parsed_dict["problem_statement"] = query
+
+    # Pattern rejection
+    pattern_check = is_rejected_pattern(parsed_dict, constraints)
+    if pattern_check:
+        return pattern_check
+
+    # Final novelty score (idea-grounded)
+    novelty_input = _select_novelty_text_for_idea(parsed_dict, query)
+    try:
+        novelty = analyze_novelty(
+            novelty_input,
+            domain.name,
+            preloaded_sources=ranked,
+            query_text=query,
+        )
+        novelty["scoring_mode"] = "generated_idea"
+        novelty["input_text"] = novelty_input
+        novelty["query_text"] = query
+    except Exception as e:
+        logger.warning("[GCR] Idea-grounded novelty failed (%s); using precheck novelty", e)
+        novelty["scoring_mode"] = novelty.get("scoring_mode", "query_precheck")
+
+    evaluation_metrics = _compute_evaluation_metrics(parsed_dict, query)
+    if evaluation_metrics:
+        novelty["evaluation"] = evaluation_metrics
+
+    if job_queue:
+        job_queue.set_intermediate_result(job_id, "novelty", novelty)
+
+    # Grounding sanity check
+    try:
+        source_refs = parsed_dict.get("source_references", [])
+        known_urls = {s.get("url") for s in ranked if s.get("url")}
+        for ref in source_refs:
+            ref_url = ref.get("url", "") if isinstance(ref, dict) else ""
+            if ref_url and ref_url not in known_urls:
+                logger.warning("[GCR] Grounding issue: LLM cited unknown URL %s", ref_url)
+    except Exception as e:
+        logger.warning("[GCR] Grounding check error: %s", e)
+
+    feasibility = estimate_feasibility_module(query, domain.name, ranked, novelty)
+
+    # Persist to DB
+    try:
+        title = str(parsed_dict.get("title", "Untitled"))[:255]
+        problem_statement = str(parsed_dict.get("problem_statement", query))
+
+        tech_stack_list = parsed_dict.get("tech_stack", [])
+        if isinstance(tech_stack_list, list):
+            tech_stack_str = _build_tech_stack_text(tech_stack_list)
+        else:
+            tech_stack_str = str(tech_stack_list)[:500]
+
+        idea = ProjectIdea(
+            title=title,
+            problem_statement=problem_statement,
+            problem_statement_json=parsed_dict,
+            tech_stack=tech_stack_str,
+            tech_stack_json=tech_stack_list if isinstance(tech_stack_list, list) else [],
+            domain_id=domain_id,
+            ai_pipeline_version=get_active_ai_pipeline_version(),
+            is_ai_generated=True,
+            is_public=True,
+            is_validated=False,
+        )
+        db.session.add(idea)
+        db.session.flush()
+
+        idea.quality_score_cached = idea.quality_score
+        idea.novelty_score_cached = round(novelty.get("novelty_score", 0))
+        novelty["input_text"] = novelty_input
+        idea.novelty_context = novelty
+
+        for src in ranked:
+            if isinstance(src, dict):
+                db.session.add(
+                    IdeaSource(
+                        idea_id=idea.id,
+                        source_type=src.get("source_type", "unknown"),
+                        title=src.get("title", "Untitled"),
+                        url=src.get("url", ""),
+                        summary=src.get("summary", src.get("relevance_explanation", "")),
+                        relevance_tier=src.get("relevance_tier", "supporting"),
+                    )
+                )
+
+        db.session.add(IdeaRequest(user_id=user_id, idea_id=idea.id))
+
+        # Persist novelty breakdown for audit trail
+        try:
+            from backend.core.models import NoveltyBreakdown
+            sig = novelty.get("signal_breakdown", {})
+            dbg = novelty.get("debug", {})
+            nb = NoveltyBreakdown(
+                idea_id=idea.id,
+                mean_similarity=novelty.get("routing", {}).get("domain_confidence", 0),
+                similarity_variance=dbg.get("similarity_variance", 0),
+                specificity_score=sig.get("base_score", 0),
+                temporal_score=sig.get("maturity_bonus", 0),
+                saturation_penalty=sig.get("commodity_penalty", 0),
+                base_score=sig.get("base_score", 0),
+                bonus_score=sig.get("bonus", 0),
+                weighted_score=novelty.get("novelty_score", 0),
+                stabilized_score=novelty.get("novelty_score", 0),
+                retrieved_sources_count=dbg.get("retrieved_sources", len(ranked)),
+                referenced_ideas_count=0,
+                domain=domain.name,
+                engine=novelty.get("engine", "software"),
+                algorithm_version="gcr_v1",
+            )
+            db.session.add(nb)
+        except Exception as e:
+            logger.warning("Failed to persist NoveltyBreakdown: %s", e)
+
+        # Audit trace (GCR) with retrieval metadata
+        active_bias = get_active_bias_profile()
+        retrieval_audit = {
+            "query": query,
+            "domain": domain.name,
+            "raw_source_count": len(raw_sources) if 'raw_sources' in dir() else len(ranked),
+            "filtered_source_count": len(filtered) if 'filtered' in dir() else len(ranked),
+            "ranked_source_count": len(ranked),
+            "sources_used": [
+                {"url": s.get("url"), "source_type": s.get("source_type"), "relevance_tier": s.get("relevance_tier")}
+                for s in ranked[:10]
+            ],
+        }
+
+        trace = GenerationTrace(
+            idea_id=idea.id,
+            user_id=user_id,
+            query=query,
+            domain_name=domain.name,
+            ai_pipeline_version=get_active_ai_pipeline_version(),
+            bias_profile_version=active_bias.get("version", "default"),
+            prompt_version="gcr-v1",
+            phase_0_output={"query": query, "domain": domain.name, "feasibility": feasibility, "retrieval_audit": retrieval_audit},
+            phase_1_output=draft_idea,
+            phase_2_output=critique,
+            phase_3_output=parsed_dict,
+            phase_4_output=None,
+            constraints_active=constraints,
+            bias_penalties_applied={"source_penalties": constraints.get("source_penalties", {})}
+        )
+        db.session.add(trace)
+        db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error("[GCR] DB error: %s", e)
+        if job_queue:
+            job_queue.set_job_error(job_id, f"Failed to save idea: {e}")
+        return {"error": "Failed to save idea. Please try again."}
+
+    result = {
+        "id": idea.id,
+        "title": title,
+        "problem_statement": problem_statement,
+        "tech_stack": tech_stack_str,
+        "domain": domain.name,
+        "domain_id": domain_id,
+        "novelty_score": novelty.get("novelty_score", 0),
+        "novelty_level": novelty.get("novelty_level", ""),
+        "novelty_confidence": novelty.get("confidence", "Low"),
+        "quality_score": idea.quality_score_cached,
+        "evidence_strength": novelty.get("confidence", "Low"),
+        "evidence_sources": [
+            {"title": s.get("title"), "url": s.get("url"), "source_type": s.get("source_type"),
+             "relevance_tier": s.get("relevance_tier", "contextual"),
+             "relevance_explanation": s.get("relevance_explanation", "")}
+            for s in ranked[:10]
+        ],
+        "idea": parsed_dict,
+        "feasibility": feasibility,
+        "novelty_context": novelty,
+        "source_count": len(ranked),
+        "generation_metadata": {
+            "mode": "gcr",
+            "llm_calls": 3,
+            "hitl_influenced": bool(constraints.get("source_penalties")),
+            "domain_strictness": constraints.get("domain_strictness", 1.0),
+            "evaluation_metrics": evaluation_metrics,
+            "critic_confidence": critique.get("confidence") if isinstance(critique, dict) else None,
+        },
+    }
+
+    if job_queue:
+        if hasattr(trace, "id"):
+            job_queue.set_intermediate_result(job_id, "trace_id", str(trace.id))
+        job_queue.set_final_result(job_id, result)
+
+    logger.info("[GCR] Generation completed: idea_id=%s novelty=%.1f", idea.id, novelty.get("novelty_score", 0))
     return result
 
 
@@ -828,7 +1398,8 @@ def generate_direct_to_llm(
         result = generate_json(
             prompt_combined,
             temperature=0.7,
-            max_tokens=2000
+            max_tokens=2000,
+            task_type="generation_synthesis",
         )
         
         logger.info(f"[DEMO MODE] LLM returned valid JSON for direct generation")
@@ -947,6 +1518,11 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
         logger.info(f"[DEMO MODE ENABLED] Using direct LLM generation, skipping full pipeline")
         return generate_direct_to_llm(query, domain_id, user_id, job_id)
 
+    # GCR MODE: 3-pass Generate -> Critique -> Refine pipeline
+    if Config.GCR_MODE:
+        logger.info("[GCR MODE ENABLED] Using 3-pass GCR generation pipeline")
+        return generate_gcr(query, domain_id, user_id, job_id)
+
     # HYBRID MODE: 2-pass pipeline (real retrieval + real novelty + 2 LLM calls)
     if Config.HYBRID_MODE:
         logger.info("[HYBRID MODE ENABLED] Using 2-pass generation pipeline")
@@ -1041,10 +1617,14 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
                 "confidence_hint": "Low (mocked for demo)"
             }
         else:
-            novelty_input = "\n".join(
-                f"[{s['source_type']}] {s['title']}" for s in ranked
+            novelty = analyze_novelty(
+                query,
+                domain.name,
+                preloaded_sources=ranked,
+                query_text=query,
             )
-            novelty = analyze_novelty(novelty_input, domain.name)
+            novelty["input_text"] = query
+            novelty["scoring_mode"] = "query_precheck"
 
         # Update job status: novelty analysis complete
         if job_queue:
@@ -1124,6 +1704,24 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
     if pattern_check:
         return pattern_check
 
+    novelty_input = _select_novelty_text_for_idea(parsed, query)
+    try:
+        novelty = analyze_novelty(
+            novelty_input,
+            domain.name,
+            preloaded_sources=ranked,
+            query_text=query,
+        )
+        novelty["input_text"] = novelty_input
+        novelty["query_text"] = query
+        novelty["scoring_mode"] = "generated_idea"
+    except Exception as e:
+        logger.warning("Final novelty scoring failed; using precheck score: %s", e)
+
+    evaluation_metrics = _compute_evaluation_metrics(parsed, query)
+    if evaluation_metrics:
+        novelty["evaluation"] = evaluation_metrics
+
     # Persist idea + sources (with transaction protection)
     try:
         # Build title safely
@@ -1167,11 +1765,11 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
 
         idea.quality_score_cached = idea.quality_score
         
-        # Safely get novelty score
+        # Keep cache score sourced from novelty analyzer for consistency.
         novelty_pos = parsed.get("novelty_positioning", {})
-        idea.novelty_score_cached = round(novelty_pos.get("novelty_score", 0) if isinstance(novelty_pos, dict) else 0)
+        fallback_novelty = novelty_pos.get("novelty_score", 0) if isinstance(novelty_pos, dict) else 0
+        idea.novelty_score_cached = round(novelty.get("novelty_score", fallback_novelty))
 
-        novelty["input_text"] = novelty_input  # Store for rescore parity
         idea.novelty_context = novelty
 
         # Add sources
@@ -1252,12 +1850,16 @@ def generate_idea(query: str, domain_id: int, user_id: int, job_id: Optional[str
 
     result = {
         "idea": parsed,
-        "novelty_score": parsed.get("novelty_positioning", {}).get("novelty_score", novelty.get("novelty_score", 0)),
+        "novelty_score": novelty.get(
+            "novelty_score",
+            parsed.get("novelty_positioning", {}).get("novelty_score", 0),
+        ),
         "generation_metadata": {
             "hitl_influenced": True,
             "penalized_sources_count": penalized_sources_count,
             "domain_strictness": constraints.get("domain_strictness", 1.0),
-            "validated_source_ratio": validated_source_ratio
+            "validated_source_ratio": validated_source_ratio,
+            "evaluation_metrics": evaluation_metrics,
         }
     }
     

@@ -69,11 +69,12 @@ const AdminReviewQueue = () => {
   };
 
   const getRiskColor = (riskLevel) => {
+    const normalized = String(riskLevel || '').toLowerCase();
     const riskColor = {
-      Low: 'text-green-400',
-      Medium: 'text-yellow-400',
-      High: 'text-red-400'
-    }[riskLevel] || 'text-neutral-400';
+      low: 'text-green-400',
+      medium: 'text-yellow-400',
+      high: 'text-red-400'
+    }[normalized] || 'text-neutral-400';
     return riskColor;
   };
 

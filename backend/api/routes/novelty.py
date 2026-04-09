@@ -28,7 +28,12 @@ def analyze_novelty():
 
     engine, intent, intent_confidence, problem_class, problem_class_confidence = route_engine(description, override_domain=domain)
 
-    result = engine.analyze(description, domain, problem_class=problem_class)
+    result = engine.analyze(
+        description,
+        domain,
+        problem_class=problem_class,
+        query_text=description,
+    )
 
     # Pass sources to evidence score computation for relevance-tier weighting
     evidence = compute_evidence_score(result.get("debug", {}), intent_confidence, sources=result.get("sources", []))

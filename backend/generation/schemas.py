@@ -201,6 +201,22 @@ class HybridSourceReference(BaseModel):
     relevance: str = Field(default="")
 
 
+class HybridSelfCritique(BaseModel):
+    expert_challenge: str = Field(default="")
+    expert_response: str = Field(default="")
+    implementation_challenge: str = Field(default="")
+    evidence_gap: str = Field(default="")
+    confidence: str = Field(default="medium")
+    confidence_reason: str = Field(default="")
+
+    @field_validator("confidence")
+    def valid_confidence(cls, v):
+        allowed = {"low", "medium", "high"}
+        if str(v).lower() not in allowed:
+            return "medium"
+        return str(v).lower()
+
+
 class HybridGeneratedIdea(BaseModel):
     """
     Relaxed schema for the 2-pass hybrid pipeline.
@@ -216,6 +232,7 @@ class HybridGeneratedIdea(BaseModel):
     implementation_complexity: str = Field(default="medium")
     estimated_timeline_weeks: Any = Field(default=8)
     risks: List[str] = Field(default_factory=list)
+    self_critique: HybridSelfCritique | None = None
     source_references: List[HybridSourceReference] = Field(default_factory=list)
 
     @field_validator("implementation_complexity")

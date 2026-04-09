@@ -1,7 +1,7 @@
 """Unit tests for backend.ai.llm_client module."""
 import json
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, ANY
 from backend.ai.llm_client import generate_json, TransientLLMError
 
 
@@ -17,7 +17,7 @@ class TestGenerateJson:
 
         result = generate_json("test prompt")
         assert result == {"title": "Test Idea"}
-        mock_ollama.assert_called_once_with("test prompt", 1200, 0.2)
+        mock_ollama.assert_called_once_with("test prompt", 1200, 0.2, ANY)
 
     @patch("backend.ai.llm_client.Config")
     @patch("backend.ai.llm_client._generate_openai")
@@ -71,7 +71,7 @@ class TestGenerateJson:
         mock_ollama.return_value = {"ok": True}
 
         generate_json("prompt", max_tokens=500, temperature=0.8)
-        mock_ollama.assert_called_once_with("prompt", 500, 0.8)
+        mock_ollama.assert_called_once_with("prompt", 500, 0.8, ANY)
 
 
 class TestTransientLLMError:

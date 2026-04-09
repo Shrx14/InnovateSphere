@@ -212,6 +212,29 @@ const GeneratePage = () => {
                     </motion.div>
                   </motion.div>
 
+                  {gen.result.generation_metadata?.evaluation_metrics && (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {gen.result.generation_metadata.evaluation_metrics.ins != null && (
+                        <Card className="p-4 bg-neutral-900/50">
+                          <p className="text-xs text-neutral-500 uppercase tracking-wide mb-1">INS</p>
+                          <p className="text-2xl font-semibold text-indigo-300">
+                            {Number(gen.result.generation_metadata.evaluation_metrics.ins).toFixed(3)}
+                          </p>
+                          <p className="text-xs text-neutral-500 mt-1">Idea novelty distance against reference index</p>
+                        </Card>
+                      )}
+                      {gen.result.generation_metadata.evaluation_metrics.cs != null && (
+                        <Card className="p-4 bg-neutral-900/50">
+                          <p className="text-xs text-neutral-500 uppercase tracking-wide mb-1">CS</p>
+                          <p className="text-2xl font-semibold text-emerald-300">
+                            {Number(gen.result.generation_metadata.evaluation_metrics.cs).toFixed(3)}
+                          </p>
+                          <p className="text-xs text-neutral-500 mt-1">Coherence score across generated idea components</p>
+                        </Card>
+                      )}
+                    </div>
+                  )}
+
                   {/* Actions */}
                   <div className="flex flex-col md:flex-row gap-4">
                     <Button

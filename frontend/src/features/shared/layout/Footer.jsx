@@ -1,8 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, ArrowUp, Github, Sun, Moon } from 'lucide-react';
-import { useTheme } from '@/context/ThemeContext';
+import { Sparkles, ArrowUp, Github } from 'lucide-react';
 
 const footerLinks = {
     Product: [
@@ -28,7 +27,6 @@ const teamGithubs = [
 ];
 
 const Footer = ({ hideGetStarted = false }) => {
-    const { theme, toggleTheme } = useTheme();
     const scrollToTop = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -99,21 +97,6 @@ const Footer = ({ hideGetStarted = false }) => {
 
                     {/* Actions */}
                     <div className="lg:col-span-2 flex lg:flex-col lg:items-end items-start gap-3">
-                        {/* Theme toggle */}
-                        <motion.button
-                            onClick={toggleTheme}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-neutral-700/40 bg-neutral-800/40 text-neutral-400 hover:text-indigo-500 dark:hover:text-white text-neutral-900 hover:border-indigo-500/40 hover:bg-indigo-500/10 transition-all duration-200 text-sm"
-                            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                        >
-                            {theme === 'dark' ? (
-                                <><Sun className="w-4 h-4" /> Light mode</>
-                            ) : (
-                                <><Moon className="w-4 h-4" /> Dark mode</>
-                            )}
-                        </motion.button>
-
                         {/* Back to top */}
                         <motion.button
                             onClick={scrollToTop}
